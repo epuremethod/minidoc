@@ -1,0 +1,113 @@
+baseInheritance:
+  description: it should inherit vars from the base config
+  source:
+    baseConfig.yaml:
+      var:
+        site: Marmot Docs
+    config.yaml:
+      base: baseConfig.yaml
+      output: home.html
+      input: |-
+        Welcome to {{site}}
+  target:
+    home.html: |-
+      Welcome to Marmot Docs
+
+localVarShadowsBaseVar:
+  description: it should prefer a local var over a base var
+  source:
+    baseConfig.yaml:
+      var:
+        name: Base
+        planet: Earth
+    config.yaml:
+      base: baseConfig.yaml
+      var:
+        name: Local
+      output: home.html
+      input: |-
+        {{name}} on {{planet}}
+  target:
+    home.html: |-
+      Local on Earth
+
+chainedBase:
+  description: it should follow base chains recursively
+  source:
+    root.yaml:
+      var:
+        company: Midasum
+    baseConfig.yaml:
+      base: root.yaml
+      var:
+        site: Marmot Docs
+    config.yaml:
+      base: baseConfig.yaml
+      output: home.html
+      input: |-
+        {{site}} by {{company}}
+  target:
+    home.html: |-
+      Marmot Docs by Midasum
+
+baseRelativeToDeclaringConfig:
+  description: it should resolve base paths relative to the config that declares them
+  source:
+    shared/base.yaml:
+      base: root.yaml
+      var:
+        site: Marmot Docs
+    shared/root.yaml:
+      var:
+        company: Midasum
+    config.yaml:
+      base: shared/base.yaml
+      output: home.html
+      input: |-
+        {{site}} by {{company}}
+  target:
+    home.html: |-
+      Marmot Docs by Midasum
+
+baseVarCanReferencePageVar:
+  description: it should resolve base var templates against the most local scope
+  source:
+    baseConfig.yaml:
+      var:
+        layout: "<h1>{{title}}</h1>"
+    config.yaml:
+      base: baseConfig.yaml
+      pages:
+        home:
+          var:
+            title: Home
+          output: home.html
+          input: |-
+            {{layout}}
+  target:
+    home.html: |-
+      <h1>Home</h1>
+
+baseCycle:
+  description: it should detect a base config cycle
+  source:
+    a.yaml:
+      base: b.yaml
+    b.yaml:
+      base: a.yaml
+    config.yaml:
+      base: a.yaml
+      output: home.html
+      input: |-
+        Hello
+  error: "Base config cycle: config.yaml -> a.yaml -> b.yaml -> a.yaml"
+
+missingBase:
+  description: it should fail loud when a base config is missing
+  source:
+    config.yaml:
+      base: nowhere.yaml
+      output: home.html
+      input: |-
+        Hello
+  error: "Config not found: nowhere.yaml (base of config.yaml)"
