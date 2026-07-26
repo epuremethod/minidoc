@@ -1,1 +1,1 @@
-export { nodeFs } from "./services/node-filesystem.ts";
+export { nodeFs } from "./services/node-filesystem.js";

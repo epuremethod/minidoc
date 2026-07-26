@@ -101,46 +101,6 @@ examples:
         <section id="one">first</section>
         <section id="two">second</section>
 
-  - scenario: it should split one folder into groups with where filters
-    source:
-      config.yaml:
-        var:
-          coreIndex:
-            dir: api
-            transform: none
-            where: { module: core }
-            each: "<a>{{name}}</a>"
-          reactIndex:
-            dir: api
-            transform: none
-            where: { module: react }
-            each: "<a>{{name}}</a>"
-        build:
-          - output: out.html
-            input: |-
-              <p>Gherkin</p>
-              {{coreIndex}}
-              <p>Vitest</p>
-              {{reactIndex}}
-      api/given.md: |-
-        ---
-        name: Given
-        module: core
-        ---
-        x
-      api/test.md: |-
-        ---
-        name: test
-        module: react
-        ---
-        x
-    target:
-      out.html: |-
-        <p>Gherkin</p>
-        <a>Given</a>
-        <p>Vitest</p>
-        <a>test</a>
-
   - scenario: it should only match "*.md" by default
     source:
       config.yaml:
@@ -218,24 +178,6 @@ examples:
             input: "{{entries}}"
     error: 'No files matching "*.md" in content (declared at var (config.yaml).entries)'
 
-  - scenario: it should fail loud when the where filter matches nothing
-    source:
-      config.yaml:
-        var:
-          entries:
-            dir: api
-            where: { module: core }
-            each: "{{body}}"
-        build:
-          - output: out.txt
-            input: "{{entries}}"
-      api/a.md: |-
-        ---
-        module: react
-        ---
-        a
-    error: "No files match where (module: core) in api (declared at var (config.yaml).entries)"
-
   - scenario: it should fail loud on an unknown dir var key
     source:
       config.yaml:
@@ -275,7 +217,7 @@ examples:
         build:
           - output: out.txt
             input: "{{entries}}"
-    error: 'config.yaml: var.entries: a mapping var needs "file" (file var), "dir" (dir var), or "list" (list var)'
+    error: 'config.yaml: var.entries: a mapping var needs "file" (file var), "dir" (dir var), "list" (list var), or "value" (transform var)'
 
   - scenario: it should detect a cycle through the collection
     source:

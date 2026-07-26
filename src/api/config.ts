@@ -18,8 +18,6 @@ export type DirVar = {
   dir: string;
   /** Basename pattern, `*` wildcard only. Defaults to `*.md`. */
   glob?: string;
-  /** Keeps only files whose frontmatter matches every entry (string equality). */
-  where?: Record<string, string>;
   /** Item template; sees the file's frontmatter and its content as `{{body}}`. Defaults to `{{body}}`. */
   each: string;
   /** Transform registry name for every file; inferred per file when absent. */
@@ -41,7 +39,13 @@ export type ListVar = {
   template?: string;
 };
 
-export type VarValue = string | string[] | FileVar | DirVar | ListVar;
+/** A scalar template rendered through a named transform after variable resolution. */
+export type TransformVar = {
+  value: string;
+  transform: string;
+};
+
+export type VarValue = string | string[] | FileVar | DirVar | ListVar | TransformVar;
 
 export type CopyInput = {
   /** Anchored at parse time and copied without reading or transforming its content. */

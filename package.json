@@ -1,18 +1,37 @@
 {
-  "name": "minidoc",
-  "version": "0.0.0",
+  "name": "@epure/minidoc",
+  "version": "0.1.0",
   "description": "Small documentation website generator",
   "author": "Gaspard Anna Bucher <g.a.bucher@midasum.com>",
   "license": "MIT",
   "type": "module",
-  "private": true,
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
   "exports": {
-    ".": "./src/index.ts",
-    "./node": "./src/node.ts"
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./node": {
+      "types": "./dist/node.d.ts",
+      "import": "./dist/node.js"
+    }
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "publishConfig": {
+    "access": "public"
   },
   "scripts": {
-    "minidoc": "node --experimental-strip-types src/cli.ts",
+    "build": "rm -rf dist && tsc -p tsconfig.build.json",
+    "check": "pnpm typecheck && pnpm test && pnpm test:package",
+    "prepack": "pnpm build",
     "test": "vitest run",
+    "test:package": "pnpm build && node --test test/package.test.mjs",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit"
   },
@@ -23,7 +42,7 @@
   "devDependencies": {
     "@types/node": "^24.0.3",
     "source-map": "^0.7.6",
-    "typescript": "^5.8.3",
+    "typescript": "5.8.3",
     "vite": "^7.0.0",
     "vitest": "^3.2.3"
   }

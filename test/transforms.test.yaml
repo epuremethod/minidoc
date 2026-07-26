@@ -1,0 +1,63 @@
+feature: Transform vars
+background:
+  given: a filesystem
+examples:
+  - scenario: it should transform a value after resolving the current directory item
+    source:
+      config.yaml:
+        var:
+          signature:
+            value: "{{signature.ts}}"
+            transform: md
+          entries:
+            dir: content
+            transform: none
+            each: "{{signature}}"
+        build:
+          - output: out.html
+            input: "{{entries}}"
+      content/entry.md: |-
+        ---
+        signature.ts: "**function entry(): void**"
+        ---
+        Body
+    target:
+      out.html: |
+        <p><strong>function entry(): void</strong></p>
+
+  - scenario: it should report an unknown transform
+    source:
+      config.yaml:
+        var:
+          title: Hello
+          rendered:
+            value: "{{title}}"
+            transform: missing
+        build:
+          - output: out.html
+            input: "{{rendered}}"
+    error: 'var (config.yaml).rendered: unknown transform "missing" (available: md, none)'
+
+  - scenario: it should report an undefined reference inside a transform value
+    source:
+      config.yaml:
+        var:
+          rendered:
+            value: "{{missing}}"
+            transform: none
+        build:
+          - output: out.html
+            input: "{{rendered}}"
+    error: "Undefined variable {{missing}} in var (config.yaml).rendered"
+
+  - scenario: it should detect a cycle through a transform value
+    source:
+      config.yaml:
+        var:
+          rendered:
+            value: "{{rendered}}"
+            transform: none
+        build:
+          - output: out.html
+            input: "{{rendered}}"
+    error: "Variable cycle in var (config.yaml).rendered: rendered -> rendered"

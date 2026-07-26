@@ -1,6 +1,16 @@
 import { parse } from "yaml";
-import type { BuildConfig, BuildInput, Config, CopyInput, DirVar, FileVar, ListVar, VarValue } from "../api/config.ts";
-import { dirname, joinPath } from "./paths.ts";
+import type {
+  BuildConfig,
+  BuildInput,
+  Config,
+  CopyInput,
+  DirVar,
+  FileVar,
+  ListVar,
+  TransformVar,
+  VarValue,
+} from "../api/config.js";
+import { dirname, joinPath } from "./paths.js";
 
 /**
  * Parse and validate one config file. `path` locates it in error messages.
@@ -54,8 +64,8 @@ function readBuild(data: unknown, where: string, dir: string): BuildConfig {
 function readInput(data: Record<string, unknown>, where: string, dir: string): BuildInput {
   if (data["copy"] === undefined) {
     const input = readContentVar(data, where, dir);
-    if ("list" in input) {
-      throw new Error(`${where}: a list var is only valid in a "var" block`);
+    if ("list" in input || "value" in input) {
+      throw new Error(`${where}: list and transform vars are only valid in a "var" block`);
     }
     return input;
   }
@@ -95,7 +105,11 @@ function readVars(data: unknown, where: string, dir: string): Record<string, Var
   return vars;
 }
 
-function readContentVar(data: Record<string, unknown>, where: string, dir: string): FileVar | DirVar | ListVar {
+function readContentVar(
+  data: Record<string, unknown>,
+  where: string,
+  dir: string,
+): FileVar | DirVar | ListVar | TransformVar {
   if (data["dir"] !== undefined) {
     return readDirVar(data, where, dir);
   }
@@ -105,7 +119,12 @@ function readContentVar(data: Record<string, unknown>, where: string, dir: strin
   if (data["list"] !== undefined) {
     return readListVar(data, where);
   }
-  throw new Error(`${where}: a mapping var needs "file" (file var), "dir" (dir var), or "list" (list var)`);
+  if (data["value"] !== undefined) {
+    return readTransformVar(data, where);
+  }
+  throw new Error(
+    `${where}: a mapping var needs "file" (file var), "dir" (dir var), "list" (list var), or "value" (transform var)`,
+  );
 }
 
 function readFileVar(data: Record<string, unknown>, where: string, dir: string): FileVar {
@@ -129,9 +148,9 @@ function readFileVar(data: Record<string, unknown>, where: string, dir: string):
 
 function readDirVar(data: Record<string, unknown>, where: string, dir: string): DirVar {
   for (const key of Object.keys(data)) {
-    if (key !== "dir" && key !== "glob" && key !== "where" && key !== "each" && key !== "transform") {
+    if (key !== "dir" && key !== "glob" && key !== "each" && key !== "transform") {
       throw new Error(
-        `${where}: unknown key "${key}" (a dir var takes "dir", "each", and optional "glob", "where", "transform")`,
+        `${where}: unknown key "${key}" (a dir var takes "dir", "each", and optional "glob", "transform")`,
       );
     }
   }
@@ -147,9 +166,6 @@ function readDirVar(data: Record<string, unknown>, where: string, dir: string): 
       throw new Error(`${where}: "glob" must be a string`);
     }
     dirVar.glob = data["glob"];
-  }
-  if (data["where"] !== undefined) {
-    dirVar.where = readScalarVars(data["where"], `${where}.where`);
   }
   if (data["transform"] !== undefined) {
     if (typeof data["transform"] !== "string") {
@@ -190,19 +206,19 @@ function readListVar(data: Record<string, unknown>, where: string): ListVar {
   return listVar;
 }
 
-/** Scalar-only var block, used by dir `where` filters. */
-export function readScalarVars(data: unknown, where: string): Record<string, string> {
-  if (data === undefined || data === null) {
-    return {};
+function readTransformVar(data: Record<string, unknown>, where: string): TransformVar {
+  for (const key of Object.keys(data)) {
+    if (key !== "value" && key !== "transform") {
+      throw new Error(`${where}: unknown key "${key}" (a transform var takes "value" and "transform")`);
+    }
   }
-  if (!isRecord(data)) {
-    throw new Error(`${where}: must be a mapping of names to values`);
+  if (typeof data["value"] !== "string") {
+    throw new Error(`${where}: missing or invalid "value" (must be a string template)`);
   }
-  const vars: Record<string, string> = {};
-  for (const [name, value] of Object.entries(data)) {
-    vars[name] = readScalar(value, `${where}.${name}`);
+  if (typeof data["transform"] !== "string") {
+    throw new Error(`${where}: missing or invalid "transform" (must be a string)`);
   }
-  return vars;
+  return { value: data["value"], transform: data["transform"] };
 }
 
 function readScalar(value: unknown, where: string): string {

@@ -1,4 +1,4 @@
-import { globMatcher } from "../features/paths.ts";
+import { globMatcher } from "../features/paths.js";
 
 /** In-memory FileSystem backed by a Map. Used by tests. */
 export function makeMemoryFileSystem(seed: Record<string, string> = {}) {

@@ -1,5 +1,5 @@
 import { marked } from "marked";
-import type { Transforms } from "../api/transform.ts";
+import type { Transforms } from "../api/transform.js";
 
 /** Default transform registry: `md` renders markdown to html, `none` passes text through. */
 export const defaultTransforms: Transforms = {

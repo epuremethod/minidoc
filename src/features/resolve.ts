@@ -1,4 +1,4 @@
-import type { ListContent, ListValue, Scope, Value } from "../api/resolve.ts";
+import type { ListContent, ListValue, Scope, Value } from "../api/resolve.js";
 
 /**
  * `{{name}}` — plain name substitution only (v1).
@@ -52,6 +52,9 @@ function expandValue(value: Value, scopes: readonly Scope[], active: readonly st
   }
   if ("source" in value) {
     return expandList(value, scopes, active);
+  }
+  if ("value" in value) {
+    return value.transform(expand(value.value, scopes, active, value.where));
   }
   if ("items" in value) {
     return value.items

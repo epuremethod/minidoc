@@ -1,5 +1,5 @@
 import { parse } from "yaml";
-import type { DataValue } from "../api/resolve.ts";
+import type { DataValue } from "../api/resolve.js";
 
 /** Leading `---` block: `---\n<yaml>\n---\n` (or closing `---` at end of file). */
 const FRONTMATTER = /^---\n(?:([\s\S]*?)\n)?---(?:\n|$)/;

@@ -83,7 +83,7 @@ var:
 
 An empty list renders nothing, including the wrapper `template`. Raw mappings
 are not variables: mapping-shaped config values are reserved for file, dir,
-and list vars.
+list, and transform vars.
 
 ## Dir vars
 
@@ -100,10 +100,6 @@ var:
     dir: guide                   # the same folder, a second view
     each: |-
       <section id="{{slug}}">{{body}}</section>
-  coreIndex:
-    dir: api
-    where: { module: core }      # keep files whose frontmatter matches
-    each: '<a href="#{{slug}}">{{name}}</a>'
 ```
 
 `each` is expanded once per file with, most local first: the file's
@@ -116,8 +112,25 @@ file.
 
 Unlike single file vars, a dir var does not export its files' frontmatter to
 the declaring scope (eight chapters would conflict on `title`); frontmatter
-stays local to each item. Zero matched files — empty folder, glob or `where`
-matching nothing — fails loud.
+stays local to each item. An empty folder or a glob matching nothing fails
+loud.
+
+## Transform vars
+
+A transform var resolves an inline value in the active scopes, then passes it
+through a named transform. When referenced from a dir `each` template, it can
+see that item's frontmatter:
+
+```yaml
+var:
+  signatureHtml:
+    value: "{{signature.ts}}"
+    transform: typescript
+  entries:
+    dir: api
+    transform: apiMd
+    each: "{{signatureHtml}}{{body}}"
+```
 
 ## Build input
 
@@ -166,24 +179,18 @@ but never move the anchor. Absolute paths (`/...`) pass through untouched.
 
 ## Usage
 
-The CLI builds every config matching the glob:
-
-```sh
-pnpm minidoc "content/**/config.yaml"
-```
-
 The programmatic API defaults lazily to Node, runs matching configs and their
 build entries concurrently, and accepts project-specific transforms by name:
 
 ```ts
-import { run } from "minidoc"
-import { docsMarkdown, highlightSignature } from "./transforms.ts"
+import { run } from "@epure/minidoc"
+import { apiMd, typescript } from "./transforms.ts"
 
 await run({
   glob: "content/**/config.yaml",
   transform: {
-    md: docsMarkdown,
-    signature: highlightSignature,
+    apiMd,
+    typescript,
   },
 })
 ```
@@ -205,7 +212,7 @@ The Node-specific adapter supports an optional root. String roots resolve from
 `process.cwd()`; a URL makes the root explicitly module-relative:
 
 ```ts
-import { nodeFs } from "minidoc/node"
+import { nodeFs } from "@epure/minidoc/node"
 
 await run({
   fs: nodeFs(new URL("./content/", import.meta.url)),

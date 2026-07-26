@@ -1,11 +1,11 @@
-import type { BuildConfig, Config, DirVar, VarValue } from "../api/config.ts";
-import type { FileSystem } from "../api/filesystem.ts";
-import type { DataValue, DirContent, FileContent, Scope, Value } from "../api/resolve.ts";
-import type { Transforms } from "../api/transform.ts";
-import { parseConfig } from "./config.ts";
-import { splitFrontmatter } from "./frontmatter.ts";
-import { globMatcher, joinPath } from "./paths.ts";
-import { resolve, resolveValue } from "./resolve.ts";
+import type { BuildConfig, Config, DirVar, VarValue } from "../api/config.js";
+import type { FileSystem } from "../api/filesystem.js";
+import type { DataValue, DirContent, FileContent, Scope, Value } from "../api/resolve.js";
+import type { Transforms } from "../api/transform.js";
+import { parseConfig } from "./config.js";
+import { splitFrontmatter } from "./frontmatter.js";
+import { globMatcher, joinPath } from "./paths.js";
+import { resolve, resolveValue } from "./resolve.js";
 
 /** A content file's one-time parse: frontmatter split off its body. */
 type Parsed = { vars: Record<string, DataValue>; body: string };
@@ -145,6 +145,16 @@ async function loadScopes(
       loaded[name] = { kind: "list", items: value };
       continue;
     }
+    if ("value" in value) {
+      const transform = loader.transforms[value.transform];
+      if (transform === undefined) {
+        throw new Error(
+          `${label}.${name}: unknown transform "${value.transform}" (available: ${Object.keys(loader.transforms).join(", ")})`,
+        );
+      }
+      loaded[name] = { value: value.value, transform, where: `${label}.${name}` };
+      continue;
+    }
     if ("dir" in value) {
       // Dir file frontmatter stays local to each item — 8 chapters would
       // conflict on `title` — so dir vars skip the export step below.
@@ -181,9 +191,9 @@ async function loadScopes(
 }
 
 /**
- * Load a dir var: list the folder, filter by glob and `where` frontmatter,
- * read each file. Order is `listFiles`'s name-sorted order. Zero matches
- * fail loud (a missing directory lists as empty).
+ * Load a dir var: list the folder, filter by glob, and read each file.
+ * Order is `listFiles`'s name-sorted order. Zero matches fail loud
+ * (a missing directory lists as empty).
  */
 async function loadDir(
   loader: Loader,
@@ -197,24 +207,10 @@ async function loadDir(
   if (names.length === 0) {
     throw new Error(`No files matching "${glob}" in ${dir} (declared at ${where})`);
   }
-  const items: FileContent[] = [];
-  for (const name of names) {
-    const content = await loadFile(loader, dirVar.transform, joinPath(dir, name), where);
-    if (selects(dirVar.where, content.frontmatter.vars)) {
-      items.push(content);
-    }
-  }
-  if (items.length === 0) {
-    const filter = Object.entries(dirVar.where ?? {})
-      .map(([key, value]) => `${key}: ${value}`)
-      .join(", ");
-    throw new Error(`No files match where (${filter}) in ${dir} (declared at ${where})`);
-  }
+  const items = await Promise.all(
+    names.map((name) => loadFile(loader, dirVar.transform, joinPath(dir, name), where)),
+  );
   return { items, each: dirVar.each, where: `dir ${dir} (${where})` };
-}
-
-function selects(filter: Record<string, string> | undefined, vars: Record<string, Value>): boolean {
-  return Object.entries(filter ?? {}).every(([name, value]) => vars[name] === value);
 }
 
 /** Read one content file; `explicit` overrides the extension-inferred transform. */

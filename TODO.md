@@ -9,7 +9,7 @@ capabilities below are actually missing.
 
 ## 1. Folder-based page build (collections)
 
-- [x] Done: dir vars (`dir`/`each`/`glob`/`where`/`transform`, filename order) — see "Dir vars" in README.md.
+- [x] Done: dir vars (`dir`/`each`/`glob`/`transform`, filename order) — see "Dir vars" in README.md.
 
 ## 2. Richer frontmatter values
 
@@ -20,22 +20,21 @@ capabilities below are actually missing.
 
 ## 3. Markdown transform extensions (keep out of core)
 
-The old build's `md` transform did four things `marked` alone does not.
+The old build's `md` transform did several things `marked` alone does not.
 `run({ transform })` takes an injected transform registry. The docs project
 can call minidoc's API from a small build script, keeping these
 project-specific transforms out of minidoc:
 
-- `::: story` container → `<div class="story">` (guide chapters).
+- `story`, `pro`, and `def` containers.
 - Build-time syntax highlighting of fences: Prism token markup for
-  `typescript`, `rescript`, and `gherkin` (custom grammar — keyword,
-  table-row and French-language tokens appear in the output).
+  `typescript`, `rescript`, and `gherkin` using Prism's stock components.
 - Fence pairing: consecutive `typescript` + `rescript` fences merge into
   one `figure[data-pair]` with a TS/RES toggle; a `gherkin` fence becomes
   a "Contract" figure, and gherkin followed by a ts/res pair becomes the
   feature/steps view-switch figure used on the api page.
-- The dotted `signature.ts`/`signature.res` vars are highlighted too
-  (the `sig-wrap` pair) — highlighting must be callable on a var, not only
-  on fences.
+- [x] Done in core: transform vars apply a named transform to a resolved
+  inline value, including item-local dotted frontmatter such as
+  `signature.ts` and `signature.res`.
 
 ## 4. Asset copy
 
@@ -44,21 +43,15 @@ project-specific transforms out of minidoc:
   every other declared path. Copies bypass the string `FileSystem.readFile`,
   preserving binary content.
 
-## 5. CLI: `build` and `dev`
+## 5. Project build and dev
 
-`docs/package.json` runs `minidoc build` and `minidoc dev` (live-server
-does the serving and reload; minidoc only needs to rebuild):
-
-- subcommands with a config glob argument (current CLI is bare
-  `minidoc <configGlob>`);
-- `dev` = watch the config chain + content files and rerun the build.
+- [x] No core CLI needed: the docs own a Bun `build.ts` that calls `run()`
+  and a small project watcher for development.
 
 ## 6. Programmatic config access
 
-`docs/src/build.test.mjs` imports `loadConfig` from `@epure/minidoc/build`
-to assert the resolved config (paths and build outputs, including copies).
-Expose an equivalent from the public API — or rewrite those tests against
-the new surface when the docs config is redone.
+- [x] No config-loader API needed: docs tests assert generated behavior
+  through the public `run()` surface.
 
 ## Checked and NOT needed
 

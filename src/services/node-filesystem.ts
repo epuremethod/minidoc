@@ -1,7 +1,7 @@
 import { access, cp, glob as matchFiles, mkdir, readFile, readdir, stat, writeFile } from "node:fs/promises";
 import { dirname, isAbsolute, normalize, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
-import type { FileSystem } from "../api/filesystem.ts";
+import type { FileSystem } from "../api/filesystem.js";
 
 /** Node-backed FileSystem rooted at `root`. Creates parent directories on write. */
 export function nodeFs(root: string | URL = process.cwd()): FileSystem {

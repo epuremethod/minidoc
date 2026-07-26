@@ -1,4 +1,4 @@
-import type { Transform } from "./transform.ts";
+import type { Transform } from "./transform.js";
 
 /** A raw scalar list loaded from config or frontmatter. */
 export type ListValue = {
@@ -22,7 +22,7 @@ export type FileContent = {
 
 /** A loaded dir var: one FileContent per matched file, rendered through `each`. */
 export type DirContent = {
-  /** Loaded files in render order (name-sorted, `where`-filtered). */
+  /** Loaded files in name-sorted render order. */
   items: FileContent[];
   /** Expanded once per item with the item's frontmatter and `body` in scope, `{{refs}}` not yet resolved. */
   each: string;
@@ -39,7 +39,14 @@ export type ListContent = {
   where: string;
 };
 
-export type Value = DataValue | FileContent | DirContent | ListContent;
+/** A scalar template rendered through an injected transform after expansion. */
+export type TransformContent = {
+  value: string;
+  transform: Transform;
+  where: string;
+};
+
+export type Value = DataValue | FileContent | DirContent | ListContent | TransformContent;
 
 /** One layer of variables, most local first. `label` names it in error messages. */
 export type Scope = {
