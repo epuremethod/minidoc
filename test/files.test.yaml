@@ -9,8 +9,9 @@ examples:
           name: Marmot
           body:
             file: content/intro.md
-        output: intro.html
-        input: "{{body}}"
+        build:
+          - output: intro.html
+            input: "{{body}}"
       content/intro.md: |-
         Hello **{{name}}** !
     target:
@@ -24,10 +25,11 @@ examples:
           site: Marmot Docs
           footer:
             file: partials/footer.html
-        output: home.html
-        input: |-
-          <main>Welcome</main>
-          {{footer}}
+        build:
+          - output: home.html
+            input: |-
+              <main>Welcome</main>
+              {{footer}}
       partials/footer.html: |-
         <footer>© {{site}}</footer>
     target:
@@ -42,8 +44,9 @@ examples:
           raw:
             file: content/snippet.md
             transform: none
-        output: raw.txt
-        input: "{{raw}}"
+        build:
+          - output: raw.txt
+            input: "{{raw}}"
       content/snippet.md: |-
         # Not rendered
     target:
@@ -57,8 +60,9 @@ examples:
           name: "**Marmot**"
           body:
             file: content/intro.md
-        output: out.html
-        input: "{{body}}"
+        build:
+          - output: out.html
+            input: "{{body}}"
       content/intro.md: |-
         Hello {{name}} !
     target:
@@ -68,8 +72,8 @@ examples:
   - scenario: it should export frontmatter vars below the declaring scope, usable even in output paths
     source:
       config.yaml:
-        pages:
-          home:
+        build:
+          -
             var:
               body:
                 file: content/home.md
@@ -95,8 +99,9 @@ examples:
           title: Global
           body:
             file: content/page.md
-        output: out.html
-        input: "{{title}} / {{body}}"
+        build:
+          - output: out.html
+            input: "{{title}} / {{body}}"
       content/page.md: |-
         ---
         title: Local
@@ -112,8 +117,9 @@ examples:
         base: docs/base.yaml
         var:
           sub: partials
-        output: home.html
-        input: "{{footer}}"
+        build:
+          - output: home.html
+            input: "{{footer}}"
       docs/base.yaml:
         var:
           footer:
@@ -130,8 +136,9 @@ examples:
         var:
           body:
             file: content/nowhere.md
-        output: out.html
-        input: "{{body}}"
+        build:
+          - output: out.html
+            input: "{{body}}"
     error: "Content file not found: content/nowhere.md (declared at var (config.yaml).body)"
 
   - scenario: it should fail loud when no transform can be inferred
@@ -140,8 +147,9 @@ examples:
         var:
           notes:
             file: notes.txt
-        output: out.html
-        input: "{{notes}}"
+        build:
+          - output: out.html
+            input: "{{notes}}"
       notes.txt: |-
         plain text
     error: 'var (config.yaml).notes: cannot infer a transform for notes.txt'
@@ -153,8 +161,9 @@ examples:
           body:
             file: content/intro.md
             transform: nope
-        output: out.html
-        input: "{{body}}"
+        build:
+          - output: out.html
+            input: "{{body}}"
       content/intro.md: |-
         Hello
     error: 'var (config.yaml).body: unknown transform "nope" (available: md, none)'
@@ -167,8 +176,9 @@ examples:
             file: content/a.md
           b:
             file: content/b.md
-        output: out.html
-        input: "{{a}}{{b}}"
+        build:
+          - output: out.html
+            input: "{{a}}{{b}}"
       content/a.md: |-
         ---
         title: A
@@ -187,8 +197,9 @@ examples:
         var:
           body:
             file: content/intro.md
-        output: out.html
-        input: "{{body}}"
+        build:
+          - output: out.html
+            input: "{{body}}"
       content/intro.md: |-
         ---
         title: X
@@ -200,8 +211,9 @@ examples:
         var:
           body:
             file: content/intro.md
-        output: out.html
-        input: "{{body}}"
+        build:
+          - output: out.html
+            input: "{{body}}"
       content/intro.md: |-
         {{body}}
     error: "Variable cycle in file content/intro.md: body -> body"
@@ -212,8 +224,9 @@ examples:
         var:
           body:
             file: content/intro.md
-        output: out.html
-        input: "{{body}}"
+        build:
+          - output: out.html
+            input: "{{body}}"
       content/intro.md: |-
         {{missing}}
     error: "Undefined variable {{missing}} in file content/intro.md"

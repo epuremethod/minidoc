@@ -1,4 +1,4 @@
-import type { Config, DirVar, PageConfig, VarValue } from "../api/config.ts";
+import type { BuildConfig, Config, DirVar, VarValue } from "../api/config.ts";
 import type { FileSystem } from "../api/filesystem.ts";
 import type { DirContent, FileContent, Scope, Value } from "../api/resolve.ts";
 import type { Transforms } from "../api/transform.ts";
@@ -13,7 +13,7 @@ type Parsed = { vars: Record<string, string>; body: string };
 /**
  * Everything a content load needs: the injected services plus a per-run
  * cache that guarantees each file is read and frontmatter-parsed exactly
- * once, however many vars or pages reference it.
+ * once, however many vars or build entries reference it.
  */
 type Loader = {
   fs: FileSystem;
@@ -21,7 +21,7 @@ type Loader = {
   parsed: Map<string, Promise<Parsed>>;
 };
 
-/** Read the config at `configPath` and write every resolved page through `fs`. */
+/** Read the config at `configPath` and execute every build entry through `fs`. */
 export async function run(fs: FileSystem, configPath: string, transforms: Transforms): Promise<void> {
   const chain = await loadChain(fs, configPath);
   const loader: Loader = { fs, transforms, parsed: new Map() };
@@ -40,11 +40,8 @@ export async function run(fs: FileSystem, configPath: string, transforms: Transf
   if (!entry) {
     throw new Error(`Config not found: ${configPath}`); // unreachable: loadChain always returns the entry
   }
-  if (entry.config.root) {
-    await renderPage(loader, entry.config.root, `${configPath}: var`, globals, pathScopes, `config ${configPath}`);
-  }
-  for (const [key, page] of Object.entries(entry.config.pages)) {
-    await renderPage(loader, page, `pages.${key}.var`, globals, pathScopes, `page "${key}"`);
+  for (const [index, build] of entry.config.build.entries()) {
+    await executeBuild(loader, build, globals, pathScopes, `build[${index}]`);
   }
 }
 
@@ -75,31 +72,40 @@ async function loadChain(fs: FileSystem, entryPath: string): Promise<{ path: str
   }
 }
 
-async function renderPage(
+async function executeBuild(
   loader: Loader,
-  page: PageConfig,
-  label: string,
+  build: BuildConfig,
   globals: readonly Scope[],
   pathScopes: readonly Scope[],
   where: string,
 ): Promise<void> {
-  const pagePathScopes = [{ label, vars: stringVars(page.var) }, ...pathScopes];
-  const scopes = [...(await loadScopes(loader, page.var, label, pagePathScopes)), ...globals];
-  const input = await loadInput(loader, page.input, `${where} input`, pagePathScopes, scopes);
-  const output = resolve(page.output, scopes, `${where} output`);
+  const label = `${where}.var`;
+  const buildPathScopes = [{ label, vars: stringVars(build.var) }, ...pathScopes];
+  const scopes = [...(await loadScopes(loader, build.var, label, buildPathScopes)), ...globals];
+  if (typeof build.input !== "string" && "copy" in build.input) {
+    const source = resolve(build.input.copy, buildPathScopes, `${where} input copy`);
+    if (!(await loader.fs.exists(source))) {
+      throw new Error(`Copy source not found: ${source} (declared at ${where} input)`);
+    }
+    const output = resolve(build.output, scopes, `${where} output`);
+    await loader.fs.copy(source, output);
+    return;
+  }
+  const input = await loadInput(loader, build.input, `${where} input`, buildPathScopes, scopes);
+  const output = resolve(build.output, scopes, `${where} output`);
   const content = resolveValue(input, scopes, `${where} input`);
   await loader.fs.writeFile(output, content);
 }
 
 /**
- * Load a page's `input`: a template string passes through; a file/dir mapping
+ * Load a build's rendered `input`: a template string passes through; a file/dir mapping
  * loads like the matching var kind. A file input exports its frontmatter as
  * the least local scope — usable in the output path — mirroring file vars;
  * a dir input, like dir vars, keeps frontmatter local to each item.
  */
 async function loadInput(
   loader: Loader,
-  input: PageConfig["input"],
+  input: Exclude<BuildConfig["input"], { copy: string }>,
   where: string,
   pathScopes: readonly Scope[],
   scopes: Scope[],

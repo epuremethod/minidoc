@@ -10,8 +10,9 @@ examples:
             dir: content
             transform: none
             each: "<li>{{body}}</li>"
-        output: out.html
-        input: "{{chapters}}"
+        build:
+          - output: out.html
+            input: "{{chapters}}"
       content/02-two.md: |-
         Two
       content/01-one.md: |-
@@ -30,8 +31,9 @@ examples:
             each: |-
               <h2>{{title}}</h2>
               {{body}}
-        output: out.html
-        input: "{{chapters}}"
+        build:
+          - output: out.html
+            input: "{{chapters}}"
       content/01-a.md: |-
         ---
         title: Alpha
@@ -52,8 +54,9 @@ examples:
             dir: content
             transform: none
             each: "[{{site}}/{{title}}] {{body}}"
-        output: out.txt
-        input: "{{entries}}"
+        build:
+          - output: out.txt
+            input: "{{entries}}"
       content/a.md: |-
         ---
         title: Local
@@ -74,10 +77,11 @@ examples:
             dir: content
             transform: none
             each: '<section id="{{slug}}">{{body}}</section>'
-        output: out.html
-        input: |-
-          <nav>{{toc}}</nav>
-          {{chapters}}
+        build:
+          - output: out.html
+            input: |-
+              <nav>{{toc}}</nav>
+              {{chapters}}
       content/01.md: |-
         ---
         title: One
@@ -111,12 +115,13 @@ examples:
             transform: none
             where: { module: react }
             each: "<a>{{name}}</a>"
-        output: out.html
-        input: |-
-          <p>Gherkin</p>
-          {{coreIndex}}
-          <p>Vitest</p>
-          {{reactIndex}}
+        build:
+          - output: out.html
+            input: |-
+              <p>Gherkin</p>
+              {{coreIndex}}
+              <p>Vitest</p>
+              {{reactIndex}}
       api/given.md: |-
         ---
         name: Given
@@ -144,8 +149,9 @@ examples:
             dir: content
             transform: none
             each: "{{body}}"
-        output: out.txt
-        input: "{{entries}}"
+        build:
+          - output: out.txt
+            input: "{{entries}}"
       content/a.md: A
       content/notes.txt: ignored
     target:
@@ -159,8 +165,9 @@ examples:
             dir: content
             glob: "*.html"
             each: "{{body}}"
-        output: out.html
-        input: "{{parts}}"
+        build:
+          - output: out.html
+            input: "{{parts}}"
       content/a.html: <b>A</b>
       content/b.md: ignored
     target:
@@ -174,8 +181,9 @@ examples:
             dir: content
             transform: none
             each: "{{body}}"
-        output: out.txt
-        input: "{{entries}}"
+        build:
+          - output: out.txt
+            input: "{{entries}}"
       content/a.md: "# Not rendered"
     target:
       out.txt: "# Not rendered"
@@ -188,14 +196,15 @@ examples:
             dir: content
             transform: none
             each: "{{body}}"
-        output: out.txt
-        input: "{{title}} {{entries}}"
+        build:
+          - output: out.txt
+            input: "{{title}} {{entries}}"
       content/a.md: |-
         ---
         title: Hidden
         ---
         a
-    error: "Undefined variable {{title}} in config config.yaml input"
+    error: "Undefined variable {{title}} in build[0] input"
 
   - scenario: it should fail loud when no files match the glob
     source:
@@ -204,8 +213,9 @@ examples:
           entries:
             dir: content
             each: "{{body}}"
-        output: out.txt
-        input: "{{entries}}"
+        build:
+          - output: out.txt
+            input: "{{entries}}"
     error: 'No files matching "*.md" in content (declared at var (config.yaml).entries)'
 
   - scenario: it should fail loud when the where filter matches nothing
@@ -216,8 +226,9 @@ examples:
             dir: api
             where: { module: core }
             each: "{{body}}"
-        output: out.txt
-        input: "{{entries}}"
+        build:
+          - output: out.txt
+            input: "{{entries}}"
       api/a.md: |-
         ---
         module: react
@@ -233,8 +244,9 @@ examples:
             dir: content
             each: "{{body}}"
             sort: name
-        output: out.txt
-        input: "{{entries}}"
+        build:
+          - output: out.txt
+            input: "{{entries}}"
     error: 'config.yaml: var.entries: unknown key "sort"'
 
   - scenario: it should default each to the bare body
@@ -244,8 +256,9 @@ examples:
           entries:
             dir: content
             transform: none
-        output: out.txt
-        input: "{{entries}}"
+        build:
+          - output: out.txt
+            input: "{{entries}}"
       content/01.md: one
       content/02.md: two
     target:
@@ -259,8 +272,9 @@ examples:
         var:
           entries:
             transform: none
-        output: out.txt
-        input: "{{entries}}"
+        build:
+          - output: out.txt
+            input: "{{entries}}"
     error: 'config.yaml: var.entries: a mapping var needs "file" (file var) or "dir" (dir var)'
 
   - scenario: it should detect a cycle through the collection
@@ -271,8 +285,9 @@ examples:
             dir: content
             transform: none
             each: "{{entries}}"
-        output: out.txt
-        input: "{{entries}}"
+        build:
+          - output: out.txt
+            input: "{{entries}}"
       content/a.md: |-
         a
     error: "Variable cycle in dir content (var (config.yaml).entries): entries -> entries"

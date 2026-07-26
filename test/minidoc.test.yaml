@@ -7,21 +7,22 @@ examples:
       config.yaml:
         var:
           name: Marmot
-        output: marmot.html
-        input: |-
-          Hello {{name}} !
+        build:
+          - output: marmot.html
+            input: |-
+              Hello {{name}} !
     target:
       marmot.html: |-
         Hello Marmot !
 
-  - scenario: it should prefer a page var over a global var
+  - scenario: it should prefer a build var over a global var
     source:
       config.yaml:
         var:
           name: Global
           planet: Earth
-        pages:
-          home:
+        build:
+          -
             var:
               name: Local
             output: home.html
@@ -38,9 +39,10 @@ examples:
           greeting: Hello {{name}}
           name: "{{animal}}"
           animal: Marmot
-        output: greeting.html
-        input: |-
-          {{greeting}} !
+        build:
+          - output: greeting.html
+            input: |-
+              {{greeting}} !
     target:
       greeting.html: |-
         Hello Marmot !
@@ -50,12 +52,12 @@ examples:
       config.yaml:
         var:
           name: Marmot
-        pages:
-          home:
+        build:
+          -
             output: home.html
             input: |-
               Hello {{missing}} !
-    error: 'Undefined variable {{missing}} in page "home" input'
+    error: 'Undefined variable {{missing}} in build[0] input'
 
   - scenario: it should detect a variable reference cycle
     source:
@@ -63,7 +65,8 @@ examples:
         var:
           a: "{{b}}"
           b: "{{a}}"
-        output: cycle.html
-        input: |-
-          {{a}}
-    error: "Variable cycle in config config.yaml input: a -> b -> a"
+        build:
+          - output: cycle.html
+            input: |-
+              {{a}}
+    error: "Variable cycle in build[0] input: a -> b -> a"

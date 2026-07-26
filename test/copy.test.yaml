@@ -1,0 +1,56 @@
+feature: Copy inputs
+background:
+  given: a filesystem
+examples:
+  - scenario: it should copy a file without resolving its content
+    source:
+      config.yaml:
+        var:
+          source: assets/style.css
+          target: public
+        build:
+          - output: "{{target}}/style.css"
+            input:
+              copy: "{{source}}"
+      assets/style.css: |-
+        body { content: "{{untouched}}"; }
+    target:
+      public/style.css: |-
+        body { content: "{{untouched}}"; }
+
+  - scenario: it should recursively copy a directory
+    source:
+      config.yaml:
+        build:
+          - output: public/fonts
+            input:
+              copy: assets/fonts
+      assets/fonts/regular.woff2: regular
+      assets/fonts/bold.woff2: bold
+      assets/fonts/subset/latin.woff2: latin
+    target:
+      public/fonts/regular.woff2: regular
+      public/fonts/bold.woff2: bold
+      public/fonts/subset/latin.woff2: latin
+
+  - scenario: it should copy a file from outside the config tree
+    source:
+      config.yaml:
+        var:
+          shared: ../shared
+        build:
+          - output: public/llms.txt
+            input:
+              copy: "{{shared}}/llms.txt"
+      ../shared/llms.txt: minidoc
+    target:
+      public/llms.txt: minidoc
+
+  - scenario: it should fail loud when the copy source is missing
+    source:
+      config.yaml:
+        build:
+          - output: public/missing.txt
+            input:
+              copy: assets/missing.txt
+    error: "Copy source not found: assets/missing.txt (declared at build[0] input)"

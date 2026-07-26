@@ -13,8 +13,24 @@ export function makeMemoryFileSystem(seed: Record<string, string> = {}) {
     async writeFile(path: string, content: string) {
       files.set(path, content);
     },
+    async copy(source: string, output: string) {
+      const content = files.get(source);
+      if (content !== undefined) {
+        files.set(output, content);
+        return;
+      }
+      const prefix = `${source}/`;
+      const matches = [...files.entries()].filter(([path]) => path.startsWith(prefix));
+      if (matches.length === 0) {
+        throw new Error(`File not found: ${source}`);
+      }
+      for (const [path, value] of matches) {
+        files.set(`${output}/${path.slice(prefix.length)}`, value);
+      }
+    },
     async exists(path: string) {
-      return files.has(path);
+      const prefix = `${path}/`;
+      return files.has(path) || [...files.keys()].some((file) => file.startsWith(prefix));
     },
     async listFiles(dir: string) {
       const prefix = dir === "" ? "" : `${dir}/`;

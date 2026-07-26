@@ -28,17 +28,22 @@ export type DirVar = {
 
 export type VarValue = string | FileVar | DirVar;
 
-export type PageConfig = {
+export type CopyInput = {
+  /** Anchored at parse time and copied without reading or transforming its content. */
+  copy: string;
+};
+
+export type BuildInput = string | FileVar | DirVar | CopyInput;
+
+export type BuildConfig = {
   var: Record<string, VarValue>;
   output: string;
-  /** A template string, or directly a file/dir var rendered as the page body. */
-  input: string | FileVar | DirVar;
+  /** A rendered template/file/dir, or an opaque file/directory copy. */
+  input: BuildInput;
 };
 
 export type Config = {
   var: Record<string, VarValue>;
   base?: string;
-  /** `pages.<key>` entries, plus a top-level `output`/`input` shorthand page under `root`. */
-  pages: Record<string, PageConfig>;
-  root?: PageConfig;
+  build: BuildConfig[];
 };

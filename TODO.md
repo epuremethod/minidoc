@@ -46,13 +46,10 @@ script), keeping these project-specific transforms out of minidoc:
 
 ## 4. Asset copy
 
-A per-config (or per-page) `copy` list, `from`/`to`, paths anchored like
-every other declared path:
-
-- single files: `assets/style.css`, and `llms.txt` from *outside* the docs
-  tree (`../epure-vitest/llms.txt`);
-- recursive directories: `assets/fonts/` (5 woff2 files) — binary content,
-  so copy must not round-trip through the string `FileSystem.readFile`.
+- [x] Done: unified `build` entries support opaque `input.copy` for single
+  files and recursive directories, with source and output paths anchored like
+  every other declared path. Copies bypass the string `FileSystem.readFile`,
+  preserving binary content.
 
 ## 5. CLI: `build` and `dev`
 
@@ -66,9 +63,9 @@ does the serving and reload; minidoc only needs to rebuild):
 ## 6. Programmatic config access
 
 `docs/src/build.test.mjs` imports `loadConfig` from `@epure/minidoc/build`
-to assert the resolved config (paths, page outputs, copy list). Expose an
-equivalent from the public API — or rewrite those tests against the new
-surface when the docs config is redone.
+to assert the resolved config (paths and build outputs, including copies).
+Expose an equivalent from the public API — or rewrite those tests against
+the new surface when the docs config is redone.
 
 ## Checked and NOT needed
 
@@ -77,8 +74,8 @@ surface when the docs config is redone.
 - **Heading anchors**: `###` headings inside chapters have no ids in the
   old output; only chapter/entry slugs (from frontmatter) are anchored,
   and the templates already handle those.
-- **Deep page merge across the `base` chain**: the old format merged
+- **Deep build merge across the `base` chain**: the old format merged
   `pages.*` from base configs; in the lean model shared shell/header/
-  footer/templates are base *vars* and pages are declared once in the
-  entry config.
+  footer/templates are base *vars* and build entries are declared once in
+  the entry config.
 - **Sitemap, RSS, search, minification**: none in the old output.

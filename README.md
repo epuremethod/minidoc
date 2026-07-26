@@ -1,27 +1,26 @@
 # minidoc
 
 A small documentation website generator. It reads a YAML config describing
-variables, optional `base` config inheritance, and pages; resolves every
-`{{var}}` reference to a fixpoint; and writes each page's resolved `input` to
-its resolved `output` path.
+variables, optional `base` config inheritance, and build outputs; resolves
+every `{{var}}` reference to a fixpoint; and writes each resolved `input` to
+its `output` path.
 
 ```yaml
 var:                      # global variables
   site: Marmot Docs
 base: baseConfig.yaml     # optional: vars inherited from another config
-pages:
-  home:
-    var:                  # page-local variables (most local scope)
+build:
+  - var:                  # build-local variables (most local scope)
       title: Home
     output: "{{lang}}/home.html"   # output paths are templates too
     input: |-
       <h1>{{site}} - {{title}}</h1>
 ```
 
-Scopes, most local first: `pages.<key>.var`, then `var`, then the `base`
+Scopes, most local first: `build[n].var`, then `var`, then the `base`
 chain. Values may reference other variables; resolution re-substitutes until
-stable. Undefined variables and reference cycles fail loud, naming the page,
-the variable, and the scopes searched.
+stable. Undefined variables and reference cycles fail loud, naming the build
+entry, the variable, and the scopes searched.
 
 v1 is plain name substitution only — no escaping of literal `{{`/`}}`, no
 filters/pipes, no expressions (future extensions).
@@ -58,7 +57,7 @@ title: Home
 ```
 
 Frontmatter is the most local scope for the file's own body, and its vars are
-also exported as a scope just below the declaring `var` block — so a page
+also exported as a scope just below the declaring `var` block — so a build
 layout can use `{{title}}` from its content file, while an explicit
 `var: title:` still wins. Two files in one block exporting the same name is a
 conflict and fails loud.
@@ -67,7 +66,7 @@ conflict and fails loud.
 
 A var value with a `dir` key loads a whole folder of content files, renders
 each through the `each` template, and joins the items with newlines — the
-building block for a guide or an API reference page:
+building block for a guide or an API reference:
 
 ```yaml
 var:
@@ -97,35 +96,50 @@ the declaring scope (eight chapters would conflict on `title`); frontmatter
 stays local to each item. Zero matched files — empty folder, glob or `where`
 matching nothing — fails loud.
 
-## Page input
+## Build input
 
-A page's `input` may be a file or dir mapping directly, instead of a
+A build entry's `input` may be a file or dir mapping directly, instead of a
 template string that references a var:
 
 ```yaml
-pages:
-  home:
-    output: "{{slug}}.html"      # slug from the file's frontmatter
+build:
+  - output: "{{slug}}.html"      # slug from the file's frontmatter
     input:
       file: content/home.md
-  guide:
-    output: guide.html
+  - output: guide.html
     input:
       dir: content/guide
       each: "<section>{{body}}</section>"
 ```
 
 It behaves like the matching var kind: a file input exports its frontmatter
-(least local, so an explicit page var wins), usable even in the output path;
+(least local, so an explicit build var wins), usable even in the output path;
 a dir input keeps frontmatter local to each item.
+
+An input with a `copy` key copies one file or directory without reading,
+transforming, or resolving its content:
+
+```yaml
+build:
+  - output: public/style.css
+    input:
+      copy: assets/style.css
+  - output: public/fonts
+    input:
+      copy: assets/fonts
+```
+
+Directory copies are recursive. The `copy` and `output` paths may contain
+`{{refs}}`, but copied bytes—including text containing `{{refs}}`—remain
+unchanged.
 
 ## Paths
 
-Every declared path (`base`, `output`, `file`) is relative to the config file
-that declares it, anchored at parse time — before var interpolation. `file`
-paths may contain `{{refs}}`; they resolve against string vars only (never
-frontmatter or file contents) and can contribute segments, but never move the
-anchor. Absolute paths (`/...`) pass through untouched.
+Every declared path (`base`, `output`, `file`, `dir`, `copy`) is relative to
+the config file that declares it, anchored at parse time — before var
+interpolation. Input paths may contain `{{refs}}`; they resolve against string
+vars only (never frontmatter or file contents) and can contribute segments,
+but never move the anchor. Absolute paths (`/...`) pass through untouched.
 
 ## Usage
 

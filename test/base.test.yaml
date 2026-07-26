@@ -9,9 +9,10 @@ examples:
           site: Marmot Docs
       config.yaml:
         base: baseConfig.yaml
-        output: home.html
-        input: |-
-          Welcome to {{site}}
+        build:
+          - output: home.html
+            input: |-
+              Welcome to {{site}}
     target:
       home.html: |-
         Welcome to Marmot Docs
@@ -26,9 +27,10 @@ examples:
         base: baseConfig.yaml
         var:
           name: Local
-        output: home.html
-        input: |-
-          {{name}} on {{planet}}
+        build:
+          - output: home.html
+            input: |-
+              {{name}} on {{planet}}
     target:
       home.html: |-
         Local on Earth
@@ -44,9 +46,10 @@ examples:
           site: Marmot Docs
       config.yaml:
         base: baseConfig.yaml
-        output: home.html
-        input: |-
-          {{site}} by {{company}}
+        build:
+          - output: home.html
+            input: |-
+              {{site}} by {{company}}
     target:
       home.html: |-
         Marmot Docs by Midasum
@@ -62,9 +65,10 @@ examples:
           company: Midasum
       config.yaml:
         base: shared/base.yaml
-        output: home.html
-        input: |-
-          {{site}} by {{company}}
+        build:
+          - output: home.html
+            input: |-
+              {{site}} by {{company}}
     target:
       home.html: |-
         Marmot Docs by Midasum
@@ -76,8 +80,8 @@ examples:
           layout: "<h1>{{title}}</h1>"
       config.yaml:
         base: baseConfig.yaml
-        pages:
-          home:
+        build:
+          -
             var:
               title: Home
             output: home.html
@@ -95,16 +99,18 @@ examples:
         base: a.yaml
       config.yaml:
         base: a.yaml
-        output: home.html
-        input: |-
-          Hello
+        build:
+          - output: home.html
+            input: |-
+              Hello
     error: "Base config cycle: config.yaml -> a.yaml -> b.yaml -> a.yaml"
 
   - scenario: it should fail loud when a base config is missing
     source:
       config.yaml:
         base: nowhere.yaml
-        output: home.html
-        input: |-
-          Hello
+        build:
+          - output: home.html
+            input: |-
+              Hello
     error: "Config not found: nowhere.yaml (base of config.yaml)"

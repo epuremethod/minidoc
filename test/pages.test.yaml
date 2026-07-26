@@ -1,4 +1,4 @@
-feature: Pages
+feature: Build
 background:
   given: a filesystem
 examples:
@@ -8,8 +8,8 @@ examples:
         var:
           lang: fr
           name: Marmot
-        pages:
-          home:
+        build:
+          -
             output: "{{lang}}/home.html"
             input: |-
               Bonjour {{name}} !
@@ -17,19 +17,19 @@ examples:
       fr/home.html: |-
         Bonjour Marmot !
 
-  - scenario: it should render every page of the config
+  - scenario: it should render every build entry of the config
     source:
       config.yaml:
         var:
           site: Marmot Docs
-        pages:
-          home:
+        build:
+          -
             var:
               title: Home
             output: home.html
             input: |-
               {{site}} - {{title}}
-          about:
+          -
             var:
               title: About
             output: about.html
@@ -41,13 +41,13 @@ examples:
       about.html: |-
         Marmot Docs - About
 
-  - scenario: it should resolve page vars in the output path too
+  - scenario: it should resolve build vars in the output path too
     source:
       config.yaml:
         var:
           dir: docs
-        pages:
-          guide:
+        build:
+          -
             var:
               slug: getting-started
             output: "{{dir}}/{{slug}}.html"
@@ -60,18 +60,18 @@ examples:
   - scenario: it should fail loud on an undefined variable in the output path
     source:
       config.yaml:
-        pages:
-          home:
+        build:
+          -
             output: "{{nowhere}}/home.html"
             input: |-
               Hello
-    error: 'Undefined variable {{nowhere}} in page "home" output'
+    error: 'Undefined variable {{nowhere}} in build[0] output'
 
   - scenario: it should accept a file mapping as input, its frontmatter usable in the output path
     source:
       config.yaml:
-        pages:
-          home:
+        build:
+          -
             output: "{{slug}}.html"
             input:
               file: content/home.md
@@ -88,8 +88,8 @@ examples:
   - scenario: it should accept a dir mapping as input
     source:
       config.yaml:
-        pages:
-          guide:
+        build:
+          -
             output: guide.html
             input:
               dir: content
@@ -101,11 +101,11 @@ examples:
         one
         two
 
-  - scenario: it should prefer an explicit page var over input frontmatter
+  - scenario: it should prefer an explicit build var over input frontmatter
     source:
       config.yaml:
-        pages:
-          home:
+        build:
+          -
             var:
               slug: index
             output: "{{slug}}.html"
@@ -123,8 +123,8 @@ examples:
   - scenario: it should fail loud on an invalid input
     source:
       config.yaml:
-        pages:
-          home:
+        build:
+          -
             output: home.html
             input: 3
-    error: 'config.yaml: pages.home: missing or invalid "input" (must be a string or a file/dir mapping)'
+    error: 'config.yaml: build[0]: missing or invalid "input" (must be a string or a file/dir/copy mapping)'

@@ -1,4 +1,4 @@
-import { access, mkdir, readFile, readdir, writeFile } from "node:fs/promises";
+import { access, cp, mkdir, readFile, readdir, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
 import type { FileSystem } from "../api/filesystem.ts";
 
@@ -11,6 +11,10 @@ export function makeNodeFileSystem(): FileSystem {
     async writeFile(path, content) {
       await mkdir(dirname(path), { recursive: true });
       await writeFile(path, content, "utf8");
+    },
+    async copy(source, output) {
+      await mkdir(dirname(output), { recursive: true });
+      await cp(source, output, { recursive: true });
     },
     async exists(path) {
       try {

@@ -5,6 +5,8 @@
 export interface FileSystem {
   readFile(path: string): Promise<string>;
   writeFile(path: string, content: string): Promise<void>;
+  /** Copy a file or directory without interpreting its content. */
+  copy(source: string, output: string): Promise<void>;
   exists(path: string): Promise<boolean>;
   /** Basenames of the plain files directly inside `dir`, name-sorted; `[]` when the directory does not exist. */
   listFiles(dir: string): Promise<string[]>;

@@ -1,5 +1,5 @@
 import { parse } from "yaml";
-import type { Config, DirVar, FileVar, PageConfig, VarValue } from "../api/config.ts";
+import type { BuildConfig, BuildInput, Config, CopyInput, DirVar, FileVar, VarValue } from "../api/config.ts";
 import { dirname, joinPath } from "./paths.ts";
 
 /**
@@ -17,7 +17,7 @@ export function parseConfig(text: string, path: string): Config {
   const dir = dirname(path);
   const config: Config = {
     var: readVars(data["var"], `${path}: var`, dir),
-    pages: {},
+    build: [],
   };
   if (data["base"] !== undefined) {
     if (typeof data["base"] !== "string") {
@@ -25,35 +25,49 @@ export function parseConfig(text: string, path: string): Config {
     }
     config.base = joinPath(dir, data["base"]);
   }
-  if (data["pages"] !== undefined) {
-    if (!isRecord(data["pages"])) {
-      throw new Error(`${path}: pages must be a mapping of page configs`);
+  if (data["build"] !== undefined) {
+    if (!Array.isArray(data["build"])) {
+      throw new Error(`${path}: build must be a sequence`);
     }
-    for (const [key, page] of Object.entries(data["pages"])) {
-      config.pages[key] = readPage(page, `${path}: pages.${key}`, dir);
-    }
-  }
-  if (data["output"] !== undefined || data["input"] !== undefined) {
-    config.root = readPage({ var: {}, output: data["output"], input: data["input"] }, path, dir);
+    config.build = data["build"].map((build, index) => readBuild(build, `${path}: build[${index}]`, dir));
   }
   return config;
 }
 
-function readPage(data: unknown, where: string, dir: string): PageConfig {
+function readBuild(data: unknown, where: string, dir: string): BuildConfig {
   if (!isRecord(data)) {
-    throw new Error(`${where}: page must be a mapping`);
+    throw new Error(`${where}: build entry must be a mapping`);
   }
   if (typeof data["output"] !== "string") {
     throw new Error(`${where}: missing or invalid "output" (must be a string)`);
   }
   if (typeof data["input"] !== "string" && !isRecord(data["input"])) {
-    throw new Error(`${where}: missing or invalid "input" (must be a string or a file/dir mapping)`);
+    throw new Error(`${where}: missing or invalid "input" (must be a string or a file/dir/copy mapping)`);
   }
   return {
     var: readVars(data["var"], `${where}.var`, dir),
     output: joinPath(dir, data["output"]),
-    input: isRecord(data["input"]) ? readContentVar(data["input"], `${where}.input`, dir) : data["input"],
+    input: isRecord(data["input"]) ? readInput(data["input"], `${where}.input`, dir) : data["input"],
   };
+}
+
+function readInput(data: Record<string, unknown>, where: string, dir: string): BuildInput {
+  if (data["copy"] === undefined) {
+    return readContentVar(data, where, dir);
+  }
+  return readCopyInput(data, where, dir);
+}
+
+function readCopyInput(data: Record<string, unknown>, where: string, dir: string): CopyInput {
+  for (const key of Object.keys(data)) {
+    if (key !== "copy") {
+      throw new Error(`${where}: unknown key "${key}" (a copy input takes "copy")`);
+    }
+  }
+  if (typeof data["copy"] !== "string") {
+    throw new Error(`${where}: missing or invalid "copy" (must be a string path)`);
+  }
+  return { copy: joinPath(dir, data["copy"]) };
 }
 
 function readVars(data: unknown, where: string, dir: string): Record<string, VarValue> {
