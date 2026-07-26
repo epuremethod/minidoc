@@ -66,3 +66,65 @@ examples:
             input: |-
               Hello
     error: 'Undefined variable {{nowhere}} in page "home" output'
+
+  - scenario: it should accept a file mapping as input, its frontmatter usable in the output path
+    source:
+      config.yaml:
+        pages:
+          home:
+            output: "{{slug}}.html"
+            input:
+              file: content/home.md
+      content/home.md: |-
+        ---
+        title: Home
+        slug: home
+        ---
+        # {{title}}
+    target:
+      home.html: |
+        <h1>Home</h1>
+
+  - scenario: it should accept a dir mapping as input
+    source:
+      config.yaml:
+        pages:
+          guide:
+            output: guide.html
+            input:
+              dir: content
+              transform: none
+      content/01.md: one
+      content/02.md: two
+    target:
+      guide.html: |-
+        one
+        two
+
+  - scenario: it should prefer an explicit page var over input frontmatter
+    source:
+      config.yaml:
+        pages:
+          home:
+            var:
+              slug: index
+            output: "{{slug}}.html"
+            input:
+              file: content/home.md
+      content/home.md: |-
+        ---
+        slug: home
+        ---
+        Hello
+    target:
+      index.html: |
+        <p>Hello</p>
+
+  - scenario: it should fail loud on an invalid input
+    source:
+      config.yaml:
+        pages:
+          home:
+            output: home.html
+            input: 3
+    error: 'config.yaml: pages.home: missing or invalid "input" (must be a string or a file/dir mapping)'

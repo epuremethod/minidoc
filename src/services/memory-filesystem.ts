@@ -16,5 +16,12 @@ export function makeMemoryFileSystem(seed: Record<string, string> = {}) {
     async exists(path: string) {
       return files.has(path);
     },
+    async listFiles(dir: string) {
+      const prefix = dir === "" ? "" : `${dir}/`;
+      return [...files.keys()]
+        .filter((path) => path.startsWith(prefix) && !path.slice(prefix.length).includes("/"))
+        .map((path) => path.slice(prefix.length))
+        .sort();
+    },
   };
 }

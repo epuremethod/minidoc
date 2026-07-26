@@ -1,14 +1,30 @@
-import type { Config, FileVar, PageConfig, VarValue } from "../api/config.ts";
+import type { Config, DirVar, PageConfig, VarValue } from "../api/config.ts";
 import type { FileSystem } from "../api/filesystem.ts";
-import type { FileContent, Scope, Value } from "../api/resolve.ts";
+import type { DirContent, FileContent, Scope, Value } from "../api/resolve.ts";
 import type { Transforms } from "../api/transform.ts";
 import { parseConfig } from "./config.ts";
 import { splitFrontmatter } from "./frontmatter.ts";
-import { resolve } from "./resolve.ts";
+import { globMatcher, joinPath } from "./paths.ts";
+import { resolve, resolveValue } from "./resolve.ts";
+
+/** A content file's one-time parse: frontmatter split off its body. */
+type Parsed = { vars: Record<string, string>; body: string };
+
+/**
+ * Everything a content load needs: the injected services plus a per-run
+ * cache that guarantees each file is read and frontmatter-parsed exactly
+ * once, however many vars or pages reference it.
+ */
+type Loader = {
+  fs: FileSystem;
+  transforms: Transforms;
+  parsed: Map<string, Promise<Parsed>>;
+};
 
 /** Read the config at `configPath` and write every resolved page through `fs`. */
 export async function run(fs: FileSystem, configPath: string, transforms: Transforms): Promise<void> {
   const chain = await loadChain(fs, configPath);
+  const loader: Loader = { fs, transforms, parsed: new Map() };
   // File paths may contain `{{refs}}` (already anchored to the declaring
   // config at parse time). They resolve against string vars only: frontmatter
   // and file bodies are not known until files load, so they cannot shape a path.
@@ -18,17 +34,17 @@ export async function run(fs: FileSystem, configPath: string, transforms: Transf
   }));
   const globals: Scope[] = [];
   for (const { path, config } of chain) {
-    globals.push(...(await loadScopes(fs, transforms, config.var, `var (${path})`, pathScopes)));
+    globals.push(...(await loadScopes(loader, config.var, `var (${path})`, pathScopes)));
   }
   const [entry] = chain;
   if (!entry) {
     throw new Error(`Config not found: ${configPath}`); // unreachable: loadChain always returns the entry
   }
   if (entry.config.root) {
-    await renderPage(fs, transforms, entry.config.root, `${configPath}: var`, globals, pathScopes, `config ${configPath}`);
+    await renderPage(loader, entry.config.root, `${configPath}: var`, globals, pathScopes, `config ${configPath}`);
   }
   for (const [key, page] of Object.entries(entry.config.pages)) {
-    await renderPage(fs, transforms, page, `pages.${key}.var`, globals, pathScopes, `page "${key}"`);
+    await renderPage(loader, page, `pages.${key}.var`, globals, pathScopes, `page "${key}"`);
   }
 }
 
@@ -60,8 +76,7 @@ async function loadChain(fs: FileSystem, entryPath: string): Promise<{ path: str
 }
 
 async function renderPage(
-  fs: FileSystem,
-  transforms: Transforms,
+  loader: Loader,
   page: PageConfig,
   label: string,
   globals: readonly Scope[],
@@ -69,10 +84,36 @@ async function renderPage(
   where: string,
 ): Promise<void> {
   const pagePathScopes = [{ label, vars: stringVars(page.var) }, ...pathScopes];
-  const scopes = [...(await loadScopes(fs, transforms, page.var, label, pagePathScopes)), ...globals];
+  const scopes = [...(await loadScopes(loader, page.var, label, pagePathScopes)), ...globals];
+  const input = await loadInput(loader, page.input, `${where} input`, pagePathScopes, scopes);
   const output = resolve(page.output, scopes, `${where} output`);
-  const content = resolve(page.input, scopes, `${where} input`);
-  await fs.writeFile(output, content);
+  const content = resolveValue(input, scopes, `${where} input`);
+  await loader.fs.writeFile(output, content);
+}
+
+/**
+ * Load a page's `input`: a template string passes through; a file/dir mapping
+ * loads like the matching var kind. A file input exports its frontmatter as
+ * the least local scope — usable in the output path — mirroring file vars;
+ * a dir input, like dir vars, keeps frontmatter local to each item.
+ */
+async function loadInput(
+  loader: Loader,
+  input: PageConfig["input"],
+  where: string,
+  pathScopes: readonly Scope[],
+  scopes: Scope[],
+): Promise<Value> {
+  if (typeof input === "string") {
+    return input;
+  }
+  if ("dir" in input) {
+    return loadDir(loader, input, where, pathScopes);
+  }
+  const file = resolve(input.file, pathScopes, `${where} file`);
+  const content = await loadFile(loader, input.transform, file, where);
+  scopes.push(content.frontmatter);
+  return content;
 }
 
 /**
@@ -81,8 +122,7 @@ async function renderPage(
  * Two files exporting the same frontmatter name is a conflict; fail loud.
  */
 async function loadScopes(
-  fs: FileSystem,
-  transforms: Transforms,
+  loader: Loader,
   vars: Record<string, VarValue>,
   label: string,
   pathScopes: readonly Scope[],
@@ -95,8 +135,14 @@ async function loadScopes(
       loaded[name] = value;
       continue;
     }
+    if ("dir" in value) {
+      // Dir file frontmatter stays local to each item — 8 chapters would
+      // conflict on `title` — so dir vars skip the export step below.
+      loaded[name] = await loadDir(loader, value, `${label}.${name}`, pathScopes);
+      continue;
+    }
     const file = resolve(value.file, pathScopes, `${label}.${name} file`);
-    const content = await loadFile(fs, transforms, value, file, `${label}.${name}`);
+    const content = await loadFile(loader, value.transform, file, `${label}.${name}`);
     loaded[name] = content;
     for (const [fmName, fmValue] of Object.entries(content.frontmatter.vars)) {
       const by = exportedBy[fmName];
@@ -114,27 +160,60 @@ async function loadScopes(
   return scopes;
 }
 
-/** Read one content file (`file` is the resolved path of `fileVar.file`). */
-async function loadFile(
-  fs: FileSystem,
-  transforms: Transforms,
-  fileVar: FileVar,
-  file: string,
+/**
+ * Load a dir var: list the folder, filter by glob and `where` frontmatter,
+ * read each file. Order is `listFiles`'s name-sorted order. Zero matches
+ * fail loud (a missing directory lists as empty).
+ */
+async function loadDir(
+  loader: Loader,
+  dirVar: DirVar,
   where: string,
-): Promise<FileContent> {
-  if (!(await fs.exists(file))) {
-    throw new Error(`Content file not found: ${file} (declared at ${where})`);
+  pathScopes: readonly Scope[],
+): Promise<DirContent> {
+  const dir = resolve(dirVar.dir, pathScopes, `${where} dir`);
+  const glob = dirVar.glob ?? "*.md";
+  const names = (await loader.fs.listFiles(dir)).filter(globMatcher(glob));
+  if (names.length === 0) {
+    throw new Error(`No files matching "${glob}" in ${dir} (declared at ${where})`);
   }
-  const { vars, body } = splitFrontmatter(await fs.readFile(file), file);
-  const name = fileVar.transform ?? inferTransform(file);
+  const items: FileContent[] = [];
+  for (const name of names) {
+    const content = await loadFile(loader, dirVar.transform, joinPath(dir, name), where);
+    if (selects(dirVar.where, content.frontmatter.vars)) {
+      items.push(content);
+    }
+  }
+  if (items.length === 0) {
+    const filter = Object.entries(dirVar.where ?? {})
+      .map(([key, value]) => `${key}: ${value}`)
+      .join(", ");
+    throw new Error(`No files match where (${filter}) in ${dir} (declared at ${where})`);
+  }
+  return { items, each: dirVar.each, where: `dir ${dir} (${where})` };
+}
+
+function selects(filter: Record<string, string> | undefined, vars: Record<string, Value>): boolean {
+  return Object.entries(filter ?? {}).every(([name, value]) => vars[name] === value);
+}
+
+/** Read one content file; `explicit` overrides the extension-inferred transform. */
+async function loadFile(loader: Loader, explicit: string | undefined, file: string, where: string): Promise<FileContent> {
+  let parsed = loader.parsed.get(file);
+  if (parsed === undefined) {
+    parsed = parseFile(loader.fs, file, where);
+    loader.parsed.set(file, parsed);
+  }
+  const { vars, body } = await parsed;
+  const name = explicit ?? inferTransform(file);
   if (name === undefined) {
     throw new Error(
-      `${where}: cannot infer a transform for ${file} — set "transform" (available: ${Object.keys(transforms).join(", ")})`,
+      `${where}: cannot infer a transform for ${file} — set "transform" (available: ${Object.keys(loader.transforms).join(", ")})`,
     );
   }
-  const transform = transforms[name];
+  const transform = loader.transforms[name];
   if (transform === undefined) {
-    throw new Error(`${where}: unknown transform "${name}" (available: ${Object.keys(transforms).join(", ")})`);
+    throw new Error(`${where}: unknown transform "${name}" (available: ${Object.keys(loader.transforms).join(", ")})`);
   }
   return {
     body,
@@ -142,6 +221,14 @@ async function loadFile(
     frontmatter: { label: `frontmatter (${file})`, vars },
     where: `file ${file}`,
   };
+}
+
+/** One read + frontmatter split per file; `where` is the declaration that first triggered the load. */
+async function parseFile(fs: FileSystem, file: string, where: string): Promise<Parsed> {
+  if (!(await fs.exists(file))) {
+    throw new Error(`Content file not found: ${file} (declared at ${where})`);
+  }
+  return splitFrontmatter(await fs.readFile(file), file);
 }
 
 function inferTransform(file: string): string | undefined {

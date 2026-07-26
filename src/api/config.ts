@@ -9,12 +9,30 @@ export type FileVar = {
   transform?: string;
 };
 
-export type VarValue = string | FileVar;
+/**
+ * A var whose content is a folder of html/md files, each rendered through the
+ * `each` template and concatenated in filename order.
+ */
+export type DirVar = {
+  /** Anchored at parse time: relative to the config that declares it, before var interpolation. */
+  dir: string;
+  /** Basename pattern, `*` wildcard only. Defaults to `*.md`. */
+  glob?: string;
+  /** Keeps only files whose frontmatter matches every entry (string equality). */
+  where?: Record<string, string>;
+  /** Item template; sees the file's frontmatter and its content as `{{body}}`. Defaults to `{{body}}`. */
+  each: string;
+  /** Transform registry name for every file; inferred per file when absent. */
+  transform?: string;
+};
+
+export type VarValue = string | FileVar | DirVar;
 
 export type PageConfig = {
   var: Record<string, VarValue>;
   output: string;
-  input: string;
+  /** A template string, or directly a file/dir var rendered as the page body. */
+  input: string | FileVar | DirVar;
 };
 
 export type Config = {

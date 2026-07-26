@@ -1,5 +1,5 @@
 import { parse } from "yaml";
-import type { Config, FileVar, PageConfig, VarValue } from "../api/config.ts";
+import type { Config, DirVar, FileVar, PageConfig, VarValue } from "../api/config.ts";
 import { dirname, joinPath } from "./paths.ts";
 
 /**
@@ -46,13 +46,13 @@ function readPage(data: unknown, where: string, dir: string): PageConfig {
   if (typeof data["output"] !== "string") {
     throw new Error(`${where}: missing or invalid "output" (must be a string)`);
   }
-  if (typeof data["input"] !== "string") {
-    throw new Error(`${where}: missing or invalid "input" (must be a string)`);
+  if (typeof data["input"] !== "string" && !isRecord(data["input"])) {
+    throw new Error(`${where}: missing or invalid "input" (must be a string or a file/dir mapping)`);
   }
   return {
     var: readVars(data["var"], `${where}.var`, dir),
     output: joinPath(dir, data["output"]),
-    input: data["input"],
+    input: isRecord(data["input"]) ? readContentVar(data["input"], `${where}.input`, dir) : data["input"],
   };
 }
 
@@ -65,9 +65,19 @@ function readVars(data: unknown, where: string, dir: string): Record<string, Var
   }
   const vars: Record<string, VarValue> = {};
   for (const [name, value] of Object.entries(data)) {
-    vars[name] = isRecord(value) ? readFileVar(value, `${where}.${name}`, dir) : readScalar(value, `${where}.${name}`);
+    vars[name] = isRecord(value) ? readContentVar(value, `${where}.${name}`, dir) : readScalar(value, `${where}.${name}`);
   }
   return vars;
+}
+
+function readContentVar(data: Record<string, unknown>, where: string, dir: string): FileVar | DirVar {
+  if (data["dir"] !== undefined) {
+    return readDirVar(data, where, dir);
+  }
+  if (data["file"] !== undefined) {
+    return readFileVar(data, where, dir);
+  }
+  throw new Error(`${where}: a mapping var needs "file" (file var) or "dir" (dir var)`);
 }
 
 function readFileVar(data: Record<string, unknown>, where: string, dir: string): FileVar {
@@ -87,6 +97,39 @@ function readFileVar(data: Record<string, unknown>, where: string, dir: string):
     fileVar.transform = data["transform"];
   }
   return fileVar;
+}
+
+function readDirVar(data: Record<string, unknown>, where: string, dir: string): DirVar {
+  for (const key of Object.keys(data)) {
+    if (key !== "dir" && key !== "glob" && key !== "where" && key !== "each" && key !== "transform") {
+      throw new Error(
+        `${where}: unknown key "${key}" (a dir var takes "dir", "each", and optional "glob", "where", "transform")`,
+      );
+    }
+  }
+  if (typeof data["dir"] !== "string") {
+    throw new Error(`${where}: missing or invalid "dir" (must be a string path)`);
+  }
+  if (data["each"] !== undefined && typeof data["each"] !== "string") {
+    throw new Error(`${where}: "each" must be a string template`);
+  }
+  const dirVar: DirVar = { dir: joinPath(dir, data["dir"]), each: data["each"] ?? "{{body}}" };
+  if (data["glob"] !== undefined) {
+    if (typeof data["glob"] !== "string") {
+      throw new Error(`${where}: "glob" must be a string`);
+    }
+    dirVar.glob = data["glob"];
+  }
+  if (data["where"] !== undefined) {
+    dirVar.where = readScalarVars(data["where"], `${where}.where`);
+  }
+  if (data["transform"] !== undefined) {
+    if (typeof data["transform"] !== "string") {
+      throw new Error(`${where}: "transform" must be a string`);
+    }
+    dirVar.transform = data["transform"];
+  }
+  return dirVar;
 }
 
 /** Scalar-only var block, used for content file frontmatter. */

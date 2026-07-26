@@ -63,6 +63,62 @@ layout can use `{{title}}` from its content file, while an explicit
 `var: title:` still wins. Two files in one block exporting the same name is a
 conflict and fails loud.
 
+## Dir vars
+
+A var value with a `dir` key loads a whole folder of content files, renders
+each through the `each` template, and joins the items with newlines — the
+building block for a guide or an API reference page:
+
+```yaml
+var:
+  toc:
+    dir: guide                   # like `file`: anchored to this config
+    each: '<li><a href="#{{slug}}">{{title}}</a></li>'
+  chapters:
+    dir: guide                   # the same folder, a second view
+    each: |-
+      <section id="{{slug}}">{{body}}</section>
+  coreIndex:
+    dir: api
+    where: { module: core }      # keep files whose frontmatter matches
+    each: '<a href="#{{slug}}">{{name}}</a>'
+```
+
+`each` is expanded once per file with, most local first: the file's
+frontmatter, then `body` (the file's content, transformed like a file var),
+then the normal outer scopes; it defaults to `{{body}}` (bare concatenated
+files). Files render in filename order — prefix them (`01-intro.md`) to
+control it. `glob` (default `*.md`, `*` wildcard only) selects files by
+basename; `transform` overrides the per-file extension inference for every
+file.
+
+Unlike single file vars, a dir var does not export its files' frontmatter to
+the declaring scope (eight chapters would conflict on `title`); frontmatter
+stays local to each item. Zero matched files — empty folder, glob or `where`
+matching nothing — fails loud.
+
+## Page input
+
+A page's `input` may be a file or dir mapping directly, instead of a
+template string that references a var:
+
+```yaml
+pages:
+  home:
+    output: "{{slug}}.html"      # slug from the file's frontmatter
+    input:
+      file: content/home.md
+  guide:
+    output: guide.html
+    input:
+      dir: content/guide
+      each: "<section>{{body}}</section>"
+```
+
+It behaves like the matching var kind: a file input exports its frontmatter
+(least local, so an explicit page var wins), usable even in the output path;
+a dir input keeps frontmatter local to each item.
+
 ## Paths
 
 Every declared path (`base`, `output`, `file`) is relative to the config file

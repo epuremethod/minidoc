@@ -1,4 +1,4 @@
-import { access, mkdir, readFile, writeFile } from "node:fs/promises";
+import { access, mkdir, readFile, readdir, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
 import type { FileSystem } from "../api/filesystem.ts";
 
@@ -18,6 +18,17 @@ export function makeNodeFileSystem(): FileSystem {
         return true;
       } catch {
         return false;
+      }
+    },
+    async listFiles(dir) {
+      try {
+        const entries = await readdir(dir, { withFileTypes: true });
+        return entries
+          .filter((entry) => entry.isFile())
+          .map((entry) => entry.name)
+          .sort();
+      } catch {
+        return [];
       }
     },
   };

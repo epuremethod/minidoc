@@ -1,0 +1,278 @@
+feature: Dir vars
+background:
+  given: a filesystem
+examples:
+  - scenario: it should render a folder through each, in filename order
+    source:
+      config.yaml:
+        var:
+          chapters:
+            dir: content
+            transform: none
+            each: "<li>{{body}}</li>"
+        output: out.html
+        input: "{{chapters}}"
+      content/02-two.md: |-
+        Two
+      content/01-one.md: |-
+        One
+    target:
+      out.html: |-
+        <li>One</li>
+        <li>Two</li>
+
+  - scenario: it should give each item its frontmatter and markdown-transformed body
+    source:
+      config.yaml:
+        var:
+          chapters:
+            dir: content
+            each: |-
+              <h2>{{title}}</h2>
+              {{body}}
+        output: out.html
+        input: "{{chapters}}"
+      content/01-a.md: |-
+        ---
+        title: Alpha
+        ---
+        Hello **{{title}}**
+    target:
+      out.html: |
+        <h2>Alpha</h2>
+        <p>Hello <strong>Alpha</strong></p>
+
+  - scenario: it should let items see outer vars while their own frontmatter wins
+    source:
+      config.yaml:
+        var:
+          site: Marmot
+          title: Global
+          entries:
+            dir: content
+            transform: none
+            each: "[{{site}}/{{title}}] {{body}}"
+        output: out.txt
+        input: "{{entries}}"
+      content/a.md: |-
+        ---
+        title: Local
+        ---
+        a
+    target:
+      out.txt: "[Marmot/Local] a"
+
+  - scenario: it should render the same folder twice with different templates
+    source:
+      config.yaml:
+        var:
+          toc:
+            dir: content
+            transform: none
+            each: '<a href="#{{slug}}">{{title}}</a>'
+          chapters:
+            dir: content
+            transform: none
+            each: '<section id="{{slug}}">{{body}}</section>'
+        output: out.html
+        input: |-
+          <nav>{{toc}}</nav>
+          {{chapters}}
+      content/01.md: |-
+        ---
+        title: One
+        slug: one
+        ---
+        first
+      content/02.md: |-
+        ---
+        title: Two
+        slug: two
+        ---
+        second
+    target:
+      out.html: |-
+        <nav><a href="#one">One</a>
+        <a href="#two">Two</a></nav>
+        <section id="one">first</section>
+        <section id="two">second</section>
+
+  - scenario: it should split one folder into groups with where filters
+    source:
+      config.yaml:
+        var:
+          coreIndex:
+            dir: api
+            transform: none
+            where: { module: core }
+            each: "<a>{{name}}</a>"
+          reactIndex:
+            dir: api
+            transform: none
+            where: { module: react }
+            each: "<a>{{name}}</a>"
+        output: out.html
+        input: |-
+          <p>Gherkin</p>
+          {{coreIndex}}
+          <p>Vitest</p>
+          {{reactIndex}}
+      api/given.md: |-
+        ---
+        name: Given
+        module: core
+        ---
+        x
+      api/test.md: |-
+        ---
+        name: test
+        module: react
+        ---
+        x
+    target:
+      out.html: |-
+        <p>Gherkin</p>
+        <a>Given</a>
+        <p>Vitest</p>
+        <a>test</a>
+
+  - scenario: it should only match "*.md" by default
+    source:
+      config.yaml:
+        var:
+          entries:
+            dir: content
+            transform: none
+            each: "{{body}}"
+        output: out.txt
+        input: "{{entries}}"
+      content/a.md: A
+      content/notes.txt: ignored
+    target:
+      out.txt: A
+
+  - scenario: it should match an explicit glob
+    source:
+      config.yaml:
+        var:
+          parts:
+            dir: content
+            glob: "*.html"
+            each: "{{body}}"
+        output: out.html
+        input: "{{parts}}"
+      content/a.html: <b>A</b>
+      content/b.md: ignored
+    target:
+      out.html: <b>A</b>
+
+  - scenario: it should apply an explicit transform to every file
+    source:
+      config.yaml:
+        var:
+          entries:
+            dir: content
+            transform: none
+            each: "{{body}}"
+        output: out.txt
+        input: "{{entries}}"
+      content/a.md: "# Not rendered"
+    target:
+      out.txt: "# Not rendered"
+
+  - scenario: it should keep dir file frontmatter local to each item
+    source:
+      config.yaml:
+        var:
+          entries:
+            dir: content
+            transform: none
+            each: "{{body}}"
+        output: out.txt
+        input: "{{title}} {{entries}}"
+      content/a.md: |-
+        ---
+        title: Hidden
+        ---
+        a
+    error: "Undefined variable {{title}} in config config.yaml input"
+
+  - scenario: it should fail loud when no files match the glob
+    source:
+      config.yaml:
+        var:
+          entries:
+            dir: content
+            each: "{{body}}"
+        output: out.txt
+        input: "{{entries}}"
+    error: 'No files matching "*.md" in content (declared at var (config.yaml).entries)'
+
+  - scenario: it should fail loud when the where filter matches nothing
+    source:
+      config.yaml:
+        var:
+          entries:
+            dir: api
+            where: { module: core }
+            each: "{{body}}"
+        output: out.txt
+        input: "{{entries}}"
+      api/a.md: |-
+        ---
+        module: react
+        ---
+        a
+    error: "No files match where (module: core) in api (declared at var (config.yaml).entries)"
+
+  - scenario: it should fail loud on an unknown dir var key
+    source:
+      config.yaml:
+        var:
+          entries:
+            dir: content
+            each: "{{body}}"
+            sort: name
+        output: out.txt
+        input: "{{entries}}"
+    error: 'config.yaml: var.entries: unknown key "sort"'
+
+  - scenario: it should default each to the bare body
+    source:
+      config.yaml:
+        var:
+          entries:
+            dir: content
+            transform: none
+        output: out.txt
+        input: "{{entries}}"
+      content/01.md: one
+      content/02.md: two
+    target:
+      out.txt: |-
+        one
+        two
+
+  - scenario: it should fail loud on a mapping var with neither file nor dir
+    source:
+      config.yaml:
+        var:
+          entries:
+            transform: none
+        output: out.txt
+        input: "{{entries}}"
+    error: 'config.yaml: var.entries: a mapping var needs "file" (file var) or "dir" (dir var)'
+
+  - scenario: it should detect a cycle through the collection
+    source:
+      config.yaml:
+        var:
+          entries:
+            dir: content
+            transform: none
+            each: "{{entries}}"
+        output: out.txt
+        input: "{{entries}}"
+      content/a.md: |-
+        a
+    error: "Variable cycle in dir content (var (config.yaml).entries): entries -> entries"

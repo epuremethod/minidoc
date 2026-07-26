@@ -12,12 +12,19 @@ const REFERENCE = /\{\{\s*([A-Za-z_][A-Za-z0-9_.-]*)\s*\}\}/g;
  * scope (most local first) that defines it, recursively, until no reference
  * remains (fixpoint). A file var expands its body with the file's own
  * frontmatter as the most local scope, then runs its transform on the result.
- * Undefined variables and reference cycles fail loud.
+ * A dir var expands its `each` template once per file — that file's
+ * frontmatter and its content as `body` most local — and joins the items with
+ * newlines. Undefined variables and reference cycles fail loud.
  *
  * `where` locates the template in error messages, e.g. `page "marmot" input`.
  */
 export function resolve(template: string, scopes: readonly Scope[], where: string): string {
   return expand(template, scopes, [], where);
+}
+
+/** Expand a loaded value directly — a page whose `input` is itself a file/dir var. */
+export function resolveValue(value: Value, scopes: readonly Scope[], where: string): string {
+  return expandValue(value, scopes, [], where);
 }
 
 function expand(text: string, scopes: readonly Scope[], active: readonly string[], where: string): string {
@@ -32,11 +39,27 @@ function expand(text: string, scopes: readonly Scope[], active: readonly string[
       const searched = scopes.map((scope) => scope.label).join(", ") || "no scopes";
       throw new Error(`Undefined variable ${reference} in ${where} (searched: ${searched})`);
     }
-    if (typeof value === "string") {
-      return expand(value, scopes, [...active, name], where);
-    }
-    return value.transform(expand(value.body, [value.frontmatter, ...scopes], [...active, name], value.where));
+    return expandValue(value, scopes, [...active, name], where);
   });
+}
+
+function expandValue(value: Value, scopes: readonly Scope[], active: readonly string[], where: string): string {
+  if (typeof value === "string") {
+    return expand(value, scopes, active, where);
+  }
+  if ("items" in value) {
+    return value.items
+      .map((item) =>
+        expand(
+          value.each,
+          [item.frontmatter, { label: value.where, vars: { body: item } }, ...scopes],
+          active,
+          value.where,
+        ),
+      )
+      .join("\n");
+  }
+  return value.transform(expand(value.body, [value.frontmatter, ...scopes], active, value.where));
 }
 
 function lookup(scopes: readonly Scope[], name: string): Value | undefined {

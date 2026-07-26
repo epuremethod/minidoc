@@ -12,7 +12,17 @@ export type FileContent = {
   where: string;
 };
 
-export type Value = string | FileContent;
+/** A loaded dir var: one FileContent per matched file, rendered through `each`. */
+export type DirContent = {
+  /** Loaded files in render order (name-sorted, `where`-filtered). */
+  items: FileContent[];
+  /** Expanded once per item with the item's frontmatter and `body` in scope, `{{refs}}` not yet resolved. */
+  each: string;
+  /** Locates the collection in error messages, e.g. `dir content/guide (var (config.yaml).chapters)`. */
+  where: string;
+};
+
+export type Value = string | FileContent | DirContent;
 
 /** One layer of variables, most local first. `label` names it in error messages. */
 export type Scope = {

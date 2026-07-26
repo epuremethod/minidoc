@@ -13,3 +13,10 @@ export function joinPath(dir: string, path: string): string {
   }
   return `${dir}/${path}`;
 }
+
+/** Compile a `*`-only glob (e.g. `*.md`) into a basename predicate. */
+export function globMatcher(glob: string): (name: string) => boolean {
+  const parts = glob.split("*").map((part) => part.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+  const pattern = new RegExp(`^${parts.join(".*")}$`);
+  return (name) => pattern.test(name);
+}
