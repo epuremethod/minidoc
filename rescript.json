@@ -1,9 +1,24 @@
 {
   "name": "@epure/minidoc",
   "namespace": false,
-  "sources": [{ "dir": "src", "subdirs": false }],
-  "package-specs": [{ "module": "esmodule", "in-source": true }],
+  "sources": [
+    {
+      "dir": "src",
+      "subdirs": false
+    }
+  ],
+  "package-specs": [
+    {
+      "module": "esmodule",
+      "in-source": true
+    }
+  ],
   "suffix": ".res.mjs",
-  "warnings": { "number": "-30" },
-  "dependencies": ["sury"]
+  "warnings": {
+    "number": "-30"
+  },
+  "dependencies": [
+    "sury",
+    "tilia"
+  ]
 }

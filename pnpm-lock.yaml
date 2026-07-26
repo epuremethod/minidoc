@@ -17,6 +17,9 @@ importers:
       sury:
         specifier: 11.0.0-alpha.11
         version: 11.0.0-alpha.11(rescript@12.3.0)
+      tilia:
+        specifier: ^5.2.0
+        version: 5.2.0
       yaml:
         specifier: ^2.8.0
         version: 2.9.0
@@ -549,6 +552,9 @@ packages:
       rescript:
         optional: true
 
+  tilia@5.2.0:
+    resolution: {integrity: sha512-GWJg/4Foy9ELut+CnoOMiA38fHdVnZBwtqyLbQiGXf9vWZcF/pKxRfwn0hbYVBN7pcwAHuzTojbjLzur8XmD6A==}
+
   tinybench@2.9.0:
     resolution: {integrity: sha512-0+DUvqWMValLmha6lr4kD8iAMK1HzV0/aKnCtWb9v9641TnP/MFb7Pc2bxoxQjTXAErryXVgUOfv2YqNllqGeg==}
 
@@ -1041,6 +1047,8 @@ snapshots:
   sury@11.0.0-alpha.11(rescript@12.3.0):
     optionalDependencies:
       rescript: 12.3.0
+
+  tilia@5.2.0: {}
 
   tinybench@2.9.0: {}
 
