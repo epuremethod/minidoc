@@ -1,3 +1,5 @@
+import { globMatcher } from "../features/paths.ts";
+
 /** In-memory FileSystem backed by a Map. Used by tests. */
 export function makeMemoryFileSystem(seed: Record<string, string> = {}) {
   const files = new Map(Object.entries(seed));
@@ -31,6 +33,10 @@ export function makeMemoryFileSystem(seed: Record<string, string> = {}) {
     async exists(path: string) {
       const prefix = `${path}/`;
       return files.has(path) || [...files.keys()].some((file) => file.startsWith(prefix));
+    },
+    async glob(pattern: string) {
+      const matches = globMatcher(pattern);
+      return [...files.keys()].filter(matches).sort();
     },
     async listFiles(dir: string) {
       const prefix = dir === "" ? "" : `${dir}/`;

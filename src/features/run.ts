@@ -40,9 +40,9 @@ export async function run(fs: FileSystem, configPath: string, transforms: Transf
   if (!entry) {
     throw new Error(`Config not found: ${configPath}`); // unreachable: loadChain always returns the entry
   }
-  for (const [index, build] of entry.config.build.entries()) {
-    await executeBuild(loader, build, globals, pathScopes, `build[${index}]`);
-  }
+  await Promise.all(
+    entry.config.build.map((build, index) => executeBuild(loader, build, globals, pathScopes, `build[${index}]`)),
+  );
 }
 
 /**
@@ -139,6 +139,10 @@ async function loadScopes(
   for (const [name, value] of Object.entries(vars)) {
     if (typeof value === "string") {
       loaded[name] = value;
+      continue;
+    }
+    if (Array.isArray(value)) {
+      loaded[name] = { kind: "list", items: value };
       continue;
     }
     if ("dir" in value) {

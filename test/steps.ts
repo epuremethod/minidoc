@@ -14,9 +14,9 @@ given("a filesystem", async (data) => {
   const { source, target, error } = readScenario(data);
   const fs = makeMemoryFileSystem(source);
   if (error === undefined) {
-    await run(fs, entry);
+    await run({ fs, glob: entry });
   } else {
-    await expect(run(fs, entry), "run should fail").rejects.toThrow(error);
+    await expect(run({ fs, glob: entry }), "run should fail").rejects.toThrow(error);
   }
   for (const [file, content] of Object.entries(target)) {
     expect(await fs.exists(file), `${file} should exist`).toBe(true);

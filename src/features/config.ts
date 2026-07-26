@@ -83,7 +83,14 @@ function readVars(data: unknown, where: string, dir: string): Record<string, Var
   }
   const vars: Record<string, VarValue> = {};
   for (const [name, value] of Object.entries(data)) {
-    vars[name] = isRecord(value) ? readContentVar(value, `${where}.${name}`, dir) : readScalar(value, `${where}.${name}`);
+    const at = `${where}.${name}`;
+    if (isRecord(value)) {
+      vars[name] = readContentVar(value, at, dir);
+    } else if (Array.isArray(value)) {
+      vars[name] = readScalarList(value, at);
+    } else {
+      vars[name] = readScalar(value, at);
+    }
   }
   return vars;
 }
@@ -162,7 +169,7 @@ function readListVar(data: Record<string, unknown>, where: string): ListVar {
     }
   }
   if (typeof data["list"] !== "string") {
-    throw new Error(`${where}: missing or invalid "list" (must be a dotted variable name)`);
+    throw new Error(`${where}: missing or invalid "list" (must be a variable name)`);
   }
   if (typeof data["each"] !== "string") {
     throw new Error(`${where}: missing or invalid "each" (must be a string template)`);
@@ -206,6 +213,10 @@ function readScalar(value: unknown, where: string): string {
     return String(value);
   }
   throw new Error(`${where}: must be a scalar value`);
+}
+
+function readScalarList(value: unknown[], where: string): string[] {
+  return value.map((item, index) => readScalar(item, `${where}[${index}]`));
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

@@ -1,4 +1,4 @@
-import type { ListContent, ListValue, MappingValue, Scope, Value } from "../api/resolve.ts";
+import type { ListContent, ListValue, Scope, Value } from "../api/resolve.ts";
 
 /**
  * `{{name}}` — plain name substitution only (v1).
@@ -48,10 +48,7 @@ function expandValue(value: Value, scopes: readonly Scope[], active: readonly st
     return expand(value, scopes, active, where);
   }
   if ("kind" in value) {
-    if (value.kind === "list") {
-      return value.items.map((item) => expand(item, scopes, active, where)).join("");
-    }
-    throw new Error(`Cannot render a frontmatter mapping directly in ${where}; reference one of its scalar paths`);
+    return value.items.map((item) => expand(item, scopes, active, where)).join("");
   }
   if ("source" in value) {
     return expandList(value, scopes, active);
@@ -78,7 +75,7 @@ function expandList(value: ListContent, scopes: readonly Scope[], active: readon
     throw new Error(`Undefined list "${value.source}" in ${value.where} (searched: ${searched})`);
   }
   if (!list(source)) {
-    throw new Error(`${value.where}: "${value.source}" must resolve to a frontmatter list`);
+    throw new Error(`${value.where}: "${value.source}" must resolve to a scalar list`);
   }
   if (source.items.length === 0) {
     return "";
@@ -96,19 +93,7 @@ function expandList(value: ListContent, scopes: readonly Scope[], active: readon
 
 function lookup(scopes: readonly Scope[], name: string): Value | undefined {
   for (const scope of scopes) {
-    const direct = scope.vars[name];
-    if (direct !== undefined) {
-      return direct;
-    }
-    const [root = name, ...path] = name.split(".");
-    let value = scope.vars[root];
-    for (const part of path) {
-      if (!mapping(value)) {
-        value = undefined;
-        break;
-      }
-      value = value.entries[part];
-    }
+    const value = scope.vars[name];
     if (value !== undefined) {
       return value;
     }
@@ -118,8 +103,4 @@ function lookup(scopes: readonly Scope[], name: string): Value | undefined {
 
 function list(value: Value): value is ListValue {
   return typeof value !== "string" && "kind" in value && value.kind === "list";
-}
-
-function mapping(value: Value | undefined): value is MappingValue {
-  return value !== undefined && typeof value !== "string" && "kind" in value && value.kind === "mapping";
 }

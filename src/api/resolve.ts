@@ -1,18 +1,12 @@
 import type { Transform } from "./transform.ts";
 
-/** A YAML frontmatter list. Only scalar entries are supported. */
+/** A raw scalar list loaded from config or frontmatter. */
 export type ListValue = {
   kind: "list";
   items: string[];
 };
 
-/** A YAML frontmatter mapping, recursively containing mappings, lists, or scalars. */
-export type MappingValue = {
-  kind: "mapping";
-  entries: Record<string, DataValue>;
-};
-
-export type DataValue = string | ListValue | MappingValue;
+export type DataValue = string | ListValue;
 
 /** A loaded file var: frontmatter split off, transform picked from the registry. */
 export type FileContent = {

@@ -2,10 +2,11 @@ feature: Rich frontmatter
 background:
   given: a filesystem
 examples:
-  - scenario: it should resolve paths through nested frontmatter mappings
+  - scenario: it should resolve exact dotted names with local scope precedence
     source:
       config.yaml:
         var:
+          signature.ts: global
           entries:
             dir: api
             transform: none
@@ -15,9 +16,8 @@ examples:
             input: "{{entries}}"
       api/given.md: |-
         ---
-        signature:
-          ts: "function given(pattern: string)"
-          res: "let given: string => unit"
+        signature.ts: "function given(pattern: string)"
+        signature.res: "let given: string => unit"
         ---
         body
     target:
@@ -55,6 +55,21 @@ examples:
         <p class="xref">Reference: <a href="./api.html#given">given</a>, <a href="./api.html#step-type">step-type</a> <span class="arrow">→</span></p>
         </section>
 
+  - scenario: it should accept the same scalar lists in config vars
+    source:
+      config.yaml:
+        var:
+          refs: [given, step-type]
+          refsBlock:
+            list: refs
+            each: "[{{item}}]"
+            join: ", "
+        build:
+          - output: out.txt
+            input: "{{refsBlock}}"
+    target:
+      out.txt: "[given], [step-type]"
+
   - scenario: it should render nothing, including the wrapper, for an empty list
     source:
       config.yaml:
@@ -77,6 +92,24 @@ examples:
         Given
     target:
       api.html: "<article>Given</article>"
+
+  - scenario: it should reject nested raw mappings
+    source:
+      config.yaml:
+        var:
+          entries:
+            dir: content
+            transform: none
+        build:
+          - output: out.txt
+            input: "{{entries}}"
+      content/a.md: |-
+        ---
+        signature:
+          ts: function given()
+        ---
+        body
+    error: "content/a.md: frontmatter.signature: must be a scalar or list of scalars"
 
   - scenario: it should reject non-scalar list entries
     source:

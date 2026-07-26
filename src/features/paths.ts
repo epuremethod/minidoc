@@ -14,9 +14,27 @@ export function joinPath(dir: string, path: string): string {
   return `${dir}/${path}`;
 }
 
-/** Compile a `*`-only glob (e.g. `*.md`) into a basename predicate. */
+/** Compile a `*`/`**` glob into a path predicate. `*` never crosses `/`; `**` does. */
 export function globMatcher(glob: string): (name: string) => boolean {
-  const parts = glob.split("*").map((part) => part.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
-  const pattern = new RegExp(`^${parts.join(".*")}$`);
-  return (name) => pattern.test(name);
+  let source = "";
+  for (let index = 0; index < glob.length; index += 1) {
+    const char = glob[index] ?? "";
+    if (char !== "*") {
+      source += char.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      continue;
+    }
+    if (glob[index + 1] !== "*") {
+      source += "[^/]*";
+      continue;
+    }
+    index += 1;
+    if (glob[index + 1] === "/") {
+      index += 1;
+      source += "(?:.*/)?";
+    } else {
+      source += ".*";
+    }
+  }
+  const pattern = new RegExp(`^${source}$`);
+  return (name) => pattern.test(name.replaceAll("\\", "/"));
 }

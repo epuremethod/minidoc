@@ -1,12 +1,11 @@
 import { run } from "./index.ts";
-import { makeNodeFileSystem } from "./services/node-filesystem.ts";
 
-const configPath = process.argv[2];
-if (!configPath) {
-  console.error("Usage: minidoc <configPath>");
+const pattern = process.argv[2];
+if (!pattern) {
+  console.error("Usage: minidoc <configGlob>");
   process.exit(1);
 }
-run(makeNodeFileSystem(), configPath).catch((error: unknown) => {
+run({ glob: pattern }).catch((error: unknown) => {
   console.error(error instanceof Error ? error.message : String(error));
   process.exit(1);
 });

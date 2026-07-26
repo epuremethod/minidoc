@@ -8,6 +8,8 @@ export interface FileSystem {
   /** Copy a file or directory without interpreting its content. */
   copy(source: string, output: string): Promise<void>;
   exists(path: string): Promise<boolean>;
+  /** Name-sorted plain files matching `pattern`; relative patterns return root-relative paths. */
+  glob(pattern: string): Promise<string[]>;
   /** Basenames of the plain files directly inside `dir`, name-sorted; `[]` when the directory does not exist. */
   listFiles(dir: string): Promise<string[]>;
 }

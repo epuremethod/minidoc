@@ -1,6 +1,6 @@
 /**
  * A var whose content comes from an html/md file. The file may start with a
- * `---` YAML frontmatter block declaring scalars, mappings, and scalar lists.
+ * `---` YAML frontmatter block declaring scalars and scalar lists.
  */
 export type FileVar = {
   /** Anchored at parse time: relative to the config that declares it, before var interpolation. */
@@ -31,7 +31,7 @@ export type DirVar = {
  * renders nothing, including the optional wrapper template.
  */
 export type ListVar = {
-  /** Dotted path to a list, normally supplied by the current file's frontmatter. */
+  /** Exact name of a list in the current scope. */
   list: string;
   /** Expanded once per scalar with that scalar available as `{{item}}`. */
   each: string;
@@ -41,7 +41,7 @@ export type ListVar = {
   template?: string;
 };
 
-export type VarValue = string | FileVar | DirVar | ListVar;
+export type VarValue = string | string[] | FileVar | DirVar | ListVar;
 
 export type CopyInput = {
   /** Anchored at parse time and copied without reading or transforming its content. */

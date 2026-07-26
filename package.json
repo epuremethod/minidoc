@@ -6,6 +6,10 @@
   "license": "MIT",
   "type": "module",
   "private": true,
+  "exports": {
+    ".": "./src/index.ts",
+    "./node": "./src/node.ts"
+  },
   "scripts": {
     "minidoc": "node --experimental-strip-types src/cli.ts",
     "test": "vitest run",

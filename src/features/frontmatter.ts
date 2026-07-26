@@ -6,8 +6,8 @@ const FRONTMATTER = /^---\n(?:([\s\S]*?)\n)?---(?:\n|$)/;
 
 /**
  * Split an optional leading YAML frontmatter block off a content file.
- * Values may be scalars, nested mappings, or lists of scalars. `where`
- * locates the file in error messages.
+ * Values may be scalars or lists of scalars. Dots in names are exact,
+ * ordinary characters. `where` locates the file in error messages.
  */
 export function splitFrontmatter(text: string, where: string): { vars: Record<string, DataValue>; body: string } {
   if (!text.startsWith("---\n")) {
@@ -56,14 +56,7 @@ function readValue(value: unknown, where: string): DataValue {
       }),
     };
   }
-  if (mapping(value)) {
-    const entries: Record<string, DataValue> = {};
-    for (const [name, item] of Object.entries(value)) {
-      entries[name] = readValue(item, `${where}.${name}`);
-    }
-    return { kind: "mapping", entries };
-  }
-  throw new Error(`${where}: must be a scalar, mapping, or list of scalars`);
+  throw new Error(`${where}: must be a scalar or list of scalars`);
 }
 
 function mapping(value: unknown): value is Record<string, unknown> {

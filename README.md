@@ -1,9 +1,9 @@
 # minidoc
 
-A small documentation website generator. It reads a YAML config describing
-variables, optional `base` config inheritance, and build outputs; resolves
-every `{{var}}` reference to a fixpoint; and writes each resolved `input` to
-its `output` path.
+A small documentation website generator. It discovers YAML configs by glob;
+each config describes variables, optional `base` inheritance, and build
+outputs. Minidoc resolves every `{{var}}` reference to a fixpoint and writes
+each resolved `input` to its `output` path.
 
 ```yaml
 var:                      # global variables
@@ -47,15 +47,15 @@ The transform is inferred from the extension (`.md`/`.markdown` -> `md`,
 transform runs on the result (so a var can inject markdown that gets
 rendered).
 
-Content files may start with a YAML frontmatter block containing scalars,
-nested mappings, and lists of scalars:
+Content files may start with a YAML frontmatter block containing scalars and
+lists of scalars. Dots are ordinary characters in exact variable names, so
+use dotted names explicitly for namespaces:
 
 ```markdown
 ---
 title: Home
-signature:
-  ts: "function home()"
-  res: "let home: unit => unit"
+signature.ts: "function home()"
+signature.res: "let home: unit => unit"
 refs: [given, step-type]
 ---
 # {{title}} — {{signature.ts}}
@@ -67,10 +67,10 @@ layout can use `{{title}}` from its content file, while an explicit
 `var: title:` still wins. Two files in one block exporting the same name is a
 conflict and fails loud.
 
-A list var renders a frontmatter list through an item template. Its `list` is
-a dotted variable name, `each` sees the current scalar as `{{item}}`, `join`
-defaults to an empty string, and an optional `template` sees the joined items
-as `{{body}}`:
+A list var renders a scalar list from config or frontmatter through an item
+template. Its `list` is an exact variable name, `each` sees the current scalar
+as `{{item}}`, `join` defaults to an empty string, and an optional `template`
+sees the joined items as `{{body}}`:
 
 ```yaml
 var:
@@ -81,9 +81,9 @@ var:
     template: '<p>Reference: {{body}}</p>'
 ```
 
-An empty list renders nothing, including the wrapper `template`. Referencing a
-nested scalar such as `{{signature.ts}}` walks through mappings; mappings
-cannot be rendered directly.
+An empty list renders nothing, including the wrapper `template`. Raw mappings
+are not variables: mapping-shaped config values are reserved for file, dir,
+and list vars.
 
 ## Dir vars
 
@@ -166,22 +166,68 @@ but never move the anchor. Absolute paths (`/...`) pass through untouched.
 
 ## Usage
 
+The CLI builds every config matching the glob:
+
 ```sh
-pnpm minidoc <configPath>
+pnpm minidoc "content/**/config.yaml"
 ```
+
+The programmatic API defaults lazily to Node, runs matching configs and their
+build entries concurrently, and accepts project-specific transforms by name:
+
+```ts
+import { run } from "minidoc"
+import { docsMarkdown, highlightSignature } from "./transforms.ts"
+
+await run({
+  glob: "content/**/config.yaml",
+  transform: {
+    md: docsMarkdown,
+    signature: highlightSignature,
+  },
+})
+```
+
+Custom transforms extend or override the built-in `md` and `none` registry.
+Extension inference still selects `md` for Markdown and `none` for HTML unless
+a file or dir explicitly declares `transform`.
+
+Runs update declared outputs in place and never clean old output first, so a
+live server keeps serving the previous files until replacements are written.
+
+Inject a filesystem for a browser, test, or other non-Node environment:
+
+```ts
+await run({ fs, glob: "**/config.yaml" })
+```
+
+The Node-specific adapter supports an optional root. String roots resolve from
+`process.cwd()`; a URL makes the root explicitly module-relative:
+
+```ts
+import { nodeFs } from "minidoc/node"
+
+await run({
+  fs: nodeFs(new URL("./content/", import.meta.url)),
+  glob: "**/config.yaml",
+})
+```
+
+Each `nodeFs` instance deduplicates text reads by normalized absolute path.
+Opaque copies bypass that cache.
 
 ## Design
 
 - `src/api/` — types only (the `FileSystem` service interface, config, scope
   and transform types).
 - `src/services/` — one file per service: `makeMemoryFileSystem` backs the
-  tests, `makeNodeFileSystem` backs real runs, `makeTransforms` wraps the
-  markdown renderer (`marked`).
+  tests, `nodeFs` backs real runs, and the built-in transform registry wraps
+  the markdown renderer (`marked`).
 - `src/features/` — pure logic (`resolve`, `parseConfig`, `splitFrontmatter`,
   `run`): all I/O goes through the injected `FileSystem`, transforms are
   injected too, never direct `fs`/`path`/renderer imports.
-- `src/index.ts` — public surface and composition point: exports `run` with
-  the default transform registry pre-wired.
+- `src/index.ts` — environment-neutral public surface and composition point:
+  exports `run`, lazily loading `nodeFs` only when no filesystem is injected.
 - No classes: services are `make...()` factories returning plain objects of
   closures.
 
