@@ -1,68 +1,68 @@
-templatedOutputPath:
-  description: it should resolve variables in the output path
-  source:
-    config.yaml:
-      var:
-        lang: fr
-        name: Marmot
-      pages:
-        home:
-          output: "{{lang}}/home.html"
-          input: |-
-            Bonjour {{name}} !
-  target:
-    fr/home.html: |-
-      Bonjour Marmot !
+feature: Pages
+background:
+  given: a filesystem
+examples:
+  - scenario: it should resolve variables in the output path
+    source:
+      config.yaml:
+        var:
+          lang: fr
+          name: Marmot
+        pages:
+          home:
+            output: "{{lang}}/home.html"
+            input: |-
+              Bonjour {{name}} !
+    target:
+      fr/home.html: |-
+        Bonjour Marmot !
 
-multiplePages:
-  description: it should render every page of the config
-  source:
-    config.yaml:
-      var:
-        site: Marmot Docs
-      pages:
-        home:
-          var:
-            title: Home
-          output: home.html
-          input: |-
-            {{site}} - {{title}}
-        about:
-          var:
-            title: About
-          output: about.html
-          input: |-
-            {{site}} - {{title}}
-  target:
-    home.html: |-
-      Marmot Docs - Home
-    about.html: |-
-      Marmot Docs - About
+  - scenario: it should render every page of the config
+    source:
+      config.yaml:
+        var:
+          site: Marmot Docs
+        pages:
+          home:
+            var:
+              title: Home
+            output: home.html
+            input: |-
+              {{site}} - {{title}}
+          about:
+            var:
+              title: About
+            output: about.html
+            input: |-
+              {{site}} - {{title}}
+    target:
+      home.html: |-
+        Marmot Docs - Home
+      about.html: |-
+        Marmot Docs - About
 
-pageVarInOutputPath:
-  description: it should resolve page vars in the output path too
-  source:
-    config.yaml:
-      var:
-        dir: docs
-      pages:
-        guide:
-          var:
-            slug: getting-started
-          output: "{{dir}}/{{slug}}.html"
-          input: |-
-            Guide
-  target:
-    docs/getting-started.html: |-
-      Guide
+  - scenario: it should resolve page vars in the output path too
+    source:
+      config.yaml:
+        var:
+          dir: docs
+        pages:
+          guide:
+            var:
+              slug: getting-started
+            output: "{{dir}}/{{slug}}.html"
+            input: |-
+              Guide
+    target:
+      docs/getting-started.html: |-
+        Guide
 
-undefinedVariableInOutput:
-  description: it should fail loud on an undefined variable in the output path
-  source:
-    config.yaml:
-      pages:
-        home:
-          output: "{{nowhere}}/home.html"
-          input: |-
-            Hello
-  error: 'Undefined variable {{nowhere}} in page "home" output'
+  - scenario: it should fail loud on an undefined variable in the output path
+    source:
+      config.yaml:
+        pages:
+          home:
+            output: "{{nowhere}}/home.html"
+            input: |-
+              Hello
+    error: 'Undefined variable {{nowhere}} in page "home" output'

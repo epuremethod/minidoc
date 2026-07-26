@@ -1,0 +1,219 @@
+feature: File vars
+background:
+  given: a filesystem
+examples:
+  - scenario: it should render a markdown file var to html
+    source:
+      config.yaml:
+        var:
+          name: Marmot
+          body:
+            file: content/intro.md
+        output: intro.html
+        input: "{{body}}"
+      content/intro.md: |-
+        Hello **{{name}}** !
+    target:
+      intro.html: |
+        <p>Hello <strong>Marmot</strong> !</p>
+
+  - scenario: it should pass an html file var through untouched
+    source:
+      config.yaml:
+        var:
+          site: Marmot Docs
+          footer:
+            file: partials/footer.html
+        output: home.html
+        input: |-
+          <main>Welcome</main>
+          {{footer}}
+      partials/footer.html: |-
+        <footer>© {{site}}</footer>
+    target:
+      home.html: |-
+        <main>Welcome</main>
+        <footer>© Marmot Docs</footer>
+
+  - scenario: it should let an explicit transform override the extension inference
+    source:
+      config.yaml:
+        var:
+          raw:
+            file: content/snippet.md
+            transform: none
+        output: raw.txt
+        input: "{{raw}}"
+      content/snippet.md: |-
+        # Not rendered
+    target:
+      raw.txt: |-
+        # Not rendered
+
+  - scenario: it should resolve refs before the markdown transform
+    source:
+      config.yaml:
+        var:
+          name: "**Marmot**"
+          body:
+            file: content/intro.md
+        output: out.html
+        input: "{{body}}"
+      content/intro.md: |-
+        Hello {{name}} !
+    target:
+      out.html: |
+        <p>Hello <strong>Marmot</strong> !</p>
+
+  - scenario: it should export frontmatter vars below the declaring scope, usable even in output paths
+    source:
+      config.yaml:
+        pages:
+          home:
+            var:
+              body:
+                file: content/home.md
+            output: "{{slug}}.html"
+            input: |-
+              <title>{{title}}</title>
+              {{body}}
+      content/home.md: |-
+        ---
+        title: Home
+        slug: home
+        ---
+        # {{title}}
+    target:
+      home.html: |
+        <title>Home</title>
+        <h1>Home</h1>
+
+  - scenario: it should prefer an explicit var over frontmatter, while the file body prefers its own frontmatter
+    source:
+      config.yaml:
+        var:
+          title: Global
+          body:
+            file: content/page.md
+        output: out.html
+        input: "{{title}} / {{body}}"
+      content/page.md: |-
+        ---
+        title: Local
+        ---
+        {{title}}
+    target:
+      out.html: |
+        Global / <p>Local</p>
+
+  - scenario: it should anchor file paths at the declaring config before var interpolation
+    source:
+      config.yaml:
+        base: docs/base.yaml
+        var:
+          sub: partials
+        output: home.html
+        input: "{{footer}}"
+      docs/base.yaml:
+        var:
+          footer:
+            file: "{{sub}}/footer.html"
+      docs/partials/footer.html: |-
+        <footer>Docs</footer>
+    target:
+      home.html: |-
+        <footer>Docs</footer>
+
+  - scenario: it should fail loud when a content file is missing
+    source:
+      config.yaml:
+        var:
+          body:
+            file: content/nowhere.md
+        output: out.html
+        input: "{{body}}"
+    error: "Content file not found: content/nowhere.md (declared at var (config.yaml).body)"
+
+  - scenario: it should fail loud when no transform can be inferred
+    source:
+      config.yaml:
+        var:
+          notes:
+            file: notes.txt
+        output: out.html
+        input: "{{notes}}"
+      notes.txt: |-
+        plain text
+    error: 'var (config.yaml).notes: cannot infer a transform for notes.txt'
+
+  - scenario: it should fail loud on an unknown transform name
+    source:
+      config.yaml:
+        var:
+          body:
+            file: content/intro.md
+            transform: nope
+        output: out.html
+        input: "{{body}}"
+      content/intro.md: |-
+        Hello
+    error: 'var (config.yaml).body: unknown transform "nope" (available: md, none)'
+
+  - scenario: it should fail loud when two files in one var block export the same frontmatter name
+    source:
+      config.yaml:
+        var:
+          a:
+            file: content/a.md
+          b:
+            file: content/b.md
+        output: out.html
+        input: "{{a}}{{b}}"
+      content/a.md: |-
+        ---
+        title: A
+        ---
+        a
+      content/b.md: |-
+        ---
+        title: B
+        ---
+        b
+    error: 'Frontmatter conflict in var (config.yaml): "title" defined by both content/a.md and content/b.md'
+
+  - scenario: it should fail loud on an unterminated frontmatter block
+    source:
+      config.yaml:
+        var:
+          body:
+            file: content/intro.md
+        output: out.html
+        input: "{{body}}"
+      content/intro.md: |-
+        ---
+        title: X
+    error: "content/intro.md: unterminated frontmatter"
+
+  - scenario: it should detect a cycle running through a file body
+    source:
+      config.yaml:
+        var:
+          body:
+            file: content/intro.md
+        output: out.html
+        input: "{{body}}"
+      content/intro.md: |-
+        {{body}}
+    error: "Variable cycle in file content/intro.md: body -> body"
+
+  - scenario: it should fail loud on an undefined variable inside a file body
+    source:
+      config.yaml:
+        var:
+          body:
+            file: content/intro.md
+        output: out.html
+        input: "{{body}}"
+      content/intro.md: |-
+        {{missing}}
+    error: "Undefined variable {{missing}} in file content/intro.md"

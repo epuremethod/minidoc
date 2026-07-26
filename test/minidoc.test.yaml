@@ -1,70 +1,69 @@
-marmot:
-  description: it should resolve variables from var
-  source:
-    config.yaml:
-      var:
-        name: Marmot
-      output: marmot.html
-      input: |-
-        Hello {{name}} !
-  target:
-    marmot.html: |-
-      Hello Marmot !
+feature: Variable resolution
+background:
+  given: a filesystem
+examples:
+  - scenario: it should resolve variables from var
+    source:
+      config.yaml:
+        var:
+          name: Marmot
+        output: marmot.html
+        input: |-
+          Hello {{name}} !
+    target:
+      marmot.html: |-
+        Hello Marmot !
 
-pageVarShadowsGlobalVar:
-  description: it should prefer a page var over a global var
-  source:
-    config.yaml:
-      var:
-        name: Global
-        planet: Earth
-      pages:
-        home:
-          var:
-            name: Local
-          output: home.html
-          input: |-
-            {{name}} on {{planet}}
-  target:
-    home.html: |-
-      Local on Earth
+  - scenario: it should prefer a page var over a global var
+    source:
+      config.yaml:
+        var:
+          name: Global
+          planet: Earth
+        pages:
+          home:
+            var:
+              name: Local
+            output: home.html
+            input: |-
+              {{name}} on {{planet}}
+    target:
+      home.html: |-
+        Local on Earth
 
-variableReferencingVariable:
-  description: it should resolve variables whose values reference variables
-  source:
-    config.yaml:
-      var:
-        greeting: Hello {{name}}
-        name: "{{animal}}"
-        animal: Marmot
-      output: greeting.html
-      input: |-
-        {{greeting}} !
-  target:
-    greeting.html: |-
-      Hello Marmot !
+  - scenario: it should resolve variables whose values reference variables
+    source:
+      config.yaml:
+        var:
+          greeting: Hello {{name}}
+          name: "{{animal}}"
+          animal: Marmot
+        output: greeting.html
+        input: |-
+          {{greeting}} !
+    target:
+      greeting.html: |-
+        Hello Marmot !
 
-undefinedVariable:
-  description: it should fail loud on an undefined variable
-  source:
-    config.yaml:
-      var:
-        name: Marmot
-      pages:
-        home:
-          output: home.html
-          input: |-
-            Hello {{missing}} !
-  error: 'Undefined variable {{missing}} in page "home" input'
+  - scenario: it should fail loud on an undefined variable
+    source:
+      config.yaml:
+        var:
+          name: Marmot
+        pages:
+          home:
+            output: home.html
+            input: |-
+              Hello {{missing}} !
+    error: 'Undefined variable {{missing}} in page "home" input'
 
-cycle:
-  description: it should detect a variable reference cycle
-  source:
-    config.yaml:
-      var:
-        a: "{{b}}"
-        b: "{{a}}"
-      output: cycle.html
-      input: |-
-        {{a}}
-  error: "Variable cycle in config config.yaml input: a -> b -> a"
+  - scenario: it should detect a variable reference cycle
+    source:
+      config.yaml:
+        var:
+          a: "{{b}}"
+          b: "{{a}}"
+        output: cycle.html
+        input: |-
+          {{a}}
+    error: "Variable cycle in config config.yaml input: a -> b -> a"

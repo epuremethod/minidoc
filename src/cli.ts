@@ -1,4 +1,4 @@
-import { run } from "./features/run.ts";
+import { run } from "./index.ts";
 import { makeNodeFileSystem } from "./services/node-filesystem.ts";
 
 const configPath = process.argv[2];

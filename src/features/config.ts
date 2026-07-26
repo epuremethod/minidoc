@@ -1,37 +1,45 @@
 import { parse } from "yaml";
-import type { Config, PageConfig } from "../api/config.ts";
+import type { Config, FileVar, PageConfig, VarValue } from "../api/config.ts";
+import { dirname, joinPath } from "./paths.ts";
 
-/** Parse and validate one config file. `path` locates it in error messages. */
+/**
+ * Parse and validate one config file. `path` locates it in error messages.
+ *
+ * Every declared path (`base`, `output`, `var` file paths) is anchored here,
+ * relative to the declaring config's directory, before any var interpolation —
+ * so a var can contribute path segments but never move the anchor.
+ */
 export function parseConfig(text: string, path: string): Config {
   const data = parse(text);
   if (!isRecord(data)) {
     throw new Error(`${path}: config must be a YAML mapping`);
   }
+  const dir = dirname(path);
   const config: Config = {
-    var: readVars(data["var"], `${path}: var`),
+    var: readVars(data["var"], `${path}: var`, dir),
     pages: {},
   };
   if (data["base"] !== undefined) {
     if (typeof data["base"] !== "string") {
       throw new Error(`${path}: base must be a string path`);
     }
-    config.base = data["base"];
+    config.base = joinPath(dir, data["base"]);
   }
   if (data["pages"] !== undefined) {
     if (!isRecord(data["pages"])) {
       throw new Error(`${path}: pages must be a mapping of page configs`);
     }
     for (const [key, page] of Object.entries(data["pages"])) {
-      config.pages[key] = readPage(page, `${path}: pages.${key}`);
+      config.pages[key] = readPage(page, `${path}: pages.${key}`, dir);
     }
   }
   if (data["output"] !== undefined || data["input"] !== undefined) {
-    config.root = readPage({ var: {}, output: data["output"], input: data["input"] }, path);
+    config.root = readPage({ var: {}, output: data["output"], input: data["input"] }, path, dir);
   }
   return config;
 }
 
-function readPage(data: unknown, where: string): PageConfig {
+function readPage(data: unknown, where: string, dir: string): PageConfig {
   if (!isRecord(data)) {
     throw new Error(`${where}: page must be a mapping`);
   }
@@ -42,13 +50,47 @@ function readPage(data: unknown, where: string): PageConfig {
     throw new Error(`${where}: missing or invalid "input" (must be a string)`);
   }
   return {
-    var: readVars(data["var"], `${where}.var`),
-    output: data["output"],
+    var: readVars(data["var"], `${where}.var`, dir),
+    output: joinPath(dir, data["output"]),
     input: data["input"],
   };
 }
 
-function readVars(data: unknown, where: string): Record<string, string> {
+function readVars(data: unknown, where: string, dir: string): Record<string, VarValue> {
+  if (data === undefined || data === null) {
+    return {};
+  }
+  if (!isRecord(data)) {
+    throw new Error(`${where}: must be a mapping of names to values`);
+  }
+  const vars: Record<string, VarValue> = {};
+  for (const [name, value] of Object.entries(data)) {
+    vars[name] = isRecord(value) ? readFileVar(value, `${where}.${name}`, dir) : readScalar(value, `${where}.${name}`);
+  }
+  return vars;
+}
+
+function readFileVar(data: Record<string, unknown>, where: string, dir: string): FileVar {
+  for (const key of Object.keys(data)) {
+    if (key !== "file" && key !== "transform") {
+      throw new Error(`${where}: unknown key "${key}" (a file var takes "file" and an optional "transform")`);
+    }
+  }
+  if (typeof data["file"] !== "string") {
+    throw new Error(`${where}: missing or invalid "file" (must be a string path)`);
+  }
+  const fileVar: FileVar = { file: joinPath(dir, data["file"]) };
+  if (data["transform"] !== undefined) {
+    if (typeof data["transform"] !== "string") {
+      throw new Error(`${where}: "transform" must be a string`);
+    }
+    fileVar.transform = data["transform"];
+  }
+  return fileVar;
+}
+
+/** Scalar-only var block, used for content file frontmatter. */
+export function readScalarVars(data: unknown, where: string): Record<string, string> {
   if (data === undefined || data === null) {
     return {};
   }
@@ -57,15 +99,19 @@ function readVars(data: unknown, where: string): Record<string, string> {
   }
   const vars: Record<string, string> = {};
   for (const [name, value] of Object.entries(data)) {
-    if (typeof value === "string") {
-      vars[name] = value;
-    } else if (typeof value === "number" || typeof value === "boolean") {
-      vars[name] = String(value);
-    } else {
-      throw new Error(`${where}.${name}: must be a scalar value`);
-    }
+    vars[name] = readScalar(value, `${where}.${name}`);
   }
   return vars;
+}
+
+function readScalar(value: unknown, where: string): string {
+  if (typeof value === "string") {
+    return value;
+  }
+  if (typeof value === "number" || typeof value === "boolean") {
+    return String(value);
+  }
+  throw new Error(`${where}: must be a scalar value`);
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

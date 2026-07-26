@@ -26,6 +26,51 @@ the variable, and the scopes searched.
 v1 is plain name substitution only — no escaping of literal `{{`/`}}`, no
 filters/pipes, no expressions (future extensions).
 
+## File vars
+
+A var value that is a mapping with a `file` key loads its content from an
+html/md file instead of inline text:
+
+```yaml
+var:
+  intro:
+    file: content/intro.md       # markdown -> html, inferred from extension
+  footer:
+    file: partials/footer.html   # html, passed through as-is
+  snippet:
+    file: content/raw.md
+    transform: none              # explicit override of the inference
+```
+
+The transform is inferred from the extension (`.md`/`.markdown` -> `md`,
+`.html`/`.htm` -> `none`); an unknown extension without an explicit
+`transform` fails loud. `{{refs}}` in the body are resolved first, then the
+transform runs on the result (so a var can inject markdown that gets
+rendered).
+
+Content files may start with a YAML frontmatter block of scalar vars:
+
+```markdown
+---
+title: Home
+---
+# {{title}}
+```
+
+Frontmatter is the most local scope for the file's own body, and its vars are
+also exported as a scope just below the declaring `var` block — so a page
+layout can use `{{title}}` from its content file, while an explicit
+`var: title:` still wins. Two files in one block exporting the same name is a
+conflict and fails loud.
+
+## Paths
+
+Every declared path (`base`, `output`, `file`) is relative to the config file
+that declares it, anchored at parse time — before var interpolation. `file`
+paths may contain `{{refs}}`; they resolve against string vars only (never
+frontmatter or file contents) and can contribute segments, but never move the
+anchor. Absolute paths (`/...`) pass through untouched.
+
 ## Usage
 
 ```sh
@@ -34,12 +79,16 @@ pnpm minidoc <configPath>
 
 ## Design
 
-- `src/api/` — types only (the `FileSystem` service interface, config and
-  scope types).
+- `src/api/` — types only (the `FileSystem` service interface, config, scope
+  and transform types).
 - `src/services/` — one file per service: `makeMemoryFileSystem` backs the
-  tests, `makeNodeFileSystem` backs real runs.
-- `src/features/` — pure logic (`resolve`, `parseConfig`, `run`): all I/O goes
-  through the injected `FileSystem`, never direct `fs`/`path` imports.
+  tests, `makeNodeFileSystem` backs real runs, `makeTransforms` wraps the
+  markdown renderer (`marked`).
+- `src/features/` — pure logic (`resolve`, `parseConfig`, `splitFrontmatter`,
+  `run`): all I/O goes through the injected `FileSystem`, transforms are
+  injected too, never direct `fs`/`path`/renderer imports.
+- `src/index.ts` — public surface and composition point: exports `run` with
+  the default transform registry pre-wired.
 - No classes: services are `make...()` factories returning plain objects of
   closures.
 
@@ -49,9 +98,34 @@ pnpm minidoc <configPath>
 pnpm test
 ```
 
-Tests are declarative YAML fixtures (`test/*.test.yaml`): a `source` virtual
-filesystem, a `target` of expected outputs (or an `error` message). The
-`yaml-bdd/` Vite plugin compiles each fixture into a `describe.concurrent`
-suite and source-maps failures back into the YAML file. That plugin is a
-temporary resident here — it is slated for extraction into vitest-bdd — so it
-depends only on minidoc's public `run` API and the in-memory FileSystem.
+Tests are declarative YAML fixtures (`test/*.test.yaml`): a `feature` title
+names the suite, `background` names the `given` step that runs every
+scenario, and each `examples` entry is pure data for that step:
+
+```yaml
+feature: Variable resolution
+background:
+  given: a filesystem
+examples:
+  - scenario: it should resolve variables from var
+    source:            # virtual filesystem the run starts with
+      config.yaml: ... # mapping values are serialized back to YAML text
+    target:            # expected filesystem contents after the run
+      out.html: ...
+    # or error: the message the run must reject with
+```
+
+The `yaml-bdd/` modules split along the extraction line into `@epure/vitest`:
+
+- `compile.ts` — generic yaml parsing, validation and source-mapped codegen;
+  knows nothing about what a scenario means.
+- `steps.ts` — the step registry (`given(key, fn)`) and runtime.
+- `plugin.ts` — Vite glue; resolves each fixture to its steps module the same
+  way @epure/vitest does (`base.test.ts`, `base.steps.ts`, then a shared
+  `steps.ts` next to the fixture).
+- `test/steps.ts` — minidoc's only step, `a filesystem`: seeds the in-memory
+  FileSystem from `source`, runs the entry `config.yaml`, asserts `target`
+  files (or the `error`). Uses only minidoc's public API.
+
+Failures stack through the step definition and source-map back to the
+scenario's line in the YAML file.
