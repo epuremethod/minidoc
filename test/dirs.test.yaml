@@ -275,7 +275,7 @@ examples:
         build:
           - output: out.txt
             input: "{{entries}}"
-    error: 'config.yaml: var.entries: a mapping var needs "file" (file var) or "dir" (dir var)'
+    error: 'config.yaml: var.entries: a mapping var needs "file" (file var), "dir" (dir var), or "list" (list var)'
 
   - scenario: it should detect a cycle through the collection
     source:

@@ -1,4 +1,4 @@
-import type { Scope, Value } from "../api/resolve.ts";
+import type { ListContent, ListValue, MappingValue, Scope, Value } from "../api/resolve.ts";
 
 /**
  * `{{name}}` — plain name substitution only (v1).
@@ -47,6 +47,15 @@ function expandValue(value: Value, scopes: readonly Scope[], active: readonly st
   if (typeof value === "string") {
     return expand(value, scopes, active, where);
   }
+  if ("kind" in value) {
+    if (value.kind === "list") {
+      return value.items.map((item) => expand(item, scopes, active, where)).join("");
+    }
+    throw new Error(`Cannot render a frontmatter mapping directly in ${where}; reference one of its scalar paths`);
+  }
+  if ("source" in value) {
+    return expandList(value, scopes, active);
+  }
   if ("items" in value) {
     return value.items
       .map((item) =>
@@ -62,12 +71,55 @@ function expandValue(value: Value, scopes: readonly Scope[], active: readonly st
   return value.transform(expand(value.body, [value.frontmatter, ...scopes], active, value.where));
 }
 
+function expandList(value: ListContent, scopes: readonly Scope[], active: readonly string[]): string {
+  const source = lookup(scopes, value.source);
+  if (source === undefined) {
+    const searched = scopes.map((scope) => scope.label).join(", ") || "no scopes";
+    throw new Error(`Undefined list "${value.source}" in ${value.where} (searched: ${searched})`);
+  }
+  if (!list(source)) {
+    throw new Error(`${value.where}: "${value.source}" must resolve to a frontmatter list`);
+  }
+  if (source.items.length === 0) {
+    return "";
+  }
+  const body = source.items
+    .map((item) =>
+      expand(value.each, [{ label: `${value.where} item`, vars: { item } }, ...scopes], active, value.where),
+    )
+    .join(value.join);
+  if (value.template === undefined) {
+    return body;
+  }
+  return expand(value.template, [{ label: `${value.where} template`, vars: { body } }, ...scopes], active, value.where);
+}
+
 function lookup(scopes: readonly Scope[], name: string): Value | undefined {
   for (const scope of scopes) {
-    const value = scope.vars[name];
+    const direct = scope.vars[name];
+    if (direct !== undefined) {
+      return direct;
+    }
+    const [root = name, ...path] = name.split(".");
+    let value = scope.vars[root];
+    for (const part of path) {
+      if (!mapping(value)) {
+        value = undefined;
+        break;
+      }
+      value = value.entries[part];
+    }
     if (value !== undefined) {
       return value;
     }
   }
   return undefined;
+}
+
+function list(value: Value): value is ListValue {
+  return typeof value !== "string" && "kind" in value && value.kind === "list";
+}
+
+function mapping(value: Value | undefined): value is MappingValue {
+  return value !== undefined && typeof value !== "string" && "kind" in value && value.kind === "mapping";
 }

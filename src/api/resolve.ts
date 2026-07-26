@@ -1,5 +1,19 @@
 import type { Transform } from "./transform.ts";
 
+/** A YAML frontmatter list. Only scalar entries are supported. */
+export type ListValue = {
+  kind: "list";
+  items: string[];
+};
+
+/** A YAML frontmatter mapping, recursively containing mappings, lists, or scalars. */
+export type MappingValue = {
+  kind: "mapping";
+  entries: Record<string, DataValue>;
+};
+
+export type DataValue = string | ListValue | MappingValue;
+
 /** A loaded file var: frontmatter split off, transform picked from the registry. */
 export type FileContent = {
   /** File text without its frontmatter block, `{{refs}}` not yet resolved. */
@@ -22,7 +36,16 @@ export type DirContent = {
   where: string;
 };
 
-export type Value = string | FileContent | DirContent;
+/** A configured renderer for a scalar list found in the active scopes. */
+export type ListContent = {
+  source: string;
+  each: string;
+  join: string;
+  template?: string;
+  where: string;
+};
+
+export type Value = DataValue | FileContent | DirContent | ListContent;
 
 /** One layer of variables, most local first. `label` names it in error messages. */
 export type Scope = {

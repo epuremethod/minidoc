@@ -1,0 +1,97 @@
+feature: Rich frontmatter
+background:
+  given: a filesystem
+examples:
+  - scenario: it should resolve paths through nested frontmatter mappings
+    source:
+      config.yaml:
+        var:
+          entries:
+            dir: api
+            transform: none
+            each: "{{signature.ts}} / {{signature.res}}"
+        build:
+          - output: out.txt
+            input: "{{entries}}"
+      api/given.md: |-
+        ---
+        signature:
+          ts: "function given(pattern: string)"
+          res: "let given: string => unit"
+        ---
+        body
+    target:
+      out.txt: "function given(pattern: string) / let given: string => unit"
+
+  - scenario: it should render a scalar list through an item template
+    source:
+      config.yaml:
+        var:
+          refsBlock:
+            list: refs
+            each: '<a href="./api.html#{{item}}">{{item}}</a>'
+            join: ", "
+            template: '<p class="xref">Reference: {{body}} <span class="arrow">→</span></p>'
+          chapters:
+            dir: guide
+            transform: none
+            each: |-
+              <section>
+              {{body}}
+              {{refsBlock}}
+              </section>
+        build:
+          - output: guide.html
+            input: "{{chapters}}"
+      guide/01-contract.md: |-
+        ---
+        refs: [given, step-type]
+        ---
+        Contract
+    target:
+      guide.html: |-
+        <section>
+        Contract
+        <p class="xref">Reference: <a href="./api.html#given">given</a>, <a href="./api.html#step-type">step-type</a> <span class="arrow">→</span></p>
+        </section>
+
+  - scenario: it should render nothing, including the wrapper, for an empty list
+    source:
+      config.yaml:
+        var:
+          tagsBlock:
+            list: tags
+            each: "<span>{{item}}</span>"
+            template: "<p>{{body}}</p>"
+          entries:
+            dir: api
+            transform: none
+            each: "<article>{{tagsBlock}}{{body}}</article>"
+        build:
+          - output: api.html
+            input: "{{entries}}"
+      api/given.md: |-
+        ---
+        tags: []
+        ---
+        Given
+    target:
+      api.html: "<article>Given</article>"
+
+  - scenario: it should reject non-scalar list entries
+    source:
+      config.yaml:
+        var:
+          entries:
+            dir: content
+            transform: none
+        build:
+          - output: out.txt
+            input: "{{entries}}"
+      content/a.md: |-
+        ---
+        refs:
+          - slug: given
+        ---
+        body
+    error: "content/a.md: frontmatter.refs[0]: must be a scalar value"

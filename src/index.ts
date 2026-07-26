@@ -3,7 +3,7 @@ import type { Transforms } from "./api/transform.ts";
 import { run as runWith } from "./features/run.ts";
 import { makeTransforms } from "./services/transforms.ts";
 
-export type { BuildConfig, BuildInput, Config, CopyInput, FileVar, VarValue } from "./api/config.ts";
+export type { BuildConfig, BuildInput, Config, CopyInput, FileVar, ListVar, VarValue } from "./api/config.ts";
 export type { FileSystem } from "./api/filesystem.ts";
 export type { FileContent, Scope, Value } from "./api/resolve.ts";
 export type { Transform, Transforms } from "./api/transform.ts";

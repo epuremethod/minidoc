@@ -1,5 +1,5 @@
 import { parse } from "yaml";
-import type { BuildConfig, BuildInput, Config, CopyInput, DirVar, FileVar, VarValue } from "../api/config.ts";
+import type { BuildConfig, BuildInput, Config, CopyInput, DirVar, FileVar, ListVar, VarValue } from "../api/config.ts";
 import { dirname, joinPath } from "./paths.ts";
 
 /**
@@ -53,7 +53,11 @@ function readBuild(data: unknown, where: string, dir: string): BuildConfig {
 
 function readInput(data: Record<string, unknown>, where: string, dir: string): BuildInput {
   if (data["copy"] === undefined) {
-    return readContentVar(data, where, dir);
+    const input = readContentVar(data, where, dir);
+    if ("list" in input) {
+      throw new Error(`${where}: a list var is only valid in a "var" block`);
+    }
+    return input;
   }
   return readCopyInput(data, where, dir);
 }
@@ -84,14 +88,17 @@ function readVars(data: unknown, where: string, dir: string): Record<string, Var
   return vars;
 }
 
-function readContentVar(data: Record<string, unknown>, where: string, dir: string): FileVar | DirVar {
+function readContentVar(data: Record<string, unknown>, where: string, dir: string): FileVar | DirVar | ListVar {
   if (data["dir"] !== undefined) {
     return readDirVar(data, where, dir);
   }
   if (data["file"] !== undefined) {
     return readFileVar(data, where, dir);
   }
-  throw new Error(`${where}: a mapping var needs "file" (file var) or "dir" (dir var)`);
+  if (data["list"] !== undefined) {
+    return readListVar(data, where);
+  }
+  throw new Error(`${where}: a mapping var needs "file" (file var), "dir" (dir var), or "list" (list var)`);
 }
 
 function readFileVar(data: Record<string, unknown>, where: string, dir: string): FileVar {
@@ -146,7 +153,37 @@ function readDirVar(data: Record<string, unknown>, where: string, dir: string): 
   return dirVar;
 }
 
-/** Scalar-only var block, used for content file frontmatter. */
+function readListVar(data: Record<string, unknown>, where: string): ListVar {
+  for (const key of Object.keys(data)) {
+    if (key !== "list" && key !== "each" && key !== "join" && key !== "template") {
+      throw new Error(
+        `${where}: unknown key "${key}" (a list var takes "list", "each", and optional "join", "template")`,
+      );
+    }
+  }
+  if (typeof data["list"] !== "string") {
+    throw new Error(`${where}: missing or invalid "list" (must be a dotted variable name)`);
+  }
+  if (typeof data["each"] !== "string") {
+    throw new Error(`${where}: missing or invalid "each" (must be a string template)`);
+  }
+  const listVar: ListVar = { list: data["list"], each: data["each"] };
+  if (data["join"] !== undefined) {
+    if (typeof data["join"] !== "string") {
+      throw new Error(`${where}: "join" must be a string`);
+    }
+    listVar.join = data["join"];
+  }
+  if (data["template"] !== undefined) {
+    if (typeof data["template"] !== "string") {
+      throw new Error(`${where}: "template" must be a string`);
+    }
+    listVar.template = data["template"];
+  }
+  return listVar;
+}
+
+/** Scalar-only var block, used by dir `where` filters. */
 export function readScalarVars(data: unknown, where: string): Record<string, string> {
   if (data === undefined || data === null) {
     return {};

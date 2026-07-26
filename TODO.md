@@ -13,16 +13,10 @@ capabilities below are actually missing.
 
 ## 2. Richer frontmatter values
 
-Current frontmatter is scalar-only; the content needs:
-
-- Nested mappings: `signature: {ts: ..., res: ...}` in every api entry,
-  referenced as `{{signature.ts}}` (the resolver's name regex already
-  accepts dots — only the scope lookup needs to walk paths).
-- Lists of scalars: `refs: [given, step-type]` (guide), `tags: []` (api).
-  Needs (a) a per-item template to render each entry — refs become
-  `<a href="./api.html#{{item}}">` links — and (b) empty-list-renders-
-  nothing semantics: the old output omits the whole `refsBlock` paragraph
-  when `refs: []`.
+- [x] Done: nested mappings such as `signature: {ts: ..., res: ...}` resolve
+  through dotted paths such as `{{signature.ts}}`.
+- [x] Done: scalar lists render through list vars (`list`/`each`/`join`/
+  `template`); an empty list renders nothing, including its wrapper.
 
 ## 3. Markdown transform extensions (keep out of core)
 

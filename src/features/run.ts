@@ -1,6 +1,6 @@
 import type { BuildConfig, Config, DirVar, VarValue } from "../api/config.ts";
 import type { FileSystem } from "../api/filesystem.ts";
-import type { DirContent, FileContent, Scope, Value } from "../api/resolve.ts";
+import type { DataValue, DirContent, FileContent, Scope, Value } from "../api/resolve.ts";
 import type { Transforms } from "../api/transform.ts";
 import { parseConfig } from "./config.ts";
 import { splitFrontmatter } from "./frontmatter.ts";
@@ -8,7 +8,7 @@ import { globMatcher, joinPath } from "./paths.ts";
 import { resolve, resolveValue } from "./resolve.ts";
 
 /** A content file's one-time parse: frontmatter split off its body. */
-type Parsed = { vars: Record<string, string>; body: string };
+type Parsed = { vars: Record<string, DataValue>; body: string };
 
 /**
  * Everything a content load needs: the injected services plus a per-run
@@ -145,6 +145,16 @@ async function loadScopes(
       // Dir file frontmatter stays local to each item — 8 chapters would
       // conflict on `title` — so dir vars skip the export step below.
       loaded[name] = await loadDir(loader, value, `${label}.${name}`, pathScopes);
+      continue;
+    }
+    if ("list" in value) {
+      loaded[name] = {
+        source: value.list,
+        each: value.each,
+        join: value.join ?? "",
+        template: value.template,
+        where: `${label}.${name}`,
+      };
       continue;
     }
     const file = resolve(value.file, pathScopes, `${label}.${name} file`);

@@ -47,13 +47,18 @@ The transform is inferred from the extension (`.md`/`.markdown` -> `md`,
 transform runs on the result (so a var can inject markdown that gets
 rendered).
 
-Content files may start with a YAML frontmatter block of scalar vars:
+Content files may start with a YAML frontmatter block containing scalars,
+nested mappings, and lists of scalars:
 
 ```markdown
 ---
 title: Home
+signature:
+  ts: "function home()"
+  res: "let home: unit => unit"
+refs: [given, step-type]
 ---
-# {{title}}
+# {{title}} — {{signature.ts}}
 ```
 
 Frontmatter is the most local scope for the file's own body, and its vars are
@@ -61,6 +66,24 @@ also exported as a scope just below the declaring `var` block — so a build
 layout can use `{{title}}` from its content file, while an explicit
 `var: title:` still wins. Two files in one block exporting the same name is a
 conflict and fails loud.
+
+A list var renders a frontmatter list through an item template. Its `list` is
+a dotted variable name, `each` sees the current scalar as `{{item}}`, `join`
+defaults to an empty string, and an optional `template` sees the joined items
+as `{{body}}`:
+
+```yaml
+var:
+  refsBlock:
+    list: refs
+    each: '<a href="./api.html#{{item}}">{{item}}</a>'
+    join: ", "
+    template: '<p>Reference: {{body}}</p>'
+```
+
+An empty list renders nothing, including the wrapper `template`. Referencing a
+nested scalar such as `{{signature.ts}}` walks through mappings; mappings
+cannot be rendered directly.
 
 ## Dir vars
 
