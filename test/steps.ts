@@ -1,10 +1,6 @@
 import { expect } from "vitest";
 import { stringify } from "yaml";
-import { makeMemoryFileSystem, run as classic } from "../src/Minidoc.res.mjs";
-import { run as tilia } from "../src/MinidocTilia.res.mjs";
-
-/** MINIDOC_IMPL=tilia runs the fixtures against the carve experiment. */
-const run = process.env.MINIDOC_IMPL === "tilia" ? tilia : classic;
+import { makeMemoryFileSystem, run } from "../src/Minidoc.res.mjs";
 import { given } from "../yaml-bdd/steps.ts";
 
 /** The entry config `run` starts from in every scenario. */

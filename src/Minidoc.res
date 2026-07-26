@@ -1,7 +1,12 @@
-// minidoc — a small documentation website generator.
-// Schema.res owns the config/frontmatter parsing; this module resolves and runs.
+// minidoc — a small documentation website generator, built on tilia.
+//
+// A context is a dict of templates, carved with tilia: every var is a lazy,
+// cached, dependency-tracked computed. A child context re-hosts its parent's
+// *templates* (own wins), so inherited templates re-resolve against local
+// overrides — you inherit formulas, not values.
 
 open Schema
+open Tilia
 
 external magic: 'a => 'b = "%identity"
 
@@ -10,12 +15,151 @@ module Md = {
   @module("marked") @scope("marked") external parse: (string, opts) => string = "parse"
 }
 
-// Await each item in order — sequential, unlike Promise.all.
-let rec seq = async (xs, i, fn) =>
-  if i < Array.length(xs) {
-    await fn(Array.getUnsafe(xs, i))
-    await seq(xs, i + 1, fn)
+// ---------------------------------------------------------------------------
+// FileSystem — the only door to the outside world.
+
+type filesystem = {
+  readFile: string => promise<string>,
+  writeFile: (string, string) => promise<unit>,
+  copy: (string, string) => promise<unit>,
+  exists: string => promise<bool>,
+  glob: string => promise<array<string>>,
+  listFiles: string => promise<array<string>>,
+}
+
+type transform = string => string
+
+let defaults: dict<transform> = Dict.fromArray([
+  ("md", text => Md.parse(text, {sync: false})),
+  ("none", text => text),
+])
+
+// ---------------------------------------------------------------------------
+// Rendering — carved contexts.
+
+/** A loaded content file: frontmatter split off, transform resolved. */
+type content = {body: string, transform: transform, front: dict<data>, at: string}
+
+/** A loaded var, ready to evaluate in a context. */
+type lvar =
+  | T(string) // template scalar
+  | L(array<string>) // list of template scalars
+  | V(data) // pre-rendered value — no further expansion
+  | F(content) // file
+  | D(array<content>, string, string) // dir items, each template, site
+  | R(listv, string) // list renderer, site
+  | P(string, transform, string) // template, transform, site
+
+/** One context: a carve of every template visible to it. */
+type ctx = {lvars: dict<lvar>, vars: dict<data>, get: string => option<data>}
+
+let reference = RegExp.fromString("\\{\\{\\s*([A-Za-z_][A-Za-z0-9_.-]*)\\s*\\}\\}", ~flags="g")
+
+// Names currently being rendered: a repeat is a cycle, detected before the
+// re-entrant read so the error propagates instead of looping.
+let stack: ref<array<string>> = ref([])
+
+// Decorate an error with its render site; the innermost site wins.
+let rawSite: (string, unit => unknown) => unknown = %raw(`(at, fn) => {
+  try { return fn() } catch (e) {
+    if (/^Undefined variable/.test(e.message) && !e.message.includes(" in ")) {
+      e.message += " in " + at
+    } else if (e.message.startsWith("Variable cycle:")) {
+      e.message = "Variable cycle in " + at + ":" + e.message.slice(15)
+    }
+    throw e
   }
+}`)
+let site = (at, fn: unit => 'a): 'a => magic(rawSite(at, magic(fn)))
+
+/** Child templates shadow the parent's. */
+let over = (parent, own) => Dict.assign(Dict.copy(parent), own)
+
+let data = front =>
+  front->Dict.mapValues(d =>
+    switch d {
+    | One(s) => T(s)
+    | Many(a) => L(a)
+    }
+  )
+
+let rec make = (lvars: dict<lvar>): ctx =>
+  carve(({derived}) => {
+    lvars,
+    vars: lvars->Dict.mapValues(lv => derived((self: ctx) => eval(lv, self))),
+    get: derived((self: ctx) => name => Dict.get(self.vars, name)),
+  })
+and sub = (self: ctx, extra: dict<lvar>) => make(over(self.lvars, extra))
+and eval = (lv, self: ctx) =>
+  switch lv {
+  | T(s) => One(render(s, self.get))
+  | L(items) => Many(items->Array.map(render(_, self.get)))
+  | V(d) => d
+  | P(value, transform, at) => One(transform(site(at, () => render(value, self.get))))
+  | F(c) => One(c.transform(site(c.at, () => render(c.body, sub(self, data(c.front)).get))))
+  | D(items, each, at) =>
+    One(
+      site(at, () =>
+        items
+        ->Array.map(c => {
+          let front = sub(self, data(c.front))
+          let body = c.transform(site(c.at, () => render(c.body, front.get)))
+          render(each, sub(front, Dict.fromArray([("body", V(One(body)))])).get)
+        })
+        ->Array.join("\n")
+      ),
+    )
+  | R(l, at) =>
+    switch self.get(l.list) {
+    | None => fail(`Undefined variable {{${l.list}}}`)
+    | Some(One(_)) => fail(`${at}: "${l.list}" must resolve to a scalar list`)
+    | Some(Many(items)) =>
+      if Array.length(items) == 0 {
+        One("")
+      } else {
+        let one = (name, value, template) =>
+          render(template, sub(self, Dict.fromArray([(name, V(One(value)))])).get)
+        let body =
+          items->Array.map(item => one("item", item, l.each))->Array.join(l.join->Option.getOr(""))
+        One(
+          switch l.template {
+          | Some(template) => one("body", body, template)
+          | None => body
+          },
+        )
+      }
+    }
+  }
+and render = (template, get) =>
+  template->String.replaceRegExpBy1Unsafe(reference, (
+    ~match as ref,
+    ~group1 as name,
+    ~offset as _,
+    ~input as _,
+  ) => {
+    let active = stack.contents
+    if Array.includes(active, name) {
+      let from = Array.indexOf(active, name)
+      fail(`Variable cycle: ${[...Array.slice(active, ~start=from), name]->Array.join(" -> ")}`)
+    }
+    stack := [...active, name]
+    let out = switch get(name) {
+    | Some(One(s)) => s
+    | Some(Many(a)) => a->Array.join("")
+    | None => fail(`Undefined variable ${ref}`)
+    }
+    stack := active
+    out
+  })
+
+/** A top-level render site: fresh cycle stack, site-labeled errors. */
+let top = (at, fn: unit => 'a): 'a => {
+  stack := []
+  site(at, fn)
+}
+
+// ---------------------------------------------------------------------------
+// Paths and frontmatter.
 
 let special = RegExp.fromString("[.*+?^${}()|[\\]\\\\]", ~flags="g")
 let slashes = RegExp.fromString("\\\\", ~flags="g")
@@ -38,12 +182,9 @@ let matcher = glob => {
   name => re->RegExp.test(String.replaceRegExp(name, slashes, "/"))
 }
 
-// ---------------------------------------------------------------------------
-// Frontmatter — an optional leading `---` YAML block of scalars/scalar lists.
-
-type parsed = {front: dict<data>, body: string}
-
 let matter = RegExp.fromString("^---\\n(?:([\\s\\S]*?)\\n)?---(?:\\n|$)")
+
+type page = {front: dict<data>, body: string}
 
 let split = (text, at) =>
   if !String.startsWith(text, "---\n") {
@@ -60,130 +201,173 @@ let split = (text, at) =>
     }
   }
 
+let infer = path =>
+  if String.endsWith(path, ".md") || String.endsWith(path, ".markdown") {
+    Some("md")
+  } else if String.endsWith(path, ".html") || String.endsWith(path, ".htm") {
+    Some("none")
+  } else {
+    None
+  }
+
+let rec seq = async (xs, i, fn) =>
+  if i < Array.length(xs) {
+    await fn(Array.getUnsafe(xs, i))
+    await seq(xs, i + 1, fn)
+  }
+
 // ---------------------------------------------------------------------------
-// Resolution — substitute every `{{name}}` with its value from the first
-// scope (most local first) that defines it, recursively, until no reference
-// remains. Undefined variables and reference cycles fail loud.
+// Loading — read configs and content up front; contexts are carved after.
 
-type rec value =
-  | Str(string)
-  | Items(array<string>)
-  | File(file)
-  | Folder(folder)
-  | Loop(loop)
-  | Piped(piped)
-and scope = {label: string, vars: dict<value>}
-and file = {body: string, transform: string => string, front: scope, at: string}
-and folder = {items: array<file>, each: string, at: string}
-and loop = {source: string, each: string, join: string, template: option<string>, at: string}
-and piped = {value: string, transform: string => string, at: string}
-
-let reference = RegExp.fromString("\\{\\{\\s*([A-Za-z_][A-Za-z0-9_.-]*)\\s*\\}\\}", ~flags="g")
-
-let labels = scopes => {
-  let all = scopes->Array.map(s => s.label)->Array.join(", ")
-  all == "" ? "no scopes" : all
-}
-
-let look = (scopes, name) => {
-  let rec go = i =>
-    if i >= Array.length(scopes) {
-      None
-    } else {
-      switch Dict.get(Array.getUnsafe(scopes, i).vars, name) {
-      | Some(v) => Some(v)
-      | None => go(i + 1)
-      }
+// Scalar-only lookup for `{{refs}}` inside declared paths, which resolve
+// before any content loads and so can never depend on it.
+let strs = (vars: dict<varv>, parent) => {
+  let rec get = name =>
+    switch Dict.get(vars, name) {
+    | Some(Scalar(s)) => Some(One(render(s, get)))
+    | _ => parent(name)
     }
-  go(0)
+  get
 }
 
-let rec expand = (text, scopes, active, at) =>
-  String.replaceRegExpBy1Unsafe(text, reference, (
-    ~match as ref,
-    ~group1 as name,
-    ~offset as _,
-    ~input as _,
-  ) => {
-    let seen = Array.indexOf(active, name)
-    if seen >= 0 {
-      fail(`Variable cycle in ${at}: ${[...Array.slice(active, ~start=seen), name]->Array.join(" -> ")}`)
-    } else {
-      switch look(scopes, name) {
-      | None => fail(`Undefined variable ${ref} in ${at} (searched: ${labels(scopes)})`)
-      | Some(v) => grow(v, scopes, [...active, name], at)
+/** Load one `var` block: its lvars plus the frontmatter its file vars export. */
+let load = async (fs: filesystem, transforms: dict<transform>, pget, label, vars: dict<varv>) => {
+  let named = (name, at) =>
+    switch Dict.get(transforms, name) {
+    | Some(t) => t
+    | None =>
+      fail(`${at}: unknown transform "${name}" (available: ${Dict.keysToArray(transforms)->Array.join(", ")})`)
+    }
+  let content = async (path, explicit, at) => {
+    if !(await fs.exists(path)) {
+      fail(`Content file not found: ${path} (declared at ${at})`)
+    }
+    let {front, body} = split(await fs.readFile(path), path)
+    let name = switch explicit->Option.orElse(infer(path)) {
+    | Some(name) => name
+    | None =>
+      fail(
+        `${at}: cannot infer a transform for ${path} — set "transform" (available: ${Dict.keysToArray(
+            transforms,
+          )->Array.join(", ")})`,
+      )
+    }
+    {body, transform: named(name, at), front, at: `file ${path}`}
+  }
+  let out: dict<lvar> = Dict.make()
+  let exports: dict<lvar> = Dict.make()
+  let owners: dict<string> = Dict.make()
+  await seq(Dict.toArray(vars), 0, async ((name, v)) => {
+    let at = `${label}.${name}`
+    switch v {
+    | Scalar(s) => Dict.set(out, name, T(s))
+    | Scalars(a) => Dict.set(out, name, L(a))
+    | ListV(l) => Dict.set(out, name, R(l, at))
+    | PipeV(p) => Dict.set(out, name, P(p.value, named(p.transform, at), at))
+    | FileV(f) =>
+      let path = top(`${at} file`, () => render(f.file, pget))
+      let c = await content(path, f.transform, at)
+      // Only file vars export their frontmatter — dir items would conflict
+      // on names like `title`, so theirs stays local to each item.
+      Dict.toArray(data(c.front))->Array.forEach(((fname, lv)) => {
+        switch Dict.get(owners, fname) {
+        | Some(owner) if owner != path =>
+          fail(`Frontmatter conflict in ${label}: "${fname}" defined by both ${owner} and ${path}`)
+        | _ => ()
+        }
+        Dict.set(owners, fname, path)
+        Dict.set(exports, fname, lv)
+      })
+      Dict.set(out, name, F(c))
+    | DirV(d) =>
+      let dir = top(`${at} dir`, () => render(d.dir, pget))
+      let glob = d.glob->Option.getOr("*.md")
+      let names = (await fs.listFiles(dir))->Array.filter(matcher(glob))
+      if Array.length(names) == 0 {
+        fail(`No files matching "${glob}" in ${dir} (declared at ${at})`)
       }
+      let items = await Promise.all(names->Array.map(n => content(join(dir, n), d.transform, at)))
+      Dict.set(out, name, D(items, d.each->Option.getOr("{{body}}"), `dir ${dir} (${at})`))
     }
   })
-and grow = (v, scopes, active, at) =>
-  switch v {
-  | Str(s) => expand(s, scopes, active, at)
-  | Items(items) => items->Array.map(item => expand(item, scopes, active, at))->Array.join("")
-  | Loop(l) => loop(l, scopes, active)
-  | Piped(p) => p.transform(expand(p.value, scopes, active, p.at))
-  | Folder(f) =>
-    f.items
-    ->Array.map(item =>
-      expand(
-        f.each,
-        [item.front, {label: f.at, vars: Dict.fromArray([("body", File(item))])}, ...scopes],
-        active,
-        f.at,
-      )
-    )
-    ->Array.join("\n")
-  | File(f) => f.transform(expand(f.body, [f.front, ...scopes], active, f.at))
-  }
-and loop = (l, scopes, active) =>
-  switch look(scopes, l.source) {
-  | None => fail(`Undefined list "${l.source}" in ${l.at} (searched: ${labels(scopes)})`)
-  | Some(Items(items)) =>
-    if Array.length(items) == 0 {
-      ""
-    } else {
-      let body =
-        items
-        ->Array.map(item =>
-          expand(
-            l.each,
-            [{label: `${l.at} item`, vars: Dict.fromArray([("item", Str(item))])}, ...scopes],
-            active,
-            l.at,
-          )
-        )
-        ->Array.join(l.join)
-      switch l.template {
-      | None => body
-      | Some(template) =>
-        expand(
-          template,
-          [{label: `${l.at} template`, vars: Dict.fromArray([("body", Str(body))])}, ...scopes],
-          active,
-          l.at,
-        )
-      }
-    }
-  | Some(_) => fail(`${l.at}: "${l.source}" must resolve to a scalar list`)
-  }
-
-// ---------------------------------------------------------------------------
-// FileSystem — the only door to the outside world.
-
-type filesystem = {
-  readFile: string => promise<string>,
-  writeFile: (string, string) => promise<unit>,
-  copy: (string, string) => promise<unit>,
-  exists: string => promise<bool>,
-  glob: string => promise<array<string>>,
-  listFiles: string => promise<array<string>>,
+  (out, exports)
 }
 
-type transform = string => string
+// The entry config and its base chain, base-most first: a base contributes
+// templates the child re-hosts (and may shadow) in its own context.
+let rec chain = async (fs: filesystem, path, visited, from) => {
+  if Array.includes(visited, path) {
+    fail(`Base config cycle: ${[...visited, path]->Array.join(" -> ")}`)
+  }
+  if !(await fs.exists(path)) {
+    fail(`Config not found: ${path}${from == "" ? "" : ` (base of ${from})`}`)
+  }
+  let config = parse(await fs.readFile(path), path)
+  switch config.base {
+  | Some(base) => Array.concat(await chain(fs, base, [...visited, path], path), [config])
+  | None => [config]
+  }
+}
 
-let defaults: dict<transform> = Dict.fromArray([
-  ("md", text => Md.parse(text, {sync: false})),
-  ("none", text => text),
-])
+/** Read the config at `entry` and execute every build entry through `fs`. */
+let exec = async (fs: filesystem, transforms, entry) => {
+  let configs = await chain(fs, entry, [], "")
+  let pget = configs->Array.reduce(_ => None, (parent, c) => strs(c.vars, parent))
+  let rec grow = async (acc, i) =>
+    if i >= Array.length(configs) {
+      acc
+    } else {
+      let (own, exports) = await load(fs, transforms, pget, `var (${entry})`, Array.getUnsafe(configs, i).vars)
+      await grow(over(over(acc, exports), own), i + 1)
+    }
+  let shared = await grow(Dict.make(), 0)
+  let last = Array.getUnsafe(configs, Array.length(configs) - 1)
+  await Promise.all(
+    last.build->Array.mapWithIndex(async (b, i) => {
+      let at = `build[${Int.toString(i)}]`
+      let bpget = strs(b.vars, pget)
+      let (own, exports) = await load(fs, transforms, bpget, `${at}.var`, b.vars)
+      let layer = front => make(over(over(over(front, shared), exports), own))
+      switch b.input {
+      | Copy(path) =>
+        let source = top(`${at} input copy`, () => render(path, bpget))
+        if !(await fs.exists(source)) {
+          fail(`Copy source not found: ${source} (declared at ${at} input)`)
+        }
+        await fs.copy(source, top(`${at} output`, () => render(b.output, layer(Dict.make()).get)))
+      | input =>
+        // A file input contributes its frontmatter as the least local
+        // templates — usable even in the output path.
+        let (lv, bctx) = switch input {
+        | Text(t) => (T(t), layer(Dict.make()))
+        | FileI(f) =>
+          let path = top(`${at} input file`, () => render(f.file, bpget))
+          let c = await load(fs, transforms, bpget, at, Dict.fromArray([("input", FileV({file: path, transform: f.transform}))]))
+          let (own, _) = c
+          switch Dict.get(own, "input") {
+          | Some(F(c)) => (F(c), layer(data(c.front)))
+          | _ => (T(""), layer(Dict.make()))
+          }
+        | DirI(d) =>
+          let (own, _) = await load(fs, transforms, bpget, at, Dict.fromArray([("input", DirV(d))]))
+          switch Dict.get(own, "input") {
+          | Some(D(items, each, site)) => (D(items, each, site), layer(Dict.make()))
+          | _ => (T(""), layer(Dict.make()))
+          }
+        | Copy(_) => (T(""), layer(Dict.make()))
+        }
+        let out = switch top(`${at} input`, () => eval(lv, bctx)) {
+        | One(s) => s
+        | Many(a) => a->Array.join("")
+        }
+        await fs.writeFile(top(`${at} output`, () => render(b.output, bctx.get)), out)
+      }
+    }),
+  )
+}
+
+// ---------------------------------------------------------------------------
+// FileSystems.
 
 // In-memory FileSystem seeded from a name -> content mapping. Used by tests.
 let makeMemoryFileSystem = (seed: option<dict<string>>): filesystem => {
@@ -227,7 +411,6 @@ let makeMemoryFileSystem = (seed: option<dict<string>>): filesystem => {
   }
 }
 
-// ---------------------------------------------------------------------------
 // Node FileSystem — every node builtin loads lazily through dynamic import,
 // so this module stays environment-neutral.
 
@@ -337,198 +520,6 @@ let nodeFs = (root: option<string>): filesystem => {
 }
 
 // ---------------------------------------------------------------------------
-// Run — load a config chain, build every entry.
-
-// Only the plain string vars of a block — the scopes file paths resolve in.
-let strings = vars => {
-  let out = Dict.make()
-  Dict.toArray(vars)->Array.forEach(((name, v)) =>
-    switch v {
-    | Scalar(s) => Dict.set(out, name, Str(s))
-    | _ => ()
-    }
-  )
-  out
-}
-
-let lift = front =>
-  front->Dict.mapValues(d =>
-    switch d {
-    | One(s) => Str(s)
-    | Many(a) => Items(a)
-    }
-  )
-
-let infer = path =>
-  if String.endsWith(path, ".md") || String.endsWith(path, ".markdown") {
-    Some("md")
-  } else if String.endsWith(path, ".html") || String.endsWith(path, ".htm") {
-    Some("none")
-  } else {
-    None
-  }
-
-// Read the config at `entry` and execute every build entry through `fs`.
-let exec = async (fs: filesystem, entry, transforms: dict<transform>) => {
-  // Per-run cache: each content file is read and frontmatter-split exactly
-  // once, however many vars or build entries reference it.
-  let cache: dict<promise<parsed>> = Dict.make()
-
-  let named = (name, at) =>
-    switch Dict.get(transforms, name) {
-    | Some(t) => t
-    | None =>
-      fail(`${at}: unknown transform "${name}" (available: ${Dict.keysToArray(transforms)->Array.join(", ")})`)
-    }
-
-  let parsed = (path, at) =>
-    switch Dict.get(cache, path) {
-    | Some(hit) => hit
-    | None =>
-      let loading = (
-        async () => {
-          if !(await fs.exists(path)) {
-            fail(`Content file not found: ${path} (declared at ${at})`)
-          }
-          split(await fs.readFile(path), path)
-        }
-      )()
-      Dict.set(cache, path, loading)
-      loading
-    }
-
-  // Load one content file; an explicit transform overrides the inference.
-  let content = async (explicit, path, at) => {
-    let {front, body} = await parsed(path, at)
-    switch explicit->Option.orElse(infer(path)) {
-    | None =>
-      fail(
-        `${at}: cannot infer a transform for ${path} — set "transform" (available: ${Dict.keysToArray(
-            transforms,
-          )->Array.join(", ")})`,
-      )
-    | Some(name) =>
-      let c: file = {
-        body,
-        transform: named(name, at),
-        front: {label: `frontmatter (${path})`, vars: lift(front)},
-        at: `file ${path}`,
-      }
-      c
-    }
-  }
-
-  // Load a dir var: list the folder, filter by glob, read each file.
-  let folder = async (d: dirv, at, paths) => {
-    let dir = expand(d.dir, paths, [], `${at} dir`)
-    let glob = d.glob->Option.getOr("*.md")
-    let names = (await fs.listFiles(dir))->Array.filter(matcher(glob))
-    if Array.length(names) == 0 {
-      fail(`No files matching "${glob}" in ${dir} (declared at ${at})`)
-    }
-    let items = await Promise.all(names->Array.map(name => content(d.transform, join(dir, name), at)))
-    let f: folder = {items, each: d.each->Option.getOr("{{body}}"), at: `dir ${dir} (${at})`}
-    f
-  }
-
-  // Load one `var` block into scopes: the vars themselves, then — less local,
-  // so explicit vars win — the frontmatter exported by its file vars. Two
-  // files exporting the same name is a conflict; fail loud.
-  let scopes = async (vars: dict<varv>, label, paths) => {
-    let loaded: dict<value> = Dict.make()
-    let exported: dict<value> = Dict.make()
-    let owners: dict<string> = Dict.make()
-    await seq(Dict.toArray(vars), 0, async ((name, v)) => {
-      let at = `${label}.${name}`
-      switch v {
-      | Scalar(s) => Dict.set(loaded, name, Str(s))
-      | Scalars(a) => Dict.set(loaded, name, Items(a))
-      | PipeV(p) => Dict.set(loaded, name, Piped({value: p.value, transform: named(p.transform, at), at}))
-      | ListV(l) =>
-        Dict.set(
-          loaded,
-          name,
-          Loop({source: l.list, each: l.each, join: l.join->Option.getOr(""), template: l.template, at}),
-        )
-      | DirV(d) => Dict.set(loaded, name, Folder(await folder(d, at, paths)))
-      | FileV(f) =>
-        let path = expand(f.file, paths, [], `${at} file`)
-        let c = await content(f.transform, path, at)
-        Dict.set(loaded, name, File(c))
-        // Dir file frontmatter stays local to each item — 8 chapters would
-        // conflict on `title` — so only file vars export theirs.
-        Dict.toArray(c.front.vars)->Array.forEach(((fname, fv)) => {
-          switch Dict.get(owners, fname) {
-          | Some(owner) if owner != path =>
-            fail(`Frontmatter conflict in ${label}: "${fname}" defined by both ${owner} and ${path}`)
-          | _ => ()
-          }
-          Dict.set(owners, fname, path)
-          Dict.set(exported, fname, fv)
-        })
-      }
-    })
-    let head: scope = {label, vars: loaded}
-    Array.length(Dict.keysToArray(exported)) > 0
-      ? [head, {label: `frontmatter (${label})`, vars: exported}]
-      : [head]
-  }
-
-  // Load the entry config and its `base` chain, entry (most local) first.
-  let rec chain = async (path, visited, from) => {
-    if Array.includes(visited, path) {
-      fail(`Base config cycle: ${[...visited, path]->Array.join(" -> ")}`)
-    }
-    if !(await fs.exists(path)) {
-      fail(`Config not found: ${path}${from == "" ? "" : ` (base of ${from})`}`)
-    }
-    let config = parse(await fs.readFile(path), path)
-    let rest = switch config.base {
-    | Some(base) => await chain(base, [...visited, path], path)
-    | None => []
-    }
-    [(path, config), ...rest]
-  }
-
-  let emit = async (b: buildv, globals, paths, at) => {
-    let label = `${at}.var`
-    let local = [{label, vars: strings(b.vars)}, ...paths]
-    let all = [...await scopes(b.vars, label, local), ...globals]
-    let finish = async (v, all) => {
-      let output = expand(b.output, all, [], `${at} output`)
-      await fs.writeFile(output, grow(v, all, [], `${at} input`))
-    }
-    switch b.input {
-    | Copy(path) =>
-      let source = expand(path, local, [], `${at} input copy`)
-      if !(await fs.exists(source)) {
-        fail(`Copy source not found: ${source} (declared at ${at} input)`)
-      }
-      await fs.copy(source, expand(b.output, all, [], `${at} output`))
-    | Text(t) => await finish(Str(t), all)
-    | DirI(d) => await finish(Folder(await folder(d, `${at} input`, local)), all)
-    | FileI(f) =>
-      // A file input exports its frontmatter as the least local scope —
-      // usable in the output path — mirroring file vars.
-      let path = expand(f.file, local, [], `${at} input file`)
-      let c = await content(f.transform, path, `${at} input`)
-      await finish(File(c), [...all, c.front])
-    }
-  }
-
-  // File paths may contain `{{refs}}` (already anchored at parse time). They
-  // resolve against string vars only: frontmatter and file bodies are not
-  // known until files load, so they cannot shape a path.
-  let links = await chain(entry, [], "")
-  let paths = links->Array.map(((path, config)) => {label: `var (${path})`, vars: strings(config.vars)})
-  let globals: array<scope> = []
-  await seq(links, 0, async ((path, config)) => {
-    let loaded = await scopes(config.vars, `var (${path})`, paths)
-    loaded->Array.forEach(s => Array.push(globals, s))
-  })
-  let (_, first) = Array.getUnsafe(links, 0)
-  let _ = await Promise.all(first.build->Array.mapWithIndex((b, i) => emit(b, globals, paths, `build[${Int.toString(i)}]`)))
-}
 
 type runOptions = {
   glob: string,
@@ -548,6 +539,6 @@ let run = async (options: runOptions) => {
   }
   let transforms = Dict.assign(Dict.copy(defaults), options.transform->Option.getOr(Dict.make()))
   let _ = await Promise.all(
-    configs->Array.toSorted(String.compare)->Array.map(config => exec(fs, config, transforms)),
+    configs->Array.toSorted(String.compare)->Array.map(config => exec(fs, transforms, config)),
   )
 }

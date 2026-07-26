@@ -6,20 +6,12 @@
   "license": "MIT",
   "type": "module",
   "files": [
+    "src",
     "dist",
+    "rescript.json",
     "README.md",
     "LICENSE"
   ],
-  "exports": {
-    ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.js"
-    },
-    "./node": {
-      "types": "./dist/node.d.ts",
-      "import": "./dist/node.js"
-    }
-  },
   "engines": {
     "node": ">=22"
   },
@@ -27,14 +19,12 @@
     "access": "public"
   },
   "scripts": {
-    "build": "rm -rf dist && tsc -p tsconfig.build.json",
-    "check": "pnpm typecheck && pnpm test && pnpm test:package",
+    "build": "rescript build && node esbuild.js",
+    "check": "pnpm test && pnpm test:package",
     "prepack": "pnpm build",
     "test": "rescript build && vitest run",
     "test:package": "pnpm build && node --test test/package.test.mjs",
-    "test:watch": "vitest",
-    "typecheck": "tsc --noEmit",
-    "res:build": "rescript build"
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@rescript/runtime": "12.3.0",
@@ -45,10 +35,13 @@
   },
   "devDependencies": {
     "@types/node": "^24.0.3",
+    "esbuild": "^0.28.1",
     "rescript": "12.3.0",
     "source-map": "^0.7.6",
     "typescript": "5.8.3",
     "vite": "^7.0.0",
     "vitest": "^3.2.3"
-  }
+  },
+  "main": "./dist/index.mjs",
+  "types": "./dist/index.d.ts"
 }

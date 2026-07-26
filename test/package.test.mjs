@@ -28,8 +28,7 @@ test("packages typed ESM for Node, Bun, and file dependencies", async () => {
     await writeFile(
       path.join(temp, "run.mjs"),
       [
-        'import { run } from "@epure/minidoc";',
-        'import { nodeFs } from "@epure/minidoc/node";',
+        'import { run, nodeFs } from "@epure/minidoc";',
         'await run({ fs: nodeFs(process.cwd()), glob: "config.yaml" });',
       ].join("\n"),
     );
@@ -60,10 +59,10 @@ test("packages typed ESM for Node, Bun, and file dependencies", async () => {
     const archive = (await readdir(temp)).find((file) => file.endsWith(".tgz"));
     assert.ok(archive);
     const files = exec("tar", ["-tzf", path.join(temp, archive)], temp).trim().split("\n");
-    assert(files.includes("package/dist/index.js"));
+    assert(files.includes("package/dist/index.mjs"));
     assert(files.includes("package/dist/index.d.ts"));
     assert(files.includes("package/LICENSE"));
-    assert(files.every((file) => !file.includes("/src/") && !file.includes("/test/")));
+    assert(files.every((file) => !file.includes("/test/") && !file.includes("/lib/")));
   } finally {
     await rm(temp, { recursive: true, force: true });
   }

@@ -1,41 +1,70 @@
 # minidoc
 
 A small documentation website generator. It discovers YAML configs by glob;
-each config describes variables, optional `base` inheritance, and build
-outputs. Minidoc resolves every `{{var}}` reference to a fixpoint and writes
-each resolved `input` to its `output` path.
+each config declares variables and build outputs. Minidoc renders every
+`{{var}}` reference and writes each resolved `input` to its `output` path.
 
 ```yaml
-var:                      # global variables
+var:                      # this config's context
   site: Marmot Docs
-base: baseConfig.yaml     # optional: vars inherited from another config
+base: baseConfig.yaml     # optional: templates inherited from another config
 build:
-  - var:                  # build-local variables (most local scope)
+  - var:                  # each build extends the context
       title: Home
     output: "{{lang}}/home.html"   # output paths are templates too
     input: |-
       <h1>{{site}} - {{title}}</h1>
 ```
 
-Scopes, most local first: `build[n].var`, then `var`, then the `base`
-chain. Values may reference other variables; resolution re-substitutes until
-stable. Undefined variables and reference cycles fail loud, naming the build
-entry, the variable, and the scopes searched.
+## The model
 
-v1 is plain name substitution only — no escaping of literal `{{`/`}}`, no
-filters/pipes, no expressions (future extensions).
+One idea drives everything:
 
-## File vars
+> A **context** is a dictionary of templates. A child context is the parent's
+> templates merged with its own — own wins. Everything renders in its nearest
+> context.
 
-A var value that is a mapping with a `file` key loads its content from an
-html/md file instead of inline text:
+So a `base` config, the config's `var`, a build's `var`, a content file's
+frontmatter: each is just a layer merged into the next context. Precedence is
+merge order, nothing more.
+
+The one sentence worth memorizing: **you inherit formulas, not values.** A
+base declaring `layout: "<h1>{{title}}</h1>"` doesn't hand you a rendered
+string — the template becomes *yours* and resolves against *your* `title`,
+like copying a spreadsheet: you copy the formulas, and they recompute against
+your cells.
+
+```yaml
+# baseConfig.yaml
+var:
+  layout: "<h1>{{title}}</h1>"
+# config.yaml
+base: baseConfig.yaml
+build:
+  - var: { title: Home }
+    output: home.html
+    input: "{{layout}}"        # -> <h1>Home</h1>
+```
+
+Undefined variables and reference cycles fail loud, naming the build entry
+and the variable path. v1 is plain name substitution — no escaping of literal
+`{{`/`}}`, no filters, no expressions.
+
+Under the hood each context is a [tilia](https://tiliajs.dev) carve: every
+var is a lazy, cached, dependency-tracked computed. (Fittingly, tilia's own
+documentation is built with minidoc — tilia all the way down.)
+
+## Var kinds
+
+Every var is a template plus, optionally, a source and a transform. A plain
+string is just a template. A mapping picks a kind by its key:
+
+**`file`** loads its template from an html/md file:
 
 ```yaml
 var:
   intro:
     file: content/intro.md       # markdown -> html, inferred from extension
-  footer:
-    file: partials/footer.html   # html, passed through as-is
   snippet:
     file: content/raw.md
     transform: none              # explicit override of the inference
@@ -43,34 +72,41 @@ var:
 
 The transform is inferred from the extension (`.md`/`.markdown` -> `md`,
 `.html`/`.htm` -> `none`); an unknown extension without an explicit
-`transform` fails loud. `{{refs}}` in the body are resolved first, then the
-transform runs on the result (so a var can inject markdown that gets
-rendered).
+`transform` fails loud. `{{refs}}` in the body render first, then the
+transform runs — so a var can inject markdown that gets rendered.
 
-Content files may start with a YAML frontmatter block containing scalars and
-lists of scalars. Dots are ordinary characters in exact variable names, so
-use dotted names explicitly for namespaces:
+A content file may start with a YAML frontmatter block of scalars and scalar
+lists. The body renders in a child context of that frontmatter, and — for
+single `file` vars — the frontmatter also merges into the declaring context,
+just below its explicit vars (so an explicit `var: title:` wins). Two files
+in one block exporting the same name is a conflict and fails loud. Dots are
+ordinary characters in names, so dotted namespaces like `signature.ts` are
+fine.
 
-```markdown
----
-title: Home
-signature.ts: "function home()"
-signature.res: "let home: unit => unit"
-refs: [given, step-type]
----
-# {{title}} — {{signature.ts}}
+**`dir`** loads a folder of content files and renders each through an `each`
+template — the building block for a guide or an API reference:
+
+```yaml
+var:
+  toc:
+    dir: guide
+    each: '<li><a href="#{{slug}}">{{title}}</a></li>'
+  chapters:
+    dir: guide                   # the same folder, a second view
+    each: '<section id="{{slug}}">{{body}}</section>'
 ```
 
-Frontmatter is the most local scope for the file's own body, and its vars are
-also exported as a scope just below the declaring `var` block — so a build
-layout can use `{{title}}` from its content file, while an explicit
-`var: title:` still wins. Two files in one block exporting the same name is a
-conflict and fails loud.
+Each item's `each` renders in a child context of the file's frontmatter plus
+its rendered content as `{{body}}`; items join with newlines, in filename
+order (prefix files `01-intro.md` to control it). `glob` (default `*.md`)
+selects files; `transform` overrides the per-file inference. Unlike `file`
+vars, items do *not* export their frontmatter outward — eight chapters would
+conflict on `title`; it stays local to each item. An empty match fails loud.
 
-A list var renders a scalar list from config or frontmatter through an item
-template. Its `list` is an exact variable name, `each` sees the current scalar
-as `{{item}}`, `join` defaults to an empty string, and an optional `template`
-sees the joined items as `{{body}}`:
+**`list`** renders a scalar list (from config or frontmatter) through an item
+template. `each` sees the scalar as `{{item}}`; an optional `template` wraps
+the `join`ed items as `{{body}}`. An empty list renders nothing, wrapper
+included:
 
 ```yaml
 var:
@@ -81,45 +117,9 @@ var:
     template: '<p>Reference: {{body}}</p>'
 ```
 
-An empty list renders nothing, including the wrapper `template`. Raw mappings
-are not variables: mapping-shaped config values are reserved for file, dir,
-list, and transform vars.
-
-## Dir vars
-
-A var value with a `dir` key loads a whole folder of content files, renders
-each through the `each` template, and joins the items with newlines — the
-building block for a guide or an API reference:
-
-```yaml
-var:
-  toc:
-    dir: guide                   # like `file`: anchored to this config
-    each: '<li><a href="#{{slug}}">{{title}}</a></li>'
-  chapters:
-    dir: guide                   # the same folder, a second view
-    each: |-
-      <section id="{{slug}}">{{body}}</section>
-```
-
-`each` is expanded once per file with, most local first: the file's
-frontmatter, then `body` (the file's content, transformed like a file var),
-then the normal outer scopes; it defaults to `{{body}}` (bare concatenated
-files). Files render in filename order — prefix them (`01-intro.md`) to
-control it. `glob` (default `*.md`, `*` wildcard only) selects files by
-basename; `transform` overrides the per-file extension inference for every
-file.
-
-Unlike single file vars, a dir var does not export its files' frontmatter to
-the declaring scope (eight chapters would conflict on `title`); frontmatter
-stays local to each item. An empty folder or a glob matching nothing fails
-loud.
-
-## Transform vars
-
-A transform var resolves an inline value in the active scopes, then passes it
-through a named transform. When referenced from a dir `each` template, it can
-see that item's frontmatter:
+**`value`** renders an inline template through a named transform. Because you
+inherit formulas, a `value` var declared once re-renders wherever it is used —
+inside a dir's `each` it sees that item's frontmatter:
 
 ```yaml
 var:
@@ -128,14 +128,14 @@ var:
     transform: typescript
   entries:
     dir: api
-    transform: apiMd
-    each: "{{signatureHtml}}{{body}}"
+    each: "{{signatureHtml}}{{body}}"   # per-item signature, one declaration
 ```
 
-## Build input
+## Build entries
 
-A build entry's `input` may be a file or dir mapping directly, instead of a
-template string that references a var:
+A build's `input` is a template string, or a `file`/`dir` mapping behaving
+like the matching var kind. A file input's frontmatter merges in as the least
+local layer — usable even in the output path:
 
 ```yaml
 build:
@@ -148,39 +148,28 @@ build:
       each: "<section>{{body}}</section>"
 ```
 
-It behaves like the matching var kind: a file input exports its frontmatter
-(least local, so an explicit build var wins), usable even in the output path;
-a dir input keeps frontmatter local to each item.
-
-An input with a `copy` key copies one file or directory without reading,
-transforming, or resolving its content:
+An input with a `copy` key copies a file or directory (recursively) without
+reading or rendering its content. The paths may contain `{{refs}}`; the
+copied bytes never do:
 
 ```yaml
 build:
   - output: public/style.css
-    input:
-      copy: assets/style.css
+    input: { copy: assets/style.css }
   - output: public/fonts
-    input:
-      copy: assets/fonts
+    input: { copy: assets/fonts }
 ```
 
-Directory copies are recursive. The `copy` and `output` paths may contain
-`{{refs}}`, but copied bytes—including text containing `{{refs}}`—remain
-unchanged.
+## Paths — the one exception
 
-## Paths
-
-Every declared path (`base`, `output`, `file`, `dir`, `copy`) is relative to
-the config file that declares it, anchored at parse time — before var
-interpolation. Input paths may contain `{{refs}}`; they resolve against string
-vars only (never frontmatter or file contents) and can contribute segments,
-but never move the anchor. Absolute paths (`/...`) pass through untouched.
+Declared paths (`base`, `output`, `file`, `dir`, `copy`) are relative to the
+config file that declares them, anchored at parse time. Paths may contain
+`{{refs}}`, but they resolve against plain string vars only — paths must
+resolve before content loads, so they can never depend on it. Refs can
+contribute path segments but never move the anchor; absolute paths (`/...`)
+pass through untouched.
 
 ## Usage
-
-The programmatic API defaults lazily to Node, runs matching configs and their
-build entries concurrently, and accepts project-specific transforms by name:
 
 ```ts
 import { run } from "@epure/minidoc"
@@ -188,52 +177,36 @@ import { apiMd, typescript } from "./transforms.ts"
 
 await run({
   glob: "content/**/config.yaml",
-  transform: {
-    apiMd,
-    typescript,
-  },
+  transform: { apiMd, typescript },
 })
 ```
 
-Custom transforms extend or override the built-in `md` and `none` registry.
-Extension inference still selects `md` for Markdown and `none` for HTML unless
-a file or dir explicitly declares `transform`.
+Custom transforms extend or override the built-in registry (`md` renders
+markdown via marked, `none` passes through). Runs update declared outputs in
+place and never clean old output first, so a live server keeps serving the
+previous files until replacements are written.
 
-Runs update declared outputs in place and never clean old output first, so a
-live server keeps serving the previous files until replacements are written.
-
-Inject a filesystem for a browser, test, or other non-Node environment:
-
-```ts
-await run({ fs, glob: "**/config.yaml" })
-```
-
-The Node-specific adapter supports an optional root. String roots resolve from
-`process.cwd()`; a URL makes the root explicitly module-relative:
+Inject a filesystem for a browser, test, or other non-Node environment — the
+Node adapter loads lazily only when `fs` is omitted:
 
 ```ts
-import { nodeFs } from "@epure/minidoc/node"
+import { run, nodeFs, makeMemoryFileSystem } from "@epure/minidoc"
 
-await run({
-  fs: nodeFs(new URL("./content/", import.meta.url)),
-  glob: "**/config.yaml",
-})
+await run({ fs: makeMemoryFileSystem(files), glob: "**/config.yaml" })
+await run({ fs: nodeFs(new URL("./content/", import.meta.url)), glob: "**/config.yaml" })
 ```
 
 ## Design
 
-- `src/api/` — types only (the `FileSystem` service interface, config, scope
-  and transform types).
-- `src/services/` — one file per service: `makeMemoryFileSystem` backs the
-  tests, `nodeFs` backs real runs, and the built-in transform registry wraps
-  the markdown renderer (`marked`).
-- `src/features/` — pure logic (`resolve`, `parseConfig`, `splitFrontmatter`,
-  `run`): all I/O goes through the injected `FileSystem`, transforms are
-  injected too, never direct `fs`/`path`/renderer imports.
-- `src/index.ts` — environment-neutral public surface and composition point:
-  exports `run`, lazily loading `nodeFs` only when no filesystem is injected.
-- No classes: services are `make...()` factories returning plain objects of
-  closures.
+Three source files, ReScript:
+
+- `src/Schema.res` — [Sury](https://github.com/DZakh/sury) schemas parsing
+  YAML configs and frontmatter into tagged variants; path anchoring.
+- `src/Minidoc.res` — contexts (tilia carves), rendering, the filesystems,
+  `run`. All I/O goes through the injected `filesystem`; transforms are
+  injected too.
+- `src/Minidoc.resi` — the public interface, mirrored by the hand-written
+  `src/Minidoc.res.d.mts` for TypeScript consumers.
 
 ## Tests
 
@@ -241,34 +214,9 @@ await run({
 pnpm test
 ```
 
-Tests are declarative YAML fixtures (`test/*.test.yaml`): a `feature` title
-names the suite, `background` names the `given` step that runs every
-scenario, and each `examples` entry is pure data for that step:
-
-```yaml
-feature: Variable resolution
-background:
-  given: a filesystem
-examples:
-  - scenario: it should resolve variables from var
-    source:            # virtual filesystem the run starts with
-      config.yaml: ... # mapping values are serialized back to YAML text
-    target:            # expected filesystem contents after the run
-      out.html: ...
-    # or error: the message the run must reject with
-```
-
-The `yaml-bdd/` modules split along the extraction line into `@epure/vitest`:
-
-- `compile.ts` — generic yaml parsing, validation and source-mapped codegen;
-  knows nothing about what a scenario means.
-- `steps.ts` — the step registry (`given(key, fn)`) and runtime.
-- `plugin.ts` — Vite glue; resolves each fixture to its steps module the same
-  way @epure/vitest does (`base.test.ts`, `base.steps.ts`, then a shared
-  `steps.ts` next to the fixture).
-- `test/steps.ts` — minidoc's only step, `a filesystem`: seeds the in-memory
-  FileSystem from `source`, runs the entry `config.yaml`, asserts `target`
-  files (or the `error`). Uses only minidoc's public API.
-
-Failures stack through the step definition and source-map back to the
-scenario's line in the YAML file.
+Tests are declarative YAML fixtures (`test/*.test.yaml`) driving the public
+API against the in-memory filesystem: each scenario is a `source` filesystem
+and either a `target` of expected outputs or the `error` the run must reject
+with. Failures source-map back to the scenario's line in the YAML file. The
+`yaml-bdd/` modules are the generic runner, splitting along the extraction
+line into `@epure/vitest`.
