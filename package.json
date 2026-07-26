@@ -19,9 +19,11 @@
     "access": "public"
   },
   "scripts": {
+    "beta": "./bin/publish.sh --beta",
     "build": "rescript build && node esbuild.js",
     "check": "pnpm test && pnpm test:package",
     "prepack": "pnpm build",
+    "pub": "./bin/publish.sh",
     "test": "rescript build && vitest run",
     "test:package": "pnpm build && node --test test/package.test.mjs",
     "test:watch": "vitest"
