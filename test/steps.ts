@@ -1,6 +1,6 @@
 import { expect } from "vitest";
 import { stringify } from "yaml";
-import { makeMemoryFileSystem, run } from "../src/index.ts";
+import { makeMemoryFileSystem, run } from "../src/Minidoc.res.mjs";
 import { given } from "../yaml-bdd/steps.ts";
 
 /** The entry config `run` starts from in every scenario. */

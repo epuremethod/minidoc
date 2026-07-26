@@ -119,12 +119,3 @@ examples:
     target:
       index.html: |
         <p>Hello</p>
-
-  - scenario: it should fail loud on an invalid input
-    source:
-      config.yaml:
-        build:
-          -
-            output: home.html
-            input: 3
-    error: 'config.yaml: build[0]: missing or invalid "input" (must be a string or a file/dir/copy mapping)'

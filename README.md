@@ -220,9 +220,6 @@ await run({
 })
 ```
 
-Each `nodeFs` instance deduplicates text reads by normalized absolute path.
-Opaque copies bypass that cache.
-
 ## Design
 
 - `src/api/` — types only (the `FileSystem` service interface, config, scope

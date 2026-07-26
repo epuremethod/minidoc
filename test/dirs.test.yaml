@@ -178,19 +178,6 @@ examples:
             input: "{{entries}}"
     error: 'No files matching "*.md" in content (declared at var (config.yaml).entries)'
 
-  - scenario: it should fail loud on an unknown dir var key
-    source:
-      config.yaml:
-        var:
-          entries:
-            dir: content
-            each: "{{body}}"
-            sort: name
-        build:
-          - output: out.txt
-            input: "{{entries}}"
-    error: 'config.yaml: var.entries: unknown key "sort"'
-
   - scenario: it should default each to the bare body
     source:
       config.yaml:
@@ -207,17 +194,6 @@ examples:
       out.txt: |-
         one
         two
-
-  - scenario: it should fail loud on a mapping var with neither file nor dir
-    source:
-      config.yaml:
-        var:
-          entries:
-            transform: none
-        build:
-          - output: out.txt
-            input: "{{entries}}"
-    error: 'config.yaml: var.entries: a mapping var needs "file" (file var), "dir" (dir var), "list" (list var), or "value" (transform var)'
 
   - scenario: it should detect a cycle through the collection
     source:

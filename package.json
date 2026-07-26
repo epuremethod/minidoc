@@ -30,17 +30,21 @@
     "build": "rm -rf dist && tsc -p tsconfig.build.json",
     "check": "pnpm typecheck && pnpm test && pnpm test:package",
     "prepack": "pnpm build",
-    "test": "vitest run",
+    "test": "rescript build && vitest run",
     "test:package": "pnpm build && node --test test/package.test.mjs",
     "test:watch": "vitest",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "res:build": "rescript build"
   },
   "dependencies": {
+    "@rescript/runtime": "12.3.0",
     "marked": "^18.0.7",
+    "sury": "11.0.0-alpha.11",
     "yaml": "^2.8.0"
   },
   "devDependencies": {
     "@types/node": "^24.0.3",
+    "rescript": "12.3.0",
     "source-map": "^0.7.6",
     "typescript": "5.8.3",
     "vite": "^7.0.0",

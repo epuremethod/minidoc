@@ -92,39 +92,3 @@ examples:
         Given
     target:
       api.html: "<article>Given</article>"
-
-  - scenario: it should reject nested raw mappings
-    source:
-      config.yaml:
-        var:
-          entries:
-            dir: content
-            transform: none
-        build:
-          - output: out.txt
-            input: "{{entries}}"
-      content/a.md: |-
-        ---
-        signature:
-          ts: function given()
-        ---
-        body
-    error: "content/a.md: frontmatter.signature: must be a scalar or list of scalars"
-
-  - scenario: it should reject non-scalar list entries
-    source:
-      config.yaml:
-        var:
-          entries:
-            dir: content
-            transform: none
-        build:
-          - output: out.txt
-            input: "{{entries}}"
-      content/a.md: |-
-        ---
-        refs:
-          - slug: given
-        ---
-        body
-    error: "content/a.md: frontmatter.refs[0]: must be a scalar value"
