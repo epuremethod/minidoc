@@ -1,8 +1,8 @@
+import { epureVitest } from "@epure/vitest";
 import { defineConfig } from "vitest/config";
-import { yamlBdd } from "./yaml-bdd/plugin.ts";
 
 export default defineConfig({
-  plugins: [yamlBdd()],
+  plugins: [epureVitest()],
   test: {
     include: ["src/**/*.test.ts", "test/**/*.test.yaml"],
   },

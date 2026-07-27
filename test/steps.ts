@@ -1,7 +1,7 @@
+import { Given } from "@epure/vitest";
 import { expect } from "vitest";
 import { stringify } from "yaml";
 import { makeMemoryFileSystem, run } from "../src/Minidoc.res.mjs";
-import { given } from "../yaml-bdd/steps.ts";
 
 /** The entry config `run` starts from in every scenario. */
 const entry = "config.yaml";
@@ -10,7 +10,7 @@ const entry = "config.yaml";
  * A scenario is a `source` virtual filesystem and either a `target` of
  * expected outputs, an `error` message the run must reject with, or both.
  */
-given("a filesystem", async (data) => {
+Given("a filesystem", async (_steps, data) => {
   const { source, target, error } = readScenario(data);
   const fs = makeMemoryFileSystem(source);
   if (error === undefined) {

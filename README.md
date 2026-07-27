@@ -218,5 +218,5 @@ Tests are declarative YAML fixtures (`test/*.test.yaml`) driving the public
 API against the in-memory filesystem: each scenario is a `source` filesystem
 and either a `target` of expected outputs or the `error` the run must reject
 with. Failures source-map back to the scenario's line in the YAML file. The
-`yaml-bdd/` modules are the generic runner, splitting along the extraction
-line into `@epure/vitest`.
+fixtures run through `epureVitest`; their shared `Given` is registered in
+`test/steps.ts`.
