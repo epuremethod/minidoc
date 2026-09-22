@@ -37,8 +37,9 @@ let defaults: dict<transform> = Dict.fromArray([
 // ---------------------------------------------------------------------------
 // Rendering — carved contexts.
 
-/** A loaded content file: frontmatter split off, transform resolved. */
-type content = {body: string, transform: transform, front: dict<data>, at: string}
+/** A loaded content file: frontmatter split off, transform resolved. `pad`
+ counts the blank lines standing in for the frontmatter at the top of `body`. */
+type content = {body: string, transform: transform, front: dict<data>, at: string, pad: int}
 
 /** A loaded var, ready to evaluate in a context. */
 type lvar =
@@ -50,8 +51,9 @@ type lvar =
   | R(listv, string) // list renderer, site
   | P(string, transform, string) // template, transform, site
 
-/** One context: a carve of every template visible to it. */
-type ctx = {lvars: dict<lvar>, vars: dict<data>, get: string => option<data>}
+/** One context: a carve of every template visible to it. `inline` renders
+ errors as boxes in the output instead of aborting. */
+type ctx = {lvars: dict<lvar>, vars: dict<data>, get: string => option<data>, inline: bool}
 
 // A backtick-quoted name is an escape: `{{`name`}}` renders as the literal
 // reference, unevaluated and spaced exactly as written.
@@ -71,15 +73,45 @@ let stack: ref<array<string>> = ref([])
 // Decorate an error with its render site; the innermost site wins.
 let rawSite: (string, unit => unknown) => unknown = %raw(`(at, fn) => {
   try { return fn() } catch (e) {
-    if (/^Undefined variable/.test(e.message) && !e.message.includes(" in ")) {
-      e.message += " in " + at
-    } else if (e.message.startsWith("Variable cycle:")) {
-      e.message = "Variable cycle in " + at + ":" + e.message.slice(15)
+    if (e && e.message && !e.minidocSited) {
+      e.minidocSited = true
+      e.message = e.message.startsWith("Variable cycle:")
+        ? "Variable cycle in " + at + ":" + e.message.slice(15)
+        : e.message + " in " + at
     }
     throw e
   }
 }`)
 let site = (at, fn: unit => 'a): 'a => magic(rawSite(at, magic(fn)))
+
+// A failed render surfaces as an error box at its place in the page; the
+// cycle stack unwinds to the box boundary so sibling renders keep going.
+let rawBoxed: (ref<array<string>>, bool, unit => string) => string = %raw(`(stack, inline, fn) => {
+  if (!inline) return fn()
+  const active = stack.contents
+  try { return fn() } catch (e) {
+    stack.contents = active
+    const message = String((e && e.message) || e)
+    console.error("minidoc: " + message)
+    const text = message.replace(/&/g, "&amp;").replace(/</g, "&lt;")
+    return '<div class="minidoc-error" style="border:1px solid #c00;background:rgba(255,0,0,.04);padding:.5em .75em;font-family:monospace;white-space:pre-wrap;">' + text + '</div>'
+  }
+}`)
+let boxed = (inline, fn: unit => string): string => rawBoxed(stack, inline, fn)
+
+// Multi-line templates get a line number; one-liners locate themselves.
+let lined = (template, offset) =>
+  String.includes(template, "\n")
+    ? ` at line ${Int.toString(
+          Array.length(String.split(String.slice(template, ~start=0, ~end=offset), "\n")),
+        )}`
+    : ""
+
+// Remove the frontmatter stand-in newlines an identity-like transform kept.
+let unpad = (text, pad) => {
+  let rec go = i => i < pad && String.charAt(text, i) == "\n" ? go(i + 1) : i
+  String.slice(text, ~start=go(0))
+}
 
 /** Child templates shadow the parent's. */
 let over = (parent, own) => Dict.assign(Dict.copy(parent), own)
@@ -92,60 +124,77 @@ let data = front =>
     }
   )
 
-let rec make = (lvars: dict<lvar>): ctx =>
+let rec make = (inline, lvars: dict<lvar>): ctx =>
   carve(({derived}) => {
+    inline,
     lvars,
     vars: lvars->Dict.mapValues(lv => derived((self: ctx) => eval(lv, self))),
     get: derived((self: ctx) => name => Dict.get(self.vars, name)),
   })
-and sub = (self: ctx, extra: dict<lvar>) => make(over(self.lvars, extra))
+and sub = (self: ctx, extra: dict<lvar>) => make(self.inline, over(self.lvars, extra))
 and eval = (lv, self: ctx) =>
   switch lv {
   | T(s) => One(render(s, self.get))
   | L(items) => Many(items->Array.map(render(_, self.get)))
   | V(d) => d
-  | P(value, transform, at) => One(transform(site(at, () => render(value, self.get))))
-  | F(c) => One(c.transform(site(c.at, () => render(c.body, sub(self, data(c.front)).get))))
+  | P(value, transform, at) =>
+    One(boxed(self.inline, () => site(at, () => transform(render(value, self.get)))))
+  | F(c) =>
+    One(
+      boxed(self.inline, () =>
+        site(c.at, () => unpad(c.transform(render(c.body, sub(self, data(c.front)).get)), c.pad))
+      ),
+    )
   | D(items, each, at) =>
     One(
       site(at, () =>
         items
-        ->Array.map(c => {
-          let front = sub(self, data(c.front))
-          let body = c.transform(site(c.at, () => render(c.body, front.get)))
-          render(each, sub(front, Dict.fromArray([("body", V(One(body)))])).get)
-        })
+        ->Array.map(c =>
+          boxed(self.inline, () =>
+            site(at, () => {
+              let front = sub(self, data(c.front))
+              let body = unpad(c.transform(site(c.at, () => render(c.body, front.get))), c.pad)
+              render(each, sub(front, Dict.fromArray([("body", V(One(body)))])).get)
+            })
+          )
+        )
         ->Array.join("\n")
       ),
     )
   | R(l, at) =>
-    switch self.get(l.list) {
-    | None => fail(`Undefined variable {{${l.list}}}`)
-    | Some(One(_)) => fail(`${at}: "${l.list}" must resolve to a scalar list`)
-    | Some(Many(items)) =>
-      if Array.length(items) == 0 {
-        One("")
-      } else {
-        let one = (name, value, template) =>
-          render(template, sub(self, Dict.fromArray([(name, V(One(value)))])).get)
-        let body =
-          items->Array.map(item => one("item", item, l.each))->Array.join(l.join->Option.getOr(""))
-        One(
-          switch l.template {
-          | Some(template) => one("body", body, template)
-          | None => body
-          },
+    One(
+      boxed(self.inline, () =>
+        site(at, () =>
+          switch self.get(l.list) {
+          | None => fail(`Undefined variable {{${l.list}}}`)
+          | Some(One(_)) => fail(`"${l.list}" must resolve to a scalar list`)
+          | Some(Many(items)) =>
+            if Array.length(items) == 0 {
+              ""
+            } else {
+              let one = (name, value, template) =>
+                render(template, sub(self, Dict.fromArray([(name, V(One(value)))])).get)
+              let body =
+                items
+                ->Array.map(item => one("item", item, l.each))
+                ->Array.join(l.join->Option.getOr(""))
+              switch l.template {
+              | Some(template) => one("body", body, template)
+              | None => body
+              }
+            }
+          }
         )
-      }
-    }
+      ),
+    )
   }
 and render = (template, get) =>
   template->String.replaceRegExpBy2Unsafe(reference, (
     ~match as ref,
     ~group1 as quote,
     ~group2 as name,
-    ~offset as _,
-    ~input as _,
+    ~offset,
+    ~input,
   ) =>
     if quote != "" {
       // Drop the quotes and keep the rest of the match exactly as written, so
@@ -162,7 +211,7 @@ and render = (template, get) =>
       let out = switch get(name) {
       | Some(One(s)) => s
       | Some(Many(a)) => a->Array.join("")
-      | None => fail(`Undefined variable ${ref}`)
+      | None => fail(`Undefined variable ${ref}${lined(input, offset)}`)
       }
       stack := active
       out
@@ -201,11 +250,11 @@ let matcher = glob => {
 
 let matter = RegExp.fromString("^---\\n(?:([\\s\\S]*?)\\n)?---(?:\\n|$)")
 
-type page = {front: dict<data>, body: string}
+type page = {front: dict<data>, body: string, pad: int}
 
 let split = (text, at) =>
   if !String.startsWith(text, "---\n") {
-    {front: Dict.make(), body: text}
+    {front: Dict.make(), body: text, pad: 0}
   } else {
     switch RegExp.exec(matter, text) {
     | None => fail(`${at}: unterminated frontmatter (missing closing "---" line)`)
@@ -214,7 +263,16 @@ let split = (text, at) =>
       | Some(Some(head)) => front(head, at)
       | _ => Dict.make()
       }
-      {front: vars, body: String.slice(text, ~start=String.length(RegExp.Result.fullMatch(m)))}
+      // Blank lines stand in for the frontmatter so the body keeps its place
+      // in the document: line numbers in errors — ours and the transforms' —
+      // point at the real file line.
+      let full = RegExp.Result.fullMatch(m)
+      let pad = Array.length(String.split(full, "\n")) - 1
+      {
+        front: vars,
+        body: String.repeat("\n", pad) ++ String.slice(text, ~start=String.length(full)),
+        pad,
+      }
     }
   }
 
@@ -259,7 +317,7 @@ let load = async (fs: filesystem, transforms: dict<transform>, pget, label, vars
     if !(await fs.exists(path)) {
       fail(`Content file not found: ${path} (declared at ${at})`)
     }
-    let {front, body} = split(await fs.readFile(path), path)
+    let {front, body, pad} = split(await fs.readFile(path), path)
     let name = switch explicit->Option.orElse(infer(path)) {
     | Some(name) => name
     | None =>
@@ -269,7 +327,7 @@ let load = async (fs: filesystem, transforms: dict<transform>, pget, label, vars
           )->Array.join(", ")})`,
       )
     }
-    {body, transform: named(name, at), front, at: `file ${path}`}
+    {body, transform: named(name, at), front, at: `file ${path}`, pad}
   }
   let out: dict<lvar> = Dict.make()
   let exports: dict<lvar> = Dict.make()
@@ -327,7 +385,7 @@ let rec chain = async (fs: filesystem, path, visited, from) => {
 }
 
 /** Read the config at `entry` and execute every build entry through `fs`. */
-let exec = async (fs: filesystem, transforms, entry) => {
+let exec = async (fs: filesystem, transforms, inline, entry) => {
   let configs = await chain(fs, entry, [], "")
   let pget = configs->Array.reduce(_ => None, (parent, c) => strs(c.vars, parent))
   let rec grow = async (acc, i) =>
@@ -344,7 +402,7 @@ let exec = async (fs: filesystem, transforms, entry) => {
       let at = `build[${Int.toString(i)}]`
       let bpget = strs(b.vars, pget)
       let (own, exports) = await load(fs, transforms, bpget, `${at}.var`, b.vars)
-      let layer = front => make(over(over(over(front, shared), exports), own))
+      let layer = front => make(inline, over(over(over(front, shared), exports), own))
       switch b.input {
       | Copy(path) =>
         let source = top(`${at} input copy`, () => render(path, bpget))
@@ -373,10 +431,14 @@ let exec = async (fs: filesystem, transforms, entry) => {
           }
         | Copy(_) => (T(""), layer(Dict.make()))
         }
-        let out = switch top(`${at} input`, () => eval(lv, bctx)) {
-        | One(s) => s
-        | Many(a) => a->Array.join("")
-        }
+        // Content errors can turn into boxes; output path errors never do —
+        // a file cannot be written without a path.
+        let out = boxed(inline, () =>
+          switch top(`${at} input`, () => eval(lv, bctx)) {
+          | One(s) => s
+          | Many(a) => a->Array.join("")
+          }
+        )
         await fs.writeFile(top(`${at} output`, () => render(b.output, bctx.get)), out)
       }
     }),
@@ -542,10 +604,12 @@ type runOptions = {
   glob: string,
   fs?: filesystem,
   transform?: dict<transform>,
+  inlineErrors?: bool,
 }
 
 // Discover and run all matching entry configs concurrently.
 let run = async (options: runOptions) => {
+  let inline = options.inlineErrors->Option.getOr(false)
   let fs = switch options.fs {
   | Some(fs) => fs
   | None => nodeFs(None)
@@ -556,6 +620,6 @@ let run = async (options: runOptions) => {
   }
   let transforms = Dict.assign(Dict.copy(defaults), options.transform->Option.getOr(Dict.make()))
   let _ = await Promise.all(
-    configs->Array.toSorted(String.compare)->Array.map(config => exec(fs, transforms, config)),
+    configs->Array.toSorted(String.compare)->Array.map(config => exec(fs, transforms, inline, config)),
   )
 }

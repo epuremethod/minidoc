@@ -27,6 +27,12 @@ type runOptions = {
   fs?: filesystem,
   /** Named transforms added to or overriding the built-in `md` and `none`. */
   transform?: dict<transform>,
+  /**
+   Render content errors as inline error boxes at their place in the output
+   instead of aborting the build (each is also logged to the console). Output
+   path errors still fail loud. Default: false.
+  */
+  inlineErrors?: bool,
 }
 
 /** Discover and run all matching entry configs concurrently. */

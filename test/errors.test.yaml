@@ -1,0 +1,145 @@
+feature: Render error reporting
+background:
+  given: a filesystem
+examples:
+  - scenario: it should report the line of an undefined variable in a multi-line body
+    source:
+      config.yaml:
+        var:
+          body:
+            file: content/intro.md
+        build:
+          - output: out.html
+            input: "{{body}}"
+      content/intro.md: |-
+        # Title
+
+        Hello {{missing}} !
+    error: "Undefined variable {{missing}} at line 3 in file content/intro.md"
+
+  - scenario: it should count transform error lines from the top of the document, frontmatter included
+    options:
+      containers: true
+    source:
+      config.yaml:
+        var:
+          guide:
+            file: content/guide.md
+            transform: containers
+        build:
+          - output: out.html
+            input: "{{guide}}"
+      content/guide.md: |-
+        ---
+        title: Guide
+        ---
+        Intro
+
+        ::: draft
+        Hello
+        :::
+    error: "Unknown container at line 6: draft in file content/guide.md"
+
+  - scenario: it should render an undefined variable as an error box at its place in the page
+    options:
+      inlineErrors: true
+    source:
+      config.yaml:
+        var:
+          intro:
+            file: content/intro.md
+        build:
+          - output: out.html
+            input: "<main>{{intro}}</main>"
+      content/intro.md: |-
+        Hello
+
+        {{missing}} !
+    target:
+      out.html: '<main><div class="minidoc-error" style="border:1px solid #c00;background:rgba(255,0,0,.04);padding:.5em .75em;font-family:monospace;white-space:pre-wrap;">Undefined variable {{missing}} at line 3 in file content/intro.md</div></main>'
+
+  - scenario: it should box a transform error with its document and line
+    options:
+      inlineErrors: true
+      containers: true
+    source:
+      config.yaml:
+        var:
+          guide:
+            file: content/guide.md
+            transform: containers
+        build:
+          - output: out.html
+            input: "{{guide}}"
+      content/guide.md: |-
+        ---
+        title: Guide
+        ---
+        ::: draft
+        Hello
+        :::
+    target:
+      out.html: '<div class="minidoc-error" style="border:1px solid #c00;background:rgba(255,0,0,.04);padding:.5em .75em;font-family:monospace;white-space:pre-wrap;">Unknown container at line 4: draft in file content/guide.md</div>'
+
+  - scenario: it should box only the failing dir item and keep rendering the rest
+    options:
+      inlineErrors: true
+    source:
+      config.yaml:
+        var:
+          entries:
+            dir: content
+            transform: none
+            each: "<li>{{body}}</li>"
+        build:
+          - output: out.html
+            input: "{{entries}}"
+      content/01.md: |-
+        One
+      content/02.md: |-
+        {{missing}}
+    target:
+      out.html: |-
+        <li>One</li>
+        <div class="minidoc-error" style="border:1px solid #c00;background:rgba(255,0,0,.04);padding:.5em .75em;font-family:monospace;white-space:pre-wrap;">Undefined variable {{missing}} in file content/02.md</div>
+
+  - scenario: it should box a variable cycle and keep rendering the page
+    options:
+      inlineErrors: true
+    source:
+      config.yaml:
+        var:
+          name: Marmot
+          intro:
+            file: content/intro.md
+            transform: none
+        build:
+          - output: out.html
+            input: "{{intro}} and {{name}}"
+      content/intro.md: |-
+        {{intro}}
+    target:
+      out.html: '<div class="minidoc-error" style="border:1px solid #c00;background:rgba(255,0,0,.04);padding:.5em .75em;font-family:monospace;white-space:pre-wrap;">Variable cycle in file content/intro.md: intro -> intro</div> and Marmot'
+
+  - scenario: it should box an error in a build input template
+    options:
+      inlineErrors: true
+    source:
+      config.yaml:
+        build:
+          - output: out.html
+            input: |-
+              <h1>Hi</h1>
+              {{missing}}
+    target:
+      out.html: '<div class="minidoc-error" style="border:1px solid #c00;background:rgba(255,0,0,.04);padding:.5em .75em;font-family:monospace;white-space:pre-wrap;">Undefined variable {{missing}} at line 2 in build[0] input</div>'
+
+  - scenario: it should still fail loud on an output path error in inline mode
+    options:
+      inlineErrors: true
+    source:
+      config.yaml:
+        build:
+          - output: "{{missing}}.html"
+            input: "hi"
+    error: "Undefined variable {{missing}} in build[0] output"

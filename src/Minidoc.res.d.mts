@@ -32,6 +32,12 @@ export type RunOptions = {
   fs?: FileSystem;
   /** Named transforms added to or overriding the built-in `md` and `none`. */
   transform?: Transforms;
+  /**
+   * Render content errors as inline error boxes at their place in the output
+   * instead of aborting the build (each is also logged to the console).
+   * Output path errors still fail loud. Default: false.
+   */
+  inlineErrors?: boolean;
 };
 
 /** Discover and run all matching entry configs concurrently. */

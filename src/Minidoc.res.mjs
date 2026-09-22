@@ -33,14 +33,49 @@ let stack = {
 
 let rawSite = ((at, fn) => {
   try { return fn() } catch (e) {
-    if (/^Undefined variable/.test(e.message) && !e.message.includes(" in ")) {
-      e.message += " in " + at
-    } else if (e.message.startsWith("Variable cycle:")) {
-      e.message = "Variable cycle in " + at + ":" + e.message.slice(15)
+    if (e && e.message && !e.minidocSited) {
+      e.minidocSited = true
+      e.message = e.message.startsWith("Variable cycle:")
+        ? "Variable cycle in " + at + ":" + e.message.slice(15)
+        : e.message + " in " + at
     }
     throw e
   }
 });
+
+let rawBoxed = ((stack, inline, fn) => {
+  if (!inline) return fn()
+  const active = stack.contents
+  try { return fn() } catch (e) {
+    stack.contents = active
+    const message = String((e && e.message) || e)
+    console.error("minidoc: " + message)
+    const text = message.replace(/&/g, "&amp;").replace(/</g, "&lt;")
+    return '<div class="minidoc-error" style="border:1px solid #c00;background:rgba(255,0,0,.04);padding:.5em .75em;font-family:monospace;white-space:pre-wrap;">' + text + '</div>'
+  }
+});
+
+function lined(template, offset) {
+  if (template.includes("\n")) {
+    return ` at line ` + template.slice(0, offset).split("\n").length.toString();
+  } else {
+    return "";
+  }
+}
+
+function unpad(text, pad) {
+  let go = _i => {
+    while (true) {
+      let i = _i;
+      if (!(i < pad && text.charAt(i) === "\n")) {
+        return i;
+      }
+      _i = i + 1 | 0;
+      continue;
+    };
+  };
+  return text.slice(go(0));
+}
 
 function data(front) {
   return Stdlib_Dict.mapValues(front, d => {
@@ -58,19 +93,20 @@ function data(front) {
   });
 }
 
-function make(lvars) {
+function make(inline, lvars) {
   return Tilia.carve(param => {
     let derived = param.derived;
     return {
       lvars: lvars,
       vars: Stdlib_Dict.mapValues(lvars, lv => derived(self => $$eval(lv, self))),
-      get: derived(self => (name => self.vars[name]))
+      get: derived(self => (name => self.vars[name])),
+      inline: inline
     };
   });
 }
 
 function sub(self, extra) {
-  return make(Object.assign(Object.assign({}, self.lvars), extra));
+  return make(self.inline, Object.assign(Object.assign({}, self.lvars), extra));
 }
 
 function $$eval(lv, self) {
@@ -91,16 +127,17 @@ function $$eval(lv, self) {
       let c = lv._0;
       return {
         TAG: "One",
-        _0: c.transform(rawSite(c.at, () => render(c.body, sub(self, data(c.front)).get)))
+        _0: rawBoxed(stack, self.inline, () => rawSite(c.at, () => unpad(c.transform(render(c.body, sub(self, data(c.front)).get)), c.pad)))
       };
     case "D" :
+      let at = lv._2;
       let each = lv._1;
       let items = lv._0;
       return {
         TAG: "One",
-        _0: rawSite(lv._2, () => items.map(c => {
+        _0: rawSite(at, () => items.map(c => rawBoxed(stack, self.inline, () => rawSite(at, () => {
           let front = sub(self, data(c.front));
-          let body = c.transform(rawSite(c.at, () => render(c.body, front.get)));
+          let body = unpad(c.transform(rawSite(c.at, () => render(c.body, front.get))), c.pad);
           return render(each, sub(front, Object.fromEntries([[
               "body",
               {
@@ -111,51 +148,57 @@ function $$eval(lv, self) {
                 }
               }
             ]])).get);
-        }).join("\n"))
+        }))).join("\n"))
       };
     case "R" :
+      let at$1 = lv._1;
       let l = lv._0;
-      let match = self.get(l.list);
-      if (match === undefined) {
-        return Schema.fail(`Undefined variable {{` + l.list + `}}`);
-      }
-      if (match.TAG === "One") {
-        return Schema.fail(lv._1 + `: "` + l.list + `" must resolve to a scalar list`);
-      }
-      let items$1 = match._0;
-      if (items$1.length === 0) {
-        return {
-          TAG: "One",
-          _0: ""
-        };
-      }
-      let one = (name, value, template) => render(template, sub(self, Object.fromEntries([[
-          name,
-          {
-            TAG: "V",
-            _0: {
-              TAG: "One",
-              _0: value
-            }
-          }
-        ]])).get);
-      let body = items$1.map(item => one("item", item, l.each)).join(Stdlib_Option.getOr(l.join, ""));
-      let template = l.template;
       return {
         TAG: "One",
-        _0: template !== undefined ? one("body", body, template) : body
+        _0: rawBoxed(stack, self.inline, () => rawSite(at$1, () => {
+          let match = self.get(l.list);
+          if (match === undefined) {
+            return Schema.fail(`Undefined variable {{` + l.list + `}}`);
+          }
+          if (match.TAG === "One") {
+            return Schema.fail(`"` + l.list + `" must resolve to a scalar list`);
+          }
+          let items = match._0;
+          if (items.length === 0) {
+            return "";
+          }
+          let one = (name, value, template) => render(template, sub(self, Object.fromEntries([[
+              name,
+              {
+                TAG: "V",
+                _0: {
+                  TAG: "One",
+                  _0: value
+                }
+              }
+            ]])).get);
+          let body = items.map(item => one("item", item, l.each)).join(Stdlib_Option.getOr(l.join, ""));
+          let template = l.template;
+          if (template !== undefined) {
+            return one("body", body, template);
+          } else {
+            return body;
+          }
+        }))
       };
     case "P" :
+      let at$2 = lv._2;
+      let transform = lv._1;
       let value = lv._0;
       return {
         TAG: "One",
-        _0: lv._1(rawSite(lv._2, () => render(value, self.get)))
+        _0: rawBoxed(stack, self.inline, () => rawSite(at$2, () => transform(render(value, self.get))))
       };
   }
 }
 
 function render(template, get) {
-  return template.replace(reference, (ref, quote, name, param, param$1) => {
+  return template.replace(reference, (ref, quote, name, offset, input) => {
     if (quote !== "") {
       return ref.replace(backtick, "");
     }
@@ -174,7 +217,7 @@ function render(template, get) {
     let match = get(name);
     let out = match !== undefined ? (
         match.TAG === "One" ? match._0 : match._0.join("")
-      ) : Schema.fail(`Undefined variable ` + ref);
+      ) : Schema.fail(`Undefined variable ` + ref + lined(input, offset));
     stack.contents = active;
     return out;
   });
@@ -227,7 +270,8 @@ function split(text, at) {
   if (!text.startsWith("---\n")) {
     return {
       front: {},
-      body: text
+      body: text,
+      pad: 0
     };
   }
   let m = matter.exec(text);
@@ -242,9 +286,12 @@ function split(text, at) {
   } else {
     vars = {};
   }
+  let full = m[0];
+  let pad = full.split("\n").length - 1 | 0;
   return {
     front: vars,
-    body: text.slice(m[0].length)
+    body: "\n".repeat(pad) + text.slice(full.length),
+    pad: pad
   };
 }
 
@@ -300,7 +347,8 @@ async function load(fs, transforms, pget, label, vars) {
       body: match.body,
       transform: named(name$1, at),
       front: match.front,
-      at: `file ` + path
+      at: `file ` + path,
+      pad: match.pad
     };
   };
   let out = {};
@@ -405,7 +453,7 @@ async function chain(fs, path, visited, from) {
   }
 }
 
-async function exec(fs, transforms, entry) {
+async function exec(fs, transforms, inline, entry) {
   let configs = await chain(fs, entry, [], "");
   let pget = Stdlib_Array.reduce(configs, param => {}, (parent, c) => strs(c.vars, parent));
   let grow = async (acc, i) => {
@@ -427,7 +475,7 @@ async function exec(fs, transforms, entry) {
     let layer = front => {
       let parent = Object.assign(Object.assign({}, front), shared);
       let parent$1 = Object.assign(Object.assign({}, parent), $$exports);
-      return make(Object.assign(Object.assign({}, parent$1), own));
+      return make(inline, Object.assign(Object.assign({}, parent$1), own));
     };
     let path = b.input;
     if (path.TAG === "Copy") {
@@ -537,9 +585,14 @@ async function exec(fs, transforms, entry) {
     }
     let bctx = match$1[1];
     let lv = match$1[0];
-    let s = top(at + ` input`, () => $$eval(lv, bctx));
-    let out;
-    out = s.TAG === "One" ? s._0 : s._0.join("");
+    let out = rawBoxed(stack, inline, () => {
+      let s = top(at + ` input`, () => $$eval(lv, bctx));
+      if (s.TAG === "One") {
+        return s._0;
+      } else {
+        return s._0.join("");
+      }
+    });
     return await fs.writeFile(top(at + ` output`, () => render(b.output, bctx.get)), out);
   }));
 }
@@ -701,6 +754,7 @@ function nodeFs(root) {
 }
 
 async function run(options) {
+  let inline = Stdlib_Option.getOr(options.inlineErrors, false);
   let fs = options.fs;
   let fs$1 = fs !== undefined ? fs : nodeFs(undefined);
   let configs = await fs$1.glob(options.glob);
@@ -708,7 +762,7 @@ async function run(options) {
     Schema.fail(`No config files match "` + options.glob + `"`);
   }
   let transforms = Object.assign(Object.assign({}, defaults), Stdlib_Option.getOr(options.transform, {}));
-  await Promise.all(configs.toSorted(Primitive_string.compare).map(config => exec(fs$1, transforms, config)));
+  await Promise.all(configs.toSorted(Primitive_string.compare).map(config => exec(fs$1, transforms, inline, config)));
 }
 
 export {

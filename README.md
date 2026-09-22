@@ -47,7 +47,8 @@ build:
 ```
 
 Undefined variables and reference cycles fail loud, naming the build entry
-and the variable path. Plain name substitution — no filters, no expressions.
+and the variable path — plus the line, for multi-line templates (see
+[Errors](#errors)). Plain name substitution — no filters, no expressions.
 
 To render a reference as literal text, backtick-quote the name:
 ``{{`name`}}`` outputs `{{name}}` without evaluation, and the name needs no
@@ -170,6 +171,36 @@ build:
     input: { copy: assets/fonts }
 ```
 
+## Errors
+
+Every render error is decorated with its site — the file or build entry it
+came from — and undefined references in multi-line templates carry a line
+number:
+
+```
+Undefined variable {{missing}} at line 3 in file content/intro.md
+Variable cycle in file content/intro.md: intro -> intro
+Undefined variable {{missing}} in build[0] output
+```
+
+The innermost site wins: an error is labeled once, where it happened, and not
+again on the way out. Line numbers count from the top of the document — the
+body keeps its place behind the frontmatter, so a custom transform reporting
+"line 26" points at line 26 of the actual file.
+
+By default any error aborts the run. With `inlineErrors: true`, content errors
+instead surface as an error box (thin red border, faint red background, class
+`minidoc-error`, message HTML-escaped) at their place in the output page, and
+each is also logged to the console. The blast radius is the nearest content
+boundary: a failing `dir` item boxes only that item, the rest of the page
+still renders. Meant for a dev server — the site keeps building and the error
+shows up where it happens. Output path errors still fail loud even in this
+mode: a file cannot be written without a path. Leave it off in CI.
+
+```ts
+await run({ glob: "content/**/config.yaml", inlineErrors: dev })
+```
+
 ## Paths — the one exception
 
 Declared paths (`base`, `output`, `file`, `dir`, `copy`) are relative to the
@@ -225,8 +256,8 @@ pnpm test
 ```
 
 Tests are declarative YAML fixtures (`test/*.test.yaml`) driving the public
-API against the in-memory filesystem: each scenario is a `source` filesystem
-and either a `target` of expected outputs or the `error` the run must reject
-with. Failures source-map back to the scenario's line in the YAML file. The
+API against the in-memory filesystem: each scenario is a `source` filesystem,
+optional run `options`, and either a `target` of expected outputs or the
+`error` the run must reject with. Failures source-map back to the scenario's line in the YAML file. The
 fixtures run through `epureVitest`; their shared `Given` is registered in
 `test/steps.ts`.
