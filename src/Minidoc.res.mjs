@@ -23,7 +23,9 @@ let defaults = Object.fromEntries([
   ]
 ]);
 
-let reference = new RegExp("\\{\\{\\s*([A-Za-z_][A-Za-z0-9_.-]*)\\s*\\}\\}", "g");
+let reference = new RegExp("\\{\\{\\s*(`?)([A-Za-z_][A-Za-z0-9_.-]*)\\1\\s*\\}\\}", "g");
+
+let backtick = new RegExp("`", "g");
 
 let stack = {
   contents: []
@@ -153,7 +155,10 @@ function $$eval(lv, self) {
 }
 
 function render(template, get) {
-  return template.replace(reference, (ref, name, param, param$1) => {
+  return template.replace(reference, (ref, quote, name, param, param$1) => {
+    if (quote !== "") {
+      return ref.replace(backtick, "");
+    }
     let active = stack.contents;
     if (active.includes(name)) {
       let from = active.indexOf(name);

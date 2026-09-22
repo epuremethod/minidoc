@@ -47,6 +47,147 @@ examples:
       greeting.html: |-
         Hello Marmot !
 
+  - scenario: it should render a backtick-quoted reference as literal text
+    source:
+      config.yaml:
+        var:
+          name: Marmot
+        build:
+          - output: doc.html
+            input: |-
+              Write {{`name`}} to greet, {{name}} !
+    target:
+      doc.html: |-
+        Write {{name}} to greet, Marmot !
+
+  - scenario: it should not require a variable for an escaped reference
+    source:
+      config.yaml:
+        build:
+          - output: doc.html
+            input: |-
+              {{ `missing` }} stays literal
+    target:
+      doc.html: |-
+        {{ missing }} stays literal
+
+  - scenario: it should keep the spacing an escaped reference was written with
+    source:
+      config.yaml:
+        build:
+          - output: workflow.yml
+            input: |-
+              spaced:   ${{ `github.event.pull_request.base.sha` }}
+              tight:    ${{`steps.scan.outputs.exit-code`}}
+              padded:   {{   `name`   }}
+    target:
+      workflow.yml: |-
+        spaced:   ${{ github.event.pull_request.base.sha }}
+        tight:    ${{steps.scan.outputs.exit-code}}
+        padded:   {{   name   }}
+
+  - scenario: it should keep an escaped reference literal through indirection
+    source:
+      config.yaml:
+        var:
+          name: Marmot
+          doc: Write {{`name`}} in a template
+        build:
+          - output: doc.html
+            input: |-
+              {{doc}}
+    target:
+      doc.html: |-
+        Write {{name}} in a template
+
+  - scenario: it should keep an escaped reference literal through several levels of indirection
+    source:
+      config.yaml:
+        var:
+          name: Marmot
+          inner: Write {{`name`}}
+          middle: "{{inner}} once"
+          outer: "{{middle}}, twice"
+        build:
+          - output: doc.html
+            input: |-
+              {{outer}}
+    target:
+      doc.html: |-
+        Write {{name}} once, twice
+
+  - scenario: it should keep escape spacing through indirection
+    source:
+      config.yaml:
+        var:
+          github.sha: resolved
+          snippet: "run: ${{ `github.sha` }}"
+          page: "{{snippet}}"
+        build:
+          - output: workflow.yml
+            input: |-
+              {{page}}
+    target:
+      workflow.yml: |-
+        run: ${{ github.sha }}
+
+  - scenario: it should keep an escaped reference literal when a file var imports another file var
+    source:
+      config.yaml:
+        var:
+          name: Marmot
+          snippet:
+            file: content/snippet.html
+          page:
+            file: content/page.html
+        build:
+          - output: doc.html
+            input: |-
+              {{page}}
+      content/snippet.html: |-
+        <code>{{`name`}}</code> greets {{name}}
+      content/page.html: |-
+        <main>{{snippet}}</main>
+    target:
+      doc.html: |-
+        <main><code>{{name}}</code> greets Marmot</main>
+
+  - scenario: it should keep an escaped reference literal through a markdown transform
+    source:
+      config.yaml:
+        var:
+          name: Marmot
+          body:
+            file: content/intro.md
+        build:
+          - output: intro.html
+            input: |-
+              {{body}}
+      content/intro.md: |-
+        Write {{`name`}} to greet **{{name}}**.
+    target:
+      intro.html: |
+        <p>Write {{name}} to greet <strong>Marmot</strong>.</p>
+
+  - scenario: it should keep an escaped reference literal inside a dir item
+    source:
+      config.yaml:
+        var:
+          name: Marmot
+          chapters:
+            dir: content
+            transform: none
+            each: "<li>{{body}}</li>"
+        build:
+          - output: out.html
+            input: |-
+              {{chapters}}
+      content/01-one.md: |-
+        {{`name`}} and {{name}}
+    target:
+      out.html: |-
+        <li>{{name}} and Marmot</li>
+
   - scenario: it should fail loud on an undefined variable
     source:
       config.yaml:
@@ -70,3 +211,54 @@ examples:
             input: |-
               {{a}}
     error: "Variable cycle in build[0] input: a -> b -> a"
+
+  - scenario: it should keep an escaped reference literal through a transform var
+    source:
+      config.yaml:
+        var:
+          name: Marmot
+          rendered:
+            value: Write {{`name`}} to greet {{name}}
+            transform: md
+          page: "{{rendered}}"
+        build:
+          - output: out.html
+            input: |-
+              {{page}}
+    target:
+      out.html: |
+        <p>Write {{name}} to greet Marmot</p>
+
+  - scenario: it should keep an escaped reference literal inside a list var
+    source:
+      config.yaml:
+        var:
+          name: Marmot
+          refs:
+            - one
+            - two
+          block:
+            list: refs
+            each: "{{item}}={{`name`}}"
+            join: ", "
+          page: "{{block}}"
+        build:
+          - output: out.html
+            input: |-
+              {{page}}
+    target:
+      out.html: |-
+        one={{name}}, two={{name}}
+
+  - scenario: it should leave a doubly backtick-quoted reference alone
+    source:
+      config.yaml:
+        var:
+          name: Marmot
+        build:
+          - output: out.html
+            input: |-
+              {{``name``}} is not a reference
+    target:
+      out.html: |-
+        {{``name``}} is not a reference

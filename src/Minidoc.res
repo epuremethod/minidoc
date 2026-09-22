@@ -53,7 +53,16 @@ type lvar =
 /** One context: a carve of every template visible to it. */
 type ctx = {lvars: dict<lvar>, vars: dict<data>, get: string => option<data>}
 
-let reference = RegExp.fromString("\\{\\{\\s*([A-Za-z_][A-Za-z0-9_.-]*)\\s*\\}\\}", ~flags="g")
+// A backtick-quoted name is an escape: `{{`name`}}` renders as the literal
+// reference, unevaluated and spaced exactly as written.
+let reference = RegExp.fromString(
+  "\\{\\{\\s*(`?)([A-Za-z_][A-Za-z0-9_.-]*)\\1\\s*\\}\\}",
+  ~flags="g",
+)
+
+// The quoting backticks of an escape. A name can never contain one, so the
+// only backticks inside a matched reference are the two quotes.
+let backtick = RegExp.fromString("`", ~flags="g")
 
 // Names currently being rendered: a repeat is a cycle, detected before the
 // re-entrant read so the error propagates instead of looping.
@@ -131,26 +140,34 @@ and eval = (lv, self: ctx) =>
     }
   }
 and render = (template, get) =>
-  template->String.replaceRegExpBy1Unsafe(reference, (
+  template->String.replaceRegExpBy2Unsafe(reference, (
     ~match as ref,
-    ~group1 as name,
+    ~group1 as quote,
+    ~group2 as name,
     ~offset as _,
     ~input as _,
-  ) => {
-    let active = stack.contents
-    if Array.includes(active, name) {
-      let from = Array.indexOf(active, name)
-      fail(`Variable cycle: ${[...Array.slice(active, ~start=from), name]->Array.join(" -> ")}`)
+  ) =>
+    if quote != "" {
+      // Drop the quotes and keep the rest of the match exactly as written, so
+      // spacing survives: `{{ `name` }}` stays `{{ name }}`. An escape is a
+      // passthrough, and a passthrough that reformats its input is a rewrite.
+      String.replaceRegExp(ref, backtick, "")
+    } else {
+      let active = stack.contents
+      if Array.includes(active, name) {
+        let from = Array.indexOf(active, name)
+        fail(`Variable cycle: ${[...Array.slice(active, ~start=from), name]->Array.join(" -> ")}`)
+      }
+      stack := [...active, name]
+      let out = switch get(name) {
+      | Some(One(s)) => s
+      | Some(Many(a)) => a->Array.join("")
+      | None => fail(`Undefined variable ${ref}`)
+      }
+      stack := active
+      out
     }
-    stack := [...active, name]
-    let out = switch get(name) {
-    | Some(One(s)) => s
-    | Some(Many(a)) => a->Array.join("")
-    | None => fail(`Undefined variable ${ref}`)
-    }
-    stack := active
-    out
-  })
+  )
 
 /** A top-level render site: fresh cycle stack, site-labeled errors. */
 let top = (at, fn: unit => 'a): 'a => {

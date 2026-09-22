@@ -114,3 +114,24 @@ examples:
             input: |-
               Hello
     error: "Config not found: nowhere.yaml (base of config.yaml)"
+
+  - scenario: it should keep an escaped reference literal through a chain of base configs
+    source:
+      rootConfig.yaml:
+        var:
+          layout: "<pre>{{`name`}} vs {{name}}</pre>"
+      midConfig.yaml:
+        base: rootConfig.yaml
+        var:
+          wrapped: "<main>{{layout}}</main>"
+      config.yaml:
+        base: midConfig.yaml
+        var:
+          name: Marmot
+        build:
+          - output: home.html
+            input: |-
+              {{wrapped}}
+    target:
+      home.html: |-
+        <main><pre>{{name}} vs Marmot</pre></main>

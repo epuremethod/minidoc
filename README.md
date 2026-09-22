@@ -47,8 +47,18 @@ build:
 ```
 
 Undefined variables and reference cycles fail loud, naming the build entry
-and the variable path. v1 is plain name substitution — no escaping of literal
-`{{`/`}}`, no filters, no expressions.
+and the variable path. Plain name substitution — no filters, no expressions.
+
+To render a reference as literal text, backtick-quote the name:
+``{{`name`}}`` outputs `{{name}}` without evaluation, and the name needs no
+var. Only the quotes are removed, so the spacing you wrote survives —
+``${{ `github.sha` }}`` outputs `${{ github.sha }}`, which is what makes the
+escape usable for documenting templating languages of your own.
+
+What comes out is text, not a template: the literal stays literal however far
+it travels — through an outer var, a file var importing another, a `dir` or
+`list` item, a transform. A rendered result is never re-rendered, so an escape
+unwraps exactly once, where it was written.
 
 Under the hood each context is a [tilia](https://tiliajs.dev) carve: every
 var is a lazy, cached, dependency-tracked computed. (Fittingly, tilia's own
