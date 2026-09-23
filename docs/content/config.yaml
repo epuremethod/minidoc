@@ -1,0 +1,97 @@
+var:
+  output: ../dist
+  header: |-
+    <header class="top">
+        <a class="wordmark" href="#top" aria-label="minidoc — home">
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+            <rect x="3" y="1.5" width="14" height="17" stroke="currentColor" stroke-width="1.5"/>
+            <path d="M6 6h8M6 10h8M6 14h5" stroke="var(--accent)" stroke-width="1.5"/>
+          </svg>
+          minidoc <span class="fam">· épure</span>
+        </a>
+        <nav class="idx" aria-label="Chapters">
+          {{navLinks}}
+          <a href="https://github.com/epuremethod/minidoc">GitHub</a>
+        </nav>
+      </header>
+  # The nav and the chapters below are two views of the same guide folder.
+  navLinks:
+    dir: guide
+    each: '<a href="#{{slug}}">{{nav}}</a>'
+    join: "\n        "
+  chapters:
+    dir: guide
+    each: |-
+      <section id="{{slug}}">
+          <div class="sec-head">
+            <div class="sec-kicker"><span class="no">{{no}}</span><span class="rule"></span><span class="tag">{{tag}}</span></div>
+            <h2>{{title}}</h2>
+          </div>
+          <article class="doc">
+      {{body}}
+          </article>
+        </section>
+  footer: |-
+    <footer class="titleblock">
+        <div class="tb-row">
+          <div class="tb-cell"><span class="lbl">Project</span><span class="val">MINIDOC — documentation, generated</span></div>
+          <div class="tb-cell"><span class="lbl">Sheet</span><span class="val">{{sheet}}</span></div>
+          <div class="tb-cell"><span class="lbl">Scale</span><span class="val">1 : 1</span></div>
+          <div class="tb-cell"><span class="lbl">Date</span><span class="val">2026-09-23</span></div>
+          <div class="tb-cell"><span class="lbl">Rev</span><span class="val">1</span></div>
+        </div>
+        <div class="tb-row crew">
+          <div class="tb-cell"><span class="lbl">Drawn by</span><span class="val">Humans</span></div>
+          <div class="tb-cell"><span class="lbl">Built by</span><span class="val">Itself</span></div>
+          <div class="tb-cell"><span class="lbl">Reactive core</span><span class="val"><a href="https://tiliajs.dev">tilia</a></span></div>
+          <div class="tb-cell"><span class="lbl">Notes</span><span class="val">Part of <a href="https://epuremethod.com">épure — drawn software</a></span></div>
+        </div>
+      </footer>
+  shell: |
+    <!doctype html>
+    <html lang="en">
+    <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="{{description}}">
+    <title>{{title}}</title>
+    <link rel="stylesheet" href="./styles.css">
+    </head>
+    <body>
+
+    <div class="sheet" id="top">
+      <i class="reg tl"></i><i class="reg tr"></i><i class="reg bl"></i><i class="reg br"></i>
+
+    {{header}}
+
+      <main>
+    {{main}}
+      </main>
+
+    {{footer}}
+    </div>
+    </body>
+    </html>
+  hero:
+    file: home.html
+  port: 58389
+build:
+  - output: "{{output}}/index.html"
+    input: "{{shell}}"
+    var:
+      title: minidoc — a small documentation website generator
+      description: "minidoc — a small documentation website generator from the épure
+        toolset. YAML configs declare variables and outputs; contexts are
+        dictionaries of templates; you inherit formulas, not values. This site
+        is built with it."
+      sheet: M-00 · Docs
+      main: |-
+        {{hero}}
+
+        {{chapters}}
+  - output: "{{output}}/styles.css"
+    input:
+      copy: ../assets/styles.css
+  - output: "{{output}}/fonts"
+    input:
+      copy: ../assets/fonts

@@ -1,49 +1,15 @@
 {
-  "name": "@epure/minidoc",
-  "version": "0.1.0",
-  "description": "Small documentation website generator",
-  "author": "Gaspard Anna Bucher <g.a.bucher@midasum.com>",
-  "license": "MIT",
+  "name": "minidoc",
+  "private": true,
   "type": "module",
-  "files": [
-    "src",
-    "dist",
-    "rescript.json",
-    "README.md",
-    "LICENSE"
-  ],
+  "packageManager": "pnpm@11.18.0",
   "engines": {
     "node": ">=22"
   },
-  "publishConfig": {
-    "access": "public"
-  },
   "scripts": {
-    "beta": "./bin/publish.sh --beta",
-    "build": "rescript build && node esbuild.js",
-    "check": "pnpm test && pnpm test:dev && pnpm test:package",
-    "prepack": "pnpm build",
-    "pub": "./bin/publish.sh",
-    "test": "rescript build && vitest run",
-    "test:dev": "rescript build && node --test test/dev.test.mjs",
-    "test:package": "pnpm build && node --test test/package.test.mjs",
-    "test:watch": "vitest"
-  },
-  "dependencies": {
-    "@rescript/runtime": "12.3.0",
-    "marked": "^18.0.7",
-    "sury": "11.0.0-alpha.11",
-    "tilia": "^5.2.0",
-    "yaml": "^2.8.0"
-  },
-  "devDependencies": {
-    "@epure/vitest": "1.1.0-beta.20260727T084407",
-    "@types/node": "^24.0.3",
-    "esbuild": "^0.28.1",
-    "rescript": "12.3.0",
-    "typescript": "5.8.3",
-    "vitest": "^3.2.3"
-  },
-  "main": "./dist/index.mjs",
-  "types": "./dist/index.d.ts"
+    "build": "pnpm -r build",
+    "check": "pnpm -r check",
+    "dev": "pnpm --filter minidoc-docs dev",
+    "test": "pnpm -r test"
+  }
 }

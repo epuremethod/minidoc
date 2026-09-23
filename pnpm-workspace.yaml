@@ -1,0 +1,5 @@
+packages:
+  - minidoc
+  - docs
+allowBuilds:
+  esbuild: true

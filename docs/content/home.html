@@ -1,0 +1,78 @@
+<!-- ============ HERO ============ -->
+<section class="hero">
+      <div>
+        <p class="eyebrow">M-00 · A small documentation website generator</p>
+        <h1>Documentation, generated from one idea.</h1>
+        <p class="lead">
+          minidoc discovers YAML configs, renders every <code>{{`var`}}</code>
+          reference, and writes each resolved input to its output path. A
+          context is a dictionary of templates; a child context is the parent's
+          templates merged with its own — own wins. Everything renders in its
+          nearest context. That is the whole tool — this page included: the
+          site you are reading is built by minidoc from one config.
+        </p>
+        <div class="cta-row">
+          <a class="btn solid" href="#quick-start">First build</a>
+          <a class="btn" href="#model">The model</a>
+          <a class="btn" href="https://github.com/epuremethod/minidoc">GitHub <span class="arrow">↗</span></a>
+        </div>
+        <aside class="defcard">
+          <span class="term">you inherit formulas, not values</span> — a base
+          declaring <code>layout: "&lt;h1&gt;{{`title`}}&lt;/h1&gt;"</code> doesn't hand
+          you a rendered string. The template becomes <em>yours</em> and
+          resolves against <em>your</em> <code>title</code>, like copying a
+          spreadsheet: you copy the formulas, and they recompute against your
+          cells.
+        </aside>
+      </div>
+
+      <figure class="hero-fig">
+        <svg viewBox="0 0 460 372" role="img"
+             aria-label="Architectural section drawing of a minidoc render: a base config foundation on hatched ground, a config var floor, a build var floor, and a frontmatter floor on top. A flag with a title reference annotates the structure, and a dimension line reads: resolves in the nearest context.">
+          <defs>
+            <pattern id="hatch" width="7" height="7" patternTransform="rotate(45)" patternUnits="userSpaceOnUse">
+              <line x1="0" y1="0" x2="0" y2="7" stroke="currentColor" stroke-width="1" opacity="0.45"/>
+            </pattern>
+          </defs>
+
+          <!-- ground -->
+          <line class="draw" style="--d:0" pathLength="1" x1="24" y1="318" x2="436" y2="318" stroke="currentColor" stroke-width="2.5"/>
+          <rect class="fadein" style="--d:0.5" x="40" y="320" width="380" height="26" fill="url(#hatch)"/>
+
+          <!-- base config foundation -->
+          <rect class="draw" style="--d:0.2" pathLength="1" x="84" y="261" width="292" height="57" fill="none" stroke="currentColor" stroke-width="2"/>
+          <text class="fadein" style="--d:0.8" x="230" y="285" text-anchor="middle" fill="currentColor" font-family="IBM Plex Mono, monospace" font-size="12" font-weight="500" letter-spacing="2">BASE CONFIG</text>
+          <text class="fadein" style="--d:0.85" x="230" y="302" text-anchor="middle" fill="var(--faint)" font-family="IBM Plex Mono, monospace" font-size="9.5" letter-spacing="1">INHERITED FORMULAS</text>
+
+          <!-- config var floor -->
+          <rect class="draw" style="--d:0.35" pathLength="1" x="84" y="204" width="292" height="57" fill="none" stroke="currentColor" stroke-width="2"/>
+          <text class="fadein" style="--d:0.9" x="230" y="228" text-anchor="middle" fill="currentColor" font-family="IBM Plex Mono, monospace" font-size="12" font-weight="500" letter-spacing="2">CONFIG VAR</text>
+          <text class="fadein" style="--d:0.95" x="230" y="245" text-anchor="middle" fill="var(--faint)" font-family="IBM Plex Mono, monospace" font-size="9.5" letter-spacing="1">THE SITE'S CONTEXT</text>
+
+          <!-- build var floor -->
+          <rect class="draw" style="--d:0.5" pathLength="1" x="84" y="147" width="292" height="57" fill="none" stroke="currentColor" stroke-width="2"/>
+          <text class="fadein" style="--d:1.0" x="230" y="171" text-anchor="middle" fill="currentColor" font-family="IBM Plex Mono, monospace" font-size="12" font-weight="500" letter-spacing="2">BUILD VAR</text>
+          <text class="fadein" style="--d:1.05" x="230" y="188" text-anchor="middle" fill="var(--faint)" font-family="IBM Plex Mono, monospace" font-size="9.5" letter-spacing="1">ONE PAGE'S CONTEXT</text>
+
+          <!-- frontmatter floor -->
+          <rect class="draw" style="--d:0.65" pathLength="1" x="84" y="90" width="292" height="57" fill="none" stroke="currentColor" stroke-width="2"/>
+          <text class="fadein" style="--d:1.1" x="230" y="114" text-anchor="middle" fill="currentColor" font-family="IBM Plex Mono, monospace" font-size="12" font-weight="500" letter-spacing="2">FRONTMATTER</text>
+          <text class="fadein" style="--d:1.15" x="230" y="131" text-anchor="middle" fill="var(--faint)" font-family="IBM Plex Mono, monospace" font-size="9.5" letter-spacing="1">MOST LOCAL · OWN WINS</text>
+
+          <!-- dimension line, right -->
+          <line class="draw" style="--d:1.2" pathLength="1" x1="404" y1="90" x2="404" y2="318" stroke="var(--accent)" stroke-width="1"/>
+          <line class="draw" style="--d:1.3" pathLength="1" x1="398" y1="90" x2="410" y2="90" stroke="var(--accent)" stroke-width="1"/>
+          <line class="draw" style="--d:1.3" pathLength="1" x1="398" y1="147" x2="410" y2="147" stroke="var(--accent)" stroke-width="1"/>
+          <line class="draw" style="--d:1.3" pathLength="1" x1="398" y1="204" x2="410" y2="204" stroke="var(--accent)" stroke-width="1"/>
+          <line class="draw" style="--d:1.3" pathLength="1" x1="398" y1="261" x2="410" y2="261" stroke="var(--accent)" stroke-width="1"/>
+          <line class="draw" style="--d:1.3" pathLength="1" x1="398" y1="318" x2="410" y2="318" stroke="var(--accent)" stroke-width="1"/>
+          <text class="fadein" style="--d:1.45" x="422" y="204" fill="var(--accent)" font-family="IBM Plex Mono, monospace" font-size="8.5" letter-spacing="1.5" transform="rotate(90 422 204)" text-anchor="middle">RESOLVES IN THE NEAREST CONTEXT</text>
+
+          <!-- reference flag -->
+          <rect class="draw" style="--d:1.5" pathLength="1" x="84" y="18" width="128" height="34" fill="var(--accent-soft)" stroke="var(--accent)" stroke-width="1.2"/>
+          <text class="fadein" style="--d:1.7" x="148" y="39" text-anchor="middle" fill="var(--accent)" font-family="IBM Plex Mono, monospace" font-size="10.5" font-weight="500">{{`title`}}</text>
+          <line class="draw" style="--d:1.6" pathLength="1" x1="148" y1="52" x2="148" y2="90" stroke="var(--accent)" stroke-width="1"/>
+        </svg>
+        <figcaption>Fig. M-00 — a render, in section · contexts merge, own wins</figcaption>
+      </figure>
+    </section>
