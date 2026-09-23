@@ -37,7 +37,17 @@ test("packages typed ESM for Node, Bun, and file dependencies", async () => {
 
     await writeFile(
       path.join(temp, "run.ts"),
-      ['import { run } from "@epure/minidoc";', 'const build: typeof run = run;', "void build;"].join("\n"),
+      [
+        'import { dev, run, watch } from "@epure/minidoc";',
+        "const build: typeof run = run;",
+        "const serve: (root: string) => Promise<number> = async (root) =>",
+        '  (await dev({ glob: "config.yaml", build: "src/build.mjs", root, serve: "dist" })).port;',
+        "const stop: (root: string) => Promise<void> = async (root) =>",
+        '  (await watch({ glob: "config.yaml", root })).stop();',
+        "void build;",
+        "void serve;",
+        "void stop;",
+      ].join("\n"),
     );
     exec("bun", ["run.ts"], temp);
 

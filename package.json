@@ -21,10 +21,11 @@
   "scripts": {
     "beta": "./bin/publish.sh --beta",
     "build": "rescript build && node esbuild.js",
-    "check": "pnpm test && pnpm test:package",
+    "check": "pnpm test && pnpm test:dev && pnpm test:package",
     "prepack": "pnpm build",
     "pub": "./bin/publish.sh",
     "test": "rescript build && vitest run",
+    "test:dev": "rescript build && node --test test/dev.test.mjs",
     "test:package": "pnpm build && node --test test/package.test.mjs",
     "test:watch": "vitest"
   },

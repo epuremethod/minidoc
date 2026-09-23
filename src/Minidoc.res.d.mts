@@ -51,3 +51,47 @@ export declare function makeMemoryFileSystem(seed?: Record<string, string>): Fil
  * current working directory). Creates parent directories on write.
  */
 export declare function nodeFs(root?: string | URL): FileSystem;
+
+export type WatchOptions = RunOptions & {
+  /**
+   * Node script spawned for each rebuild. Without it `run` executes in this
+   * process, which cannot see an edited transformer: transforms arrive as
+   * closures, and no ESM cache hands back a module a file has changed under.
+   */
+  build?: string;
+  /** Directory watched, recursively. Default: the current working directory. */
+  root?: string;
+  /** More paths watched alongside `root` — files or folders, inside it or not. */
+  watch?: string[];
+  /** Path segments never watched. Default: dist, node_modules, lib (and any dot-name). */
+  ignore?: string[];
+  /** Extensions that trigger a rebuild. Default: content, config, and script files. */
+  extensions?: string[];
+};
+
+export type DevOptions = WatchOptions & {
+  /** Directory served, relative to `root`. Default: "dist". */
+  serve?: string;
+  /** A fixed port; without one, the port remembered in the entry config. */
+  port?: number;
+};
+
+export interface Watcher {
+  /** Stop watching. */
+  stop(): void;
+}
+
+export interface Server extends Watcher {
+  /** The port the dev server is listening on. */
+  port: number;
+}
+
+/** Build once, then rebuild on every content, config, or script change. */
+export declare function watch(options: WatchOptions): Promise<Watcher>;
+
+/**
+ * `watch`, plus a static server over the output with live reload. The port is
+ * the one remembered in `var: port:` of the entry config; on first launch — or
+ * when that port is taken — a free one is drawn and written back there.
+ */
+export declare function dev(options: DevOptions): Promise<Server>;

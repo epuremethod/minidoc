@@ -15,6 +15,14 @@ let guard = (prefix, fn: unit => 'a): 'a => magic(rawGuard(prefix, magic(fn)))
 
 module Yaml = {
   @module("yaml") external parse: string => 'a = "parse"
+
+  // The editable document: `parseDocument` keeps comments and layout, so a
+  // config written back is the file the author wrote plus the one key.
+  type doc
+  @module("yaml") external parseDocument: string => doc = "parseDocument"
+  @send external getIn: (doc, array<string>) => Nullable.t<'a> = "getIn"
+  @send external setIn: (doc, array<string>, int) => unit = "setIn"
+  @send external print: doc => string = "toString"
 }
 
 // Paths are posix-style with no `..` normalization: used as written.
@@ -146,3 +154,34 @@ let parse = (text, path) => guard(path, () => convert(path, S.parseOrThrow(Yaml.
 
 /** Parse a frontmatter YAML block. `at` locates the file in error messages. */
 let front = (head, at) => guard(at, () => S.parseOrThrow(Yaml.parse(head), ~to=frontS)->Option.getOr(Dict.make()))
+
+// ---------------------------------------------------------------------------
+// The dev server port, remembered in the entry config.
+
+// A dev server on a fixed port collides with every other project on the
+// machine, so the port is drawn once and written back to the config that
+// declared the site. It lives under `var` like any other scalar: a template
+// can say `{{port}}`.
+
+/** The port remembered in `var: port:`, when the config names one. */
+let port = text =>
+  try {
+    switch Yaml.parseDocument(text)->Yaml.getIn(["var", "port"])->Nullable.toOption {
+    | None => None
+    | Some(v) =>
+      switch Type.typeof(v) {
+      | #number => Some(magic(v): int)
+      | #string => Int.fromString(magic(v))
+      | _ => None
+      }
+    }
+  } catch {
+  | _ => None
+  }
+
+/** `text` with `var: port:` set to `n`; every other byte stays as written. */
+let withPort = (text, n) => {
+  let doc = Yaml.parseDocument(text)
+  doc->Yaml.setIn(["var", "port"], n)
+  doc->Yaml.print
+}

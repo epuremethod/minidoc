@@ -623,3 +623,99 @@ let run = async (options: runOptions) => {
     configs->Array.toSorted(String.compare)->Array.map(config => exec(fs, transforms, inline, config)),
   )
 }
+
+// ---------------------------------------------------------------------------
+// Development — watch, rebuild, serve.
+
+type watchOptions = {
+  ...runOptions,
+  /**
+   Node script spawned for each rebuild. Without it `run` executes in this
+   process, which cannot see an edited transformer: transforms arrive as
+   closures, and no ESM cache hands back a module a file has changed under.
+  */
+  build?: string,
+  /** Directory watched, recursively. Default: the current working directory. */
+  root?: string,
+  /** More paths watched alongside `root` — files or folders, inside it or not. */
+  watch?: array<string>,
+  /** Path segments never watched. Default: dist, node_modules, lib (and any dot-name). */
+  ignore?: array<string>,
+  /** Extensions that trigger a rebuild. Default: content, config, and script files. */
+  extensions?: array<string>,
+}
+
+type devOptions = {
+  ...watchOptions,
+  /** Directory served, relative to `root`. Default: "dist". */
+  serve?: string,
+  /** A fixed port; without one, the port remembered in the entry config. */
+  port?: int,
+}
+
+type watcher = Dev.stopper = {stop: unit => unit}
+type server = Dev.running = {port: int, stop: unit => unit}
+
+// The first config the glob matches: the one that declares this site, and so
+// the one that remembers its port.
+let entry = async (fs: filesystem, glob) =>
+  switch (await fs.glob(glob))->Array.toSorted(String.compare)->Array.get(0) {
+  | Some(path) => path
+  | None => fail(`No config files match "${glob}"`)
+  }
+
+let watch = async (options: watchOptions) => {
+  let root = options.root->Option.getOr(Dev.cwd())
+  let rebuild = switch options.build {
+  | Some(path) => () => Dev.script(path, root)
+  | None =>
+    () =>
+      run({
+        glob: options.glob,
+        fs: ?options.fs,
+        transform: ?options.transform,
+        inlineErrors: ?options.inlineErrors,
+      })
+  }
+  await Dev.watch(
+    {root, watch: ?options.watch, ignore: ?options.ignore, extensions: ?options.extensions},
+    rebuild,
+  )
+}
+
+let dev = async (options: devOptions) => {
+  let root = options.root->Option.getOr(Dev.cwd())
+  let fs = switch options.fs {
+  | Some(fs) => fs
+  | None => nodeFs(None)
+  }
+  let rebuild = switch options.build {
+  | Some(path) => () => Dev.script(path, root)
+  | None =>
+    () =>
+      run({
+        glob: options.glob,
+        fs: ?options.fs,
+        transform: ?options.transform,
+        inlineErrors: options.inlineErrors->Option.getOr(true),
+      })
+  }
+  await Dev.dev(
+    {
+      root,
+      watch: ?options.watch,
+      ignore: ?options.ignore,
+      extensions: ?options.extensions,
+      serve: ?options.serve,
+      port: ?options.port,
+    },
+    {
+      rebuild,
+      readPort: async () => Schema.port(await fs.readFile(await entry(fs, options.glob))),
+      writePort: async port => {
+        let path = await entry(fs, options.glob)
+        await fs.writeFile(path, Schema.withPort(await fs.readFile(path), port))
+      },
+    },
+  )
+}

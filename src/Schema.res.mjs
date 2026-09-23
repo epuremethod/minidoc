@@ -3,6 +3,7 @@
 import * as S from "sury/src/S.res.mjs";
 import * as Sury from "sury";
 import * as Yaml from "yaml";
+import * as Stdlib_Int from "@rescript/runtime/lib/es6/Stdlib_Int.js";
 import * as Stdlib_Dict from "@rescript/runtime/lib/es6/Stdlib_Dict.js";
 import * as Stdlib_Option from "@rescript/runtime/lib/es6/Stdlib_Option.js";
 import * as Stdlib_JsError from "@rescript/runtime/lib/es6/Stdlib_JsError.js";
@@ -227,6 +228,37 @@ function front(head, at) {
   return rawGuard(at, () => Stdlib_Option.getOr(S.parseOrThrow(Yaml.parse(head), frontS), {}));
 }
 
+function port(text) {
+  try {
+    let v = Yaml.parseDocument(text).getIn([
+      "var",
+      "port"
+    ]);
+    if (v == null) {
+      return;
+    }
+    let match = typeof v;
+    if (match === "string") {
+      return Stdlib_Int.fromString(v, undefined);
+    } else if (match === "number") {
+      return v;
+    } else {
+      return;
+    }
+  } catch (exn) {
+    return;
+  }
+}
+
+function withPort(text, n) {
+  let doc = Yaml.parseDocument(text);
+  doc.setIn([
+    "var",
+    "port"
+  ], n);
+  return doc.toString();
+}
+
 let fail = Stdlib_JsError.throwWithMessage;
 
 export {
@@ -252,5 +284,7 @@ export {
   convert,
   parse,
   front,
+  port,
+  withPort,
 }
 /* scalarS Not a pure module */

@@ -45,8 +45,11 @@ project-specific transforms out of minidoc:
 
 ## 5. Project build and dev
 
-- [x] No core CLI needed: the docs own a Bun `build.ts` that calls `run()`
-  and a small project watcher for development.
+- [x] Done in core: `watch` and `dev` (`src/Dev.res`). A docs project keeps its
+  own `build.ts` calling `run()`; `dev({glob, build})` watches the project,
+  rebuilds it in a fresh process — so an edited transformer takes effect — and
+  serves the output with live reload on a port drawn once and remembered in the
+  entry config. No CLI, and no chokidar or live-server in the docs projects.
 
 ## 6. Programmatic config access
 

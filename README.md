@@ -237,17 +237,90 @@ await run({ fs: makeMemoryFileSystem(files), glob: "**/config.yaml" })
 await run({ fs: nodeFs(new URL("./content/", import.meta.url)), glob: "**/config.yaml" })
 ```
 
+## Development
+
+`dev` builds the site, watches the project, rebuilds what changed, and serves
+the output with live reload:
+
+```ts
+// src/dev.ts
+import { dev } from "@epure/minidoc"
+
+await dev({ glob: "content/**/config.yaml", build: "src/build.ts" })
+```
+
+A rebuild fires on any `.md`, `.yaml`, `.html`, `.css` or script file under the
+root — new files included. `dist`, `node_modules`, `lib` and every dot-name go
+unwatched, so a build never triggers itself. One save is several filesystem
+events, so changes coalesce; a change arriving mid-build queues exactly one more
+run, however many arrive.
+
+`build` names the script that calls `run()`, and each rebuild runs it in a
+**fresh process**. That is what makes an edited transformer take effect:
+transforms reach `run` as closures, and no ESM cache hands back a module a file
+has changed under. Without `build`, `dev` calls `run` in its own process with
+`inlineErrors` on — fine for a site with no custom transforms, blind to a
+transformer edit.
+
+`root` (default: the current directory) is what gets watched, `serve` (default
+`dist`) is what gets served, and `ignore` and `extensions` replace the two lists
+above. `watch` adds paths — files or folders, inside the project or not — for
+content that lives elsewhere:
+
+```ts
+await dev({
+  glob: "content/**/config.yaml",
+  build: "src/build.ts",
+  watch: ["../docs", "../db/types.yaml"],
+})
+```
+ The served page carries one injected line, an `EventSource` that reloads
+it when a build lands. The rest is a static host: `/guide/` answers with its
+index, `/guide` with `guide.html` then `guide/index.html`, so the dev site is
+the deployed site.
+
+`watch` is the same runner without the server, for a project that serves its
+output some other way:
+
+```ts
+const watcher = await watch({ glob: "content/**/config.yaml", build: "src/build.ts" })
+watcher.stop()
+```
+
+### The port
+
+A dev server on a fixed port collides with every other project on the machine.
+So the port is drawn once, free, and written back to the entry config — under
+`var`, like any other scalar:
+
+```yaml
+var:
+  site: Marmot Docs
+  port: 51234        # written on first launch
+```
+
+The site keeps that address for good: bookmarkable, and `{{port}}` is an
+ordinary var a template can print. The config is rewritten through yaml's
+document API, so comments and layout survive. The day that port is taken, a free
+one replaces it in the file. Passing `port` explicitly skips all of this and
+writes nothing.
+
 ## Design
 
-Three source files, ReScript:
+Three source files, ReScript, plus the dev runner:
 
 - `src/Schema.res` — [Sury](https://github.com/DZakh/sury) schemas parsing
-  YAML configs and frontmatter into tagged variants; path anchoring.
+  YAML configs and frontmatter into tagged variants; path anchoring, and the
+  remembered port.
 - `src/Minidoc.res` — contexts (tilia carves), rendering, the filesystems,
   `run`. All I/O goes through the injected `filesystem`; transforms are
   injected too.
 - `src/Minidoc.resi` — the public interface, mirrored by the hand-written
   `src/Minidoc.res.d.mts` for TypeScript consumers.
+- `src/Dev.res` — `watch` and `dev`: the watcher, the rebuild loop, the static
+  server. Node-only, and lazily so — every builtin loads through a dynamic
+  import, so importing minidoc in a browser stays safe. No dependency: Node's
+  own recursive `fs.watch` is the whole watcher.
 
 ## Tests
 
@@ -261,3 +334,7 @@ optional run `options`, and either a `target` of expected outputs or the
 `error` the run must reject with. Failures source-map back to the scenario's line in the YAML file. The
 fixtures run through `epureVitest`; their shared `Given` is registered in
 `test/steps.ts`.
+
+`pnpm test:dev` drives `dev` and `watch` against a real filesystem and a real
+socket (`test/dev.test.mjs`) — the two things the in-memory fixtures cannot
+stand in for. `pnpm check` runs everything.

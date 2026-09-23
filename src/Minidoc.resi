@@ -46,3 +46,45 @@ let makeMemoryFileSystem: option<dict<string>> => filesystem
  current working directory). Creates parent directories on write.
 */
 let nodeFs: option<string> => filesystem
+
+// ---------------------------------------------------------------------------
+// Development — watch, rebuild, serve.
+
+type watchOptions = {
+  ...runOptions,
+  /**
+   Node script spawned for each rebuild. Without it `run` executes in this
+   process, which cannot see an edited transformer: transforms arrive as
+   closures, and no ESM cache hands back a module a file has changed under.
+  */
+  build?: string,
+  /** Directory watched, recursively. Default: the current working directory. */
+  root?: string,
+  /** More paths watched alongside `root` — files or folders, inside it or not. */
+  watch?: array<string>,
+  /** Path segments never watched. Default: dist, node_modules, lib (and any dot-name). */
+  ignore?: array<string>,
+  /** Extensions that trigger a rebuild. Default: content, config, and script files. */
+  extensions?: array<string>,
+}
+
+type devOptions = {
+  ...watchOptions,
+  /** Directory served, relative to `root`. Default: "dist". */
+  serve?: string,
+  /** A fixed port; without one, the port remembered in the entry config. */
+  port?: int,
+}
+
+type watcher = {stop: unit => unit}
+type server = {port: int, stop: unit => unit}
+
+/** Build once, then rebuild on every content, config, or script change. */
+let watch: watchOptions => promise<watcher>
+
+/**
+ `watch`, plus a static server over the output with live reload. The port is
+ the one remembered in `var: port:` of the entry config; on first launch — or
+ when that port is taken — a free one is drawn and written back there.
+*/
+let dev: devOptions => promise<server>
