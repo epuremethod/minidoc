@@ -4,6 +4,8 @@ slug: quick-start
 no: M-01
 tag: First build
 nav: Start
+desc: Install @epure/minidoc, point run at a glob of YAML configs, and every
+  declared output is rendered and written.
 ---
 
 Install the package, point `run` at a config, done:

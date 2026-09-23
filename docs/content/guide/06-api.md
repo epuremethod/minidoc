@@ -4,6 +4,8 @@ slug: api
 no: M-06
 tag: API
 nav: API
+desc: The run API, custom text transforms, injectable filesystems, and the
+  source layout.
 ---
 
 ```ts

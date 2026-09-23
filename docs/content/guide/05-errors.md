@@ -4,6 +4,8 @@ slug: errors
 no: M-05
 tag: Errors
 nav: Errors
+desc: Errors fail loud and carry their site — file, build entry, line number;
+  inlineErrors renders content errors in place for a dev server.
 ---
 
 Every render error is decorated with its site — the file or build entry it

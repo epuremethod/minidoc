@@ -4,6 +4,8 @@ slug: model
 no: M-02
 tag: The model
 nav: Model
+desc: Contexts are dictionaries of templates; layers merge and you inherit
+  formulas, not values. How references render and how to escape one.
 ---
 
 One idea drives everything:

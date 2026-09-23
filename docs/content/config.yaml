@@ -11,6 +11,7 @@ var:
         </a>
         <nav class="idx" aria-label="Chapters">
           {{navLinks}}
+          <a href="#gallery">Built with</a>
           <a href="https://github.com/epuremethod/minidoc">GitHub</a>
         </nav>
       </header>
@@ -74,24 +75,70 @@ var:
     </html>
   hero:
     file: home.html
+  gallery:
+    file: gallery.html
+  blurb: >-
+    minidoc is a small documentation website generator from the épure toolset.
+    YAML configs declare variables and build outputs; contexts are dictionaries
+    of templates; you inherit formulas, not values. This site is built with it.
+  # The same guide folder, two more views: the llms.txt index and the
+  # full-text concatenation, so they can never drift from the site.
+  llmsLinks:
+    dir: guide
+    each: "- [{{title}}](https://minidoc.dev/#{{slug}}): {{desc}}"
+  llmsChapters:
+    dir: guide
+    transform: none
+    each: |-
+      ## {{title}}
+
+      {{body}}
+    join: "\n\n"
   port: 58389
 build:
   - output: "{{output}}/index.html"
     input: "{{shell}}"
     var:
       title: minidoc — a small documentation website generator
-      description: "minidoc — a small documentation website generator from the épure
-        toolset. YAML configs declare variables and outputs; contexts are
-        dictionaries of templates; you inherit formulas, not values. This site
-        is built with it."
+      description: "{{blurb}}"
       sheet: M-00 · Docs
       main: |-
         {{hero}}
 
         {{chapters}}
+
+        {{gallery}}
+  - output: "{{output}}/llms.txt"
+    input: |-
+      # minidoc
+
+      > {{blurb}}
+
+      The site is a single page; the links below point at its sections. The
+      complete guide as one markdown file is in
+      [llms-full.txt](https://minidoc.dev/llms-full.txt).
+
+      ## Guide
+
+      {{llmsLinks}}
+
+      ## Optional
+
+      - [llms-full.txt](https://minidoc.dev/llms-full.txt): the full guide, one markdown file
+      - [GitHub](https://github.com/epuremethod/minidoc): source, issues, releases
+  - output: "{{output}}/llms-full.txt"
+    input: |-
+      # minidoc — full documentation
+
+      > {{blurb}}
+
+      {{llmsChapters}}
   - output: "{{output}}/styles.css"
     input:
       copy: ../assets/styles.css
   - output: "{{output}}/fonts"
     input:
       copy: ../assets/fonts
+  - output: "{{output}}/shots"
+    input:
+      copy: ../assets/shots

@@ -4,6 +4,8 @@ slug: vars
 no: M-03
 tag: Var kinds
 nav: Vars
+desc: The four var kinds — file, dir, list, value — plus transform inference
+  from file extensions and frontmatter.
 ---
 
 Every var is a template plus, optionally, a source and a transform. A plain

@@ -92,9 +92,9 @@ figure { margin: 0; }
 .reg::before, .reg::after { content: ""; position: absolute; background: var(--ink); }
 .reg::before { left: 50%; top: 0; width: 1px; height: 100%; }
 .reg::after { top: 50%; left: 0; height: 1px; width: 100%; }
-.reg.tl { top: -11px; left: -11px; }
-.reg.tr { top: -11px; right: -11px; }
-.reg.bl { bottom: -11px; left: -11px; }
+.reg.tl { top: -12px; left: -12px; }
+.reg.tr { top: -12px; right: -11px; }
+.reg.bl { bottom: -11px; left: -12px; }
 .reg.br { bottom: -11px; right: -11px; }
 
 /* ---------- header ---------- */
@@ -158,6 +158,7 @@ section + section { border-top: 1.5px solid var(--ink); }
   color: var(--faint);
 }
 .sec-head h2 { font-size: clamp(24px, 3.4vw, 32px); font-weight: 600; letter-spacing: -0.01em; }
+.sec-lead { max-width: 62ch; margin-top: 12px; color: var(--muted); font-size: 16.5px; }
 
 /* ---------- hero ---------- */
 .hero {
@@ -311,6 +312,141 @@ section + section { border-top: 1.5px solid var(--ink); }
   font-size: 13px;
 }
 
+/* ---------- gallery ---------- */
+.plates {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: clamp(18px, 3vw, 32px);
+  margin-top: clamp(28px, 4vw, 44px);
+}
+.plate { display: flex; flex-direction: column; }
+.plate .shot {
+  display: block;
+  border: 1.5px solid var(--ink);
+  background: var(--card);
+  overflow: hidden;
+  aspect-ratio: 4 / 3;
+}
+.plate .shot img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: top left;
+}
+a.shot { text-decoration: none; }
+a.shot:hover { border-color: var(--accent); }
+@media (prefers-color-scheme: dark) {
+  .plate .shot img { filter: brightness(0.88) contrast(1.02); }
+}
+:root[data-theme="dark"] .plate .shot img { filter: brightness(0.88) contrast(1.02); }
+:root[data-theme="light"] .plate .shot img { filter: none; }
+
+.plate figcaption {
+  flex: 1;
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+/* the note takes the slack so every plate's link sits on the same baseline */
+.plate .pl-note { flex: 1; }
+.plate .pl-no {
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+.plate .pl-name {
+  font-family: var(--mono);
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--ink);
+}
+.plate .pl-note { font-size: 14px; color: var(--muted); }
+.plate .pl-link {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  color: var(--accent);
+}
+a.pl-link { text-decoration: none; }
+a.pl-link:hover { text-decoration: underline; text-underline-offset: 3px; }
+.plate .pl-link.quiet {
+  color: var(--faint);
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  font-size: 9.5px;
+}
+
+/* ---------- enlargements (:target, no script) ---------- */
+.lightbox {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  padding: clamp(16px, 4vw, 48px);
+  align-items: center;
+  justify-content: center;
+}
+.lightbox:target { display: flex; }
+.lb-scrim {
+  position: absolute;
+  inset: 0;
+  background: color-mix(in srgb, #0b0906 88%, transparent);
+  cursor: zoom-out;
+}
+.lb-fig {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  /* hug the image so the caption lines up with its left edge, not the box's */
+  width: fit-content;
+  max-width: min(1180px, 100%);
+  max-height: 100%;
+  animation: lbin 0.18s ease-out;
+}
+.lb-fig img {
+  display: block;
+  min-height: 0;
+  max-width: 100%;
+  max-height: calc(100vh - 150px);
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  border: 1.5px solid var(--ink);
+  background: var(--card);
+}
+.lb-fig figcaption {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  margin-top: 12px;
+}
+.lb-fig .pl-no { color: #8b8172; }
+.lb-fig .pl-name { color: #f2ede3; }
+.lb-x {
+  position: absolute;
+  top: clamp(10px, 2vw, 22px);
+  right: clamp(10px, 2vw, 22px);
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 26px;
+  line-height: 1;
+  text-decoration: none;
+  color: #f2ede3;
+  border: 1px solid color-mix(in srgb, #f2ede3 35%, transparent);
+}
+.lb-x:hover { border-color: #f2ede3; }
+@keyframes lbin { from { opacity: 0; transform: scale(0.985); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .lb-fig { animation: none; } }
+
 /* ---------- title block ---------- */
 .titleblock { border-top: 2px solid var(--ink); background: var(--paper); }
 .tb-row {
@@ -335,10 +471,12 @@ section + section { border-top: 1.5px solid var(--ink); }
 
 /* ---------- responsive ---------- */
 @media (max-width: 920px) {
+  .plates { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .hero { grid-template-columns: 1fr; }
   .hero-fig { max-width: 520px; margin: 0 auto; }
 }
 @media (max-width: 680px) {
+  .plates { grid-template-columns: 1fr; }
   .tb-row, .tb-row.crew { grid-template-columns: 1fr 1fr; }
   .tb-cell { border-bottom: 1px solid var(--line); }
   .idx a:not(:first-child):not(:last-child) { display: none; }

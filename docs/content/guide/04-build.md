@@ -4,6 +4,8 @@ slug: build
 no: M-04
 tag: Build entries
 nav: Build
+desc: Build entries — template or file/dir inputs, copy entries, and how
+  declared paths resolve against their config.
 ---
 
 A build's `input` is a template string, or a `file`/`dir` mapping behaving

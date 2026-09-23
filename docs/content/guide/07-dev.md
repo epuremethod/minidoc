@@ -4,6 +4,8 @@ slug: dev
 no: M-07
 tag: Development
 nav: Dev
+desc: The dev and watch runners — watch, rebuild in a fresh process, serve
+  with live reload — and the remembered port.
 ---
 
 `dev` builds the site, watches the project, rebuilds what changed, and serves

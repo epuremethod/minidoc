@@ -49,8 +49,11 @@ jobs:
       - name: Build documentation
         run: pnpm build
 
+      # enablement lets the first run turn Pages on for the repository.
       - name: Configure Pages
         uses: actions/configure-pages@v5
+        with:
+          enablement: true
 
       - name: Upload documentation
         uses: actions/upload-pages-artifact@v3
