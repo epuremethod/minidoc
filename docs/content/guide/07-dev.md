@@ -18,23 +18,30 @@ import { dev } from "@epure/minidoc"
 await dev({ glob: "content/**/config.yaml", build: "src/build.mjs" })
 ```
 
-A rebuild fires on any `.md`, `.yaml`, `.html`, `.css` or script file under
-the root — new files included. `dist`, `node_modules`, `lib` and every
-dot-name go unwatched, so a build never triggers itself. One save is several
-filesystem events, so changes coalesce; a change arriving mid-build queues
-exactly one more run, however many arrive.
+Options:
 
-`build` names the script that calls `run()`, and each rebuild runs it in a
-**fresh process**. That is what makes an edited transformer take effect:
-transforms reach `run` as closures, and no ESM cache hands back a module a
-file has changed under. Without `build`, `dev` calls `run` in its own process
-with `inlineErrors` on — fine for a site with no custom transforms, blind to
-a transformer edit.
+- `build` — the script that calls `run()`; each rebuild runs it in a fresh
+  process.
+- `root` — watched recursively; default the current directory.
+- `watch` — extra paths to watch, files or folders, inside the project or
+  not, for content that lives elsewhere.
+- `ignore` — never watched; default `dist`, `node_modules`, `lib`, and every
+  dot-name.
+- `extensions` — what triggers a rebuild; default `.md`, `.yaml`, `.html`,
+  `.css` and script files.
+- `serve` — what gets served, relative to `root`; default `dist` (`dev` only).
+- `port` — fixed; without one, the port remembered in the config (`dev` only).
 
-`root` (default: the current directory) is what gets watched, `serve`
-(default `dist`) is what gets served, and `ignore` and `extensions` replace
-the two lists above. `watch` adds paths — files or folders, inside the
-project or not — for content that lives elsewhere:
+A rebuild fires on any matching file under `root` — new files included — so
+the unwatched defaults keep a build from triggering itself. One save is
+several filesystem events, so changes coalesce; a change arriving mid-build
+queues exactly one more run, however many arrive.
+
+`build` is what makes an edited transformer take effect: transforms reach
+`run` as closures, and no ESM cache hands back a module a file has changed
+under. Without `build`, `dev` calls `run` in its own process with
+`inlineErrors` on — fine for a site with no custom transforms, blind to a
+transformer edit.
 
 ```ts
 await dev({
@@ -72,5 +79,5 @@ var:
 The site keeps that address for good: bookmarkable, and ``{{`port`}}`` is an
 ordinary var a template can print. The config is rewritten through yaml's
 document API, so comments and layout survive. The day that port is taken, a
-free one replaces it in the file. Passing `port` explicitly skips all of
-this and writes nothing.
+free one replaces it in the file. Passing `port` explicitly skips all of this
+and writes nothing.

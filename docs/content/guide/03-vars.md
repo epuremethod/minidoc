@@ -9,7 +9,7 @@ desc: The four var kinds — file, dir, list, value — plus transform inference
 ---
 
 Every var is a template plus, optionally, a source and a transform. A plain
-string is just a template. A mapping picks a kind by its key.
+string is just a template; a mapping picks a kind by its key.
 
 ### file
 
@@ -53,14 +53,11 @@ var:
 ```
 
 Each item's `each` renders in a child context of the file's frontmatter plus
-its rendered content as ``{{`body`}}``; items join with newlines, in filename
+its rendered content as ``{{`body`}}``. Items join with newlines, in filename
 order (prefix files `01-intro.md` to control it). `glob` (default `*.md`)
 selects files; `transform` overrides the per-file inference. Unlike `file`
 vars, items do *not* export their frontmatter outward — eight chapters would
 conflict on `title`; it stays local to each item. An empty match fails loud.
-
-The chapters you are reading — and the nav above them — are two `dir` views
-of one `guide` folder, exactly like this example.
 
 ### list
 

@@ -18,10 +18,18 @@ await run({
 })
 ```
 
-Custom transforms — plain `(text: string) => string` functions — extend or
-override the built-in registry (`md` renders markdown via marked, `none`
-passes through). The YAML coloring on this page is one: the site's build
-overrides `md` with a marked renderer that tokenizes fenced yaml blocks.
+Options:
+
+- `glob` — required; selects the entry configs.
+- `fs` — the [filesystem](#filesystems); defaults lazily to Node's, rooted at
+  the current directory.
+- `transform` — named transforms added to or overriding the built-ins.
+- `inlineErrors` — content errors render in place instead of aborting (see
+  [Errors](#errors)).
+
+Custom transforms are plain `(text: string) => string` functions. The
+built-in registry has `md` (markdown via marked) and `none` (passthrough) —
+this site's build overrides `md` to color fenced YAML.
 
 ### Filesystems
 

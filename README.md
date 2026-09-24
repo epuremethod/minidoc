@@ -5,7 +5,7 @@ A small documentation website generator, part of the
 
 This is a pnpm workspace:
 
-- [`minidoc/`](minidoc/README.md) — the `@epure/minidoc` package itself.
+- [`minidoc/`](minidoc/README.md) — the `@epure/minidoc` package: model, API, reference.
 - [`docs/`](docs) — the documentation site, built with minidoc (tilia all the
   way down), deployed to GitHub Pages on every push to `main`.
 
