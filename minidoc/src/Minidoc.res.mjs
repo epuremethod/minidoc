@@ -32,6 +32,10 @@ let stack = {
   contents: []
 };
 
+let cycle = {
+  contents: undefined
+};
+
 let rawSite = ((at, fn) => {
   try { return fn() } catch (e) {
     if (e && e.message && !e.minidocSited) {
@@ -206,10 +210,13 @@ function render(template, get) {
     let active = stack.contents;
     if (active.includes(name)) {
       let from = active.indexOf(name);
-      Schema.fail(`Variable cycle: ` + Belt_Array.concatMany([
-        active.slice(from),
-        [name]
-      ]).join(" -> "));
+      let path = cycle.contents;
+      let path$1 = path !== undefined ? path : Belt_Array.concatMany([
+          active.slice(from),
+          [name]
+        ]).join(" -> ");
+      cycle.contents = path$1;
+      Schema.fail(`Variable cycle: ` + path$1);
     }
     stack.contents = Belt_Array.concatMany([
       active,
@@ -226,6 +233,7 @@ function render(template, get) {
 
 function top(at, fn) {
   stack.contents = [];
+  cycle.contents = undefined;
   return rawSite(at, fn);
 }
 

@@ -70,6 +70,11 @@ let backtick = RegExp.fromString("`", ~flags="g")
 // re-entrant read so the error propagates instead of looping.
 let stack: ref<array<string>> = ref([])
 
+// The first cycle found in a render site. Tilia re-runs derived values after
+// an exception with the stack left mid-flight, so a later detection reports a
+// phantom path (`b -> b`); rethrowing the first keeps the real one.
+let cycle: ref<option<string>> = ref(None)
+
 // Decorate an error with its render site; the innermost site wins.
 let rawSite: (string, unit => unknown) => unknown = %raw(`(at, fn) => {
   try { return fn() } catch (e) {
@@ -205,7 +210,12 @@ and render = (template, get) =>
       let active = stack.contents
       if Array.includes(active, name) {
         let from = Array.indexOf(active, name)
-        fail(`Variable cycle: ${[...Array.slice(active, ~start=from), name]->Array.join(" -> ")}`)
+        let path = switch cycle.contents {
+        | Some(path) => path
+        | None => [...Array.slice(active, ~start=from), name]->Array.join(" -> ")
+        }
+        cycle := Some(path)
+        fail(`Variable cycle: ${path}`)
       }
       stack := [...active, name]
       let out = switch get(name) {
@@ -221,6 +231,7 @@ and render = (template, get) =>
 /** A top-level render site: fresh cycle stack, site-labeled errors. */
 let top = (at, fn: unit => 'a): 'a => {
   stack := []
+  cycle := None
   site(at, fn)
 }
 
