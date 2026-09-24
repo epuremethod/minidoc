@@ -3,3 +3,9 @@ packages:
   - docs
 allowBuilds:
   esbuild: true
+# First-party packages get locked the day they are published, so they cannot
+# sit behind the default 24h holdback. Third-party deps still do.
+minimumReleaseAgeExclude:
+  - "@epure/*"
+  - "@tilia/*"
+  - tilia
