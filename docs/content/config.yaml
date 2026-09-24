@@ -124,6 +124,7 @@ build:
 
       ## Optional
 
+      - [Example setup](https://github.com/epuremethod/minidoc/tree/main/docs): this site's source — base layout, config, build, dev
       - [llms-full.txt](https://minidoc.dev/llms-full.txt): the full guide, one markdown file
       - [GitHub](https://github.com/epuremethod/minidoc): source, issues, releases
   - output: "{{output}}/llms-full.txt"

@@ -22,7 +22,8 @@ await run({ glob: "content/**/config.yaml" })
 ## Starting a documentation website
 
 1. **Design.** Find a design, or vibe-code one. The look is yours — HTML,
-   CSS, fonts. minidoc fills in the content.
+   CSS, fonts. minidoc fills in the content. Start from a base `index.html`
+   layout — one HTML shell, shared by every page.
 2. **Install.** Add `@epure/minidoc`, write a config and a `run`, as above.
 3. **Ask an agent to write the docs.** At minimum give it the list of pages
    you want, and how the markdown sources should be organised — one file
@@ -30,6 +31,53 @@ await run({ glob: "content/**/config.yaml" })
    first; the agent fills the files.
 4. **Dev server.** `dev()` watches, rebuilds, and live-reloads — see
    [Development](#development) — and the site takes shape as the files land.
+
+The base layout, its config, and a `run`:
+
+```html
+<!-- content/layout.html — the base index.html layout -->
+<!doctype html>
+<html lang="{{lang}}">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{title}}</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<main>{{main}}</main>
+</body>
+</html>
+```
+
+```yaml
+# content/config.yaml
+var:
+  site: Marmot Docs
+  lang: en
+  layout:
+    file: layout.html
+build:
+  - output: index.html
+    input: "{{layout}}"
+    var:
+      title: "{{site}}"
+      main: "<h1>{{site}}</h1>"
+  - output: styles.css
+    input: { copy: styles.css }
+```
+
+```ts
+// build.mjs
+import { run } from "@epure/minidoc"
+
+await run({ glob: "content/**/config.yaml" })
+```
+
+For a complete worked example — layout, pages, config, `run`, and dev
+server — see
+[the docs source](https://github.com/epuremethod/minidoc/tree/main/docs)
+(this documentation site, built with minidoc).
 
 ## The model
 
