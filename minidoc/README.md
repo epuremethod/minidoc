@@ -19,6 +19,18 @@ import { run } from "@epure/minidoc"
 await run({ glob: "content/**/config.yaml" })
 ```
 
+## Starting a documentation website
+
+1. **Design.** Find a design, or vibe-code one. The look is yours — HTML,
+   CSS, fonts. minidoc fills in the content.
+2. **Install.** Add `@epure/minidoc`, write a config and a `run`, as above.
+3. **Ask an agent to write the docs.** At minimum give it the list of pages
+   you want, and how the markdown sources should be organised — one file
+   per concept, one file per method, one file per chapter. Fix the shape
+   first; the agent fills the files.
+4. **Dev server.** `dev()` watches, rebuilds, and live-reloads — see
+   [Development](#development) — and the site takes shape as the files land.
+
 ## The model
 
 One rule:

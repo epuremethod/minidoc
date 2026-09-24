@@ -1,7 +1,7 @@
 ---
 title: Contexts — dictionaries of templates
 slug: model
-no: M-01
+no: M-02
 tag: The model
 nav: Model
 desc: Contexts merge and you inherit formulas, not values. How references
