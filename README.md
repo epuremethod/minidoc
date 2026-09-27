@@ -3,6 +3,11 @@
 A small documentation website generator, part of the
 [épure](https://epuremethod.com) toolset.
 
+Documentation: [minidoc.dev](https://minidoc.dev). For LLMs and agents:
+[llms.txt](https://minidoc.dev/llms.txt) (index) and
+[llms-full.txt](https://minidoc.dev/llms-full.txt) (the full guide, one
+markdown file).
+
 This is a pnpm workspace:
 
 - [`minidoc/`](minidoc/README.md) — the `@epure/minidoc` package: model, API, reference.

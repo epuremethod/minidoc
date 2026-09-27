@@ -216,3 +216,14 @@ test("watches content that lives outside the project", async (t) => {
   await writeFile(note, "Second note.\n");
   assert.match(await until(server, "Second note."), /Second note\./);
 });
+
+test("concurrent copies into one directory do not race", async (t) => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "minidoc-"));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  await mkdir(path.join(root, "assets", "fonts"), { recursive: true });
+  for (let i = 0; i < 20; i++) await writeFile(path.join(root, "assets", "fonts", `f${i}.woff2`), "x");
+
+  const fs = nodeFs(root);
+  await Promise.all([1, 2, 3].map(() => fs.copy("assets/fonts", "dist/fonts")));
+  assert.equal(await readFile(path.join(root, "dist", "fonts", "f19.woff2"), "utf8"), "x");
+});

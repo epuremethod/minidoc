@@ -552,6 +552,7 @@ let nodeFs = (root: option<string>): filesystem => {
       loaded
     }
   let absolute = (base, path) => String.startsWith(path, "/") ? path : join(base, path)
+  let copying: dict<promise<unit>> = Dict.make()
   {
     readFile: async path => {
       let (fs, base) = await mods()
@@ -566,8 +567,19 @@ let nodeFs = (root: option<string>): filesystem => {
     copy: async (source, output) => {
       let (fs, base) = await mods()
       let target = absolute(base, output)
-      await fs.mkdir(dirname(target), {recursive: true})
-      await fs.cp(absolute(base, source), target, {recursive: true})
+      // fs.cp races on a shared target (EEXIST on mkdir), so serialize per target.
+      let previous = copying->Dict.get(target)->Option.getOr(Promise.resolve())
+      let current = (
+        async () => {
+          try await previous catch {
+          | _ => ()
+          }
+          await fs.mkdir(dirname(target), {recursive: true})
+          await fs.cp(absolute(base, source), target, {recursive: true})
+        }
+      )()
+      copying->Dict.set(target, current)
+      await current
     },
     exists: async path => {
       let (fs, base) = await mods()

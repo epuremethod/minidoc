@@ -19,6 +19,12 @@ import { run } from "@epure/minidoc"
 await run({ glob: "content/**/config.yaml" })
 ```
 
+Documentation: [minidoc.dev](https://minidoc.dev). For LLMs and agents:
+[llms.txt](https://minidoc.dev/llms.txt) (index) and
+[llms-full.txt](https://minidoc.dev/llms-full.txt) (the full guide, one
+markdown file) — both also ship in the package, at
+`node_modules/@epure/minidoc/dist/llms.txt` and `dist/llms-full.txt`.
+
 ## Starting a documentation website
 
 1. **Design.** Find a design, or vibe-code one. The look is yours — HTML,

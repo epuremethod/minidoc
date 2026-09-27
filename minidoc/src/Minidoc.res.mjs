@@ -697,6 +697,7 @@ function nodeFs(root) {
       return Schema.join(base, path);
     }
   };
+  let copying = {};
   return {
     readFile: async path => {
       let match = await mods();
@@ -716,12 +717,22 @@ function nodeFs(root) {
       let base = match[1];
       let fs = match[0];
       let target = absolute(base, output);
-      await fs.mkdir(Schema.dirname(target), {
-        recursive: true
-      });
-      return await fs.cp(absolute(base, source), target, {
-        recursive: true
-      });
+      let previous = Stdlib_Option.getOr(copying[target], Promise.resolve());
+      let current = (async () => {
+        try {
+          await previous;
+        } catch (exn) {
+          
+        }
+        await fs.mkdir(Schema.dirname(target), {
+          recursive: true
+        });
+        return await fs.cp(absolute(base, source), target, {
+          recursive: true
+        });
+      })();
+      copying[target] = current;
+      return await current;
     },
     exists: async path => {
       let match = await mods();
