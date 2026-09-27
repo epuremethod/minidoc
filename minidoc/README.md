@@ -437,3 +437,11 @@ line in the YAML file. The fixtures run through `epureVitest`; their shared
 `pnpm test:dev` drives `dev` and `watch` against a real filesystem and a real
 socket (`test/dev.test.mjs`) — the two things the in-memory fixtures cannot
 stand in for. `pnpm check` runs everything.
+
+## Changelog
+
+- 2026-09-27 **0.1.1**
+  - Fix `EEXIST: file already exists, mkdir` when several configs copy into
+    the same output directory, even through different relative paths.
+- 2026-09-24 **0.1.0**
+  - First release.

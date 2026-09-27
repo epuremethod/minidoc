@@ -552,6 +552,18 @@ let nodeFs = (root: option<string>): filesystem => {
       loaded
     }
   let absolute = (base, path) => String.startsWith(path, "/") ? path : join(base, path)
+  // Collapse `.` and `..` so one target reached from two config dirs shares a key.
+  let canonical = path =>
+    "/" ++
+    String.split(path, "/")
+    ->Array.reduce([], (acc, s) =>
+      switch s {
+      | "" | "." => acc
+      | ".." => Array.slice(acc, ~start=0, ~end=Array.length(acc) - 1)
+      | s => [...acc, s]
+      }
+    )
+    ->Array.join("/")
   let copying: dict<promise<unit>> = Dict.make()
   {
     readFile: async path => {
@@ -566,7 +578,7 @@ let nodeFs = (root: option<string>): filesystem => {
     },
     copy: async (source, output) => {
       let (fs, base) = await mods()
-      let target = absolute(base, output)
+      let target = canonical(absolute(base, output))
       // fs.cp races on a shared target (EEXIST on mkdir), so serialize per target.
       let previous = copying->Dict.get(target)->Option.getOr(Promise.resolve())
       let current = (

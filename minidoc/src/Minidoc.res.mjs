@@ -697,6 +697,20 @@ function nodeFs(root) {
       return Schema.join(base, path);
     }
   };
+  let canonical = path => "/" + Stdlib_Array.reduce(path.split("/"), [], (acc, s) => {
+    switch (s) {
+      case "" :
+      case "." :
+        return acc;
+      case ".." :
+        return acc.slice(0, acc.length - 1 | 0);
+      default:
+        return Belt_Array.concatMany([
+          acc,
+          [s]
+        ]);
+    }
+  }).join("/");
   let copying = {};
   return {
     readFile: async path => {
@@ -716,7 +730,7 @@ function nodeFs(root) {
       let match = await mods();
       let base = match[1];
       let fs = match[0];
-      let target = absolute(base, output);
+      let target = canonical(absolute(base, output));
       let previous = Stdlib_Option.getOr(copying[target], Promise.resolve());
       let current = (async () => {
         try {

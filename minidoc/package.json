@@ -1,6 +1,6 @@
 {
   "name": "@epure/minidoc",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Small documentation website generator",
   "author": "Gaspard Anna Bucher <g.a.bucher@midasum.com>",
   "license": "MIT",
