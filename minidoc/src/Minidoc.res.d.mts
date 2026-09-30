@@ -23,6 +23,8 @@ export interface FileSystem {
   glob(pattern: string): Promise<string[]>;
   /** Basenames of the plain files directly inside `dir`, name-sorted; `[]` when the directory does not exist. */
   listFiles(dir: string): Promise<string[]>;
+  /** Basenames of the folders directly inside `dir`, name-sorted; `[]` when the directory does not exist. */
+  listDirs(dir: string): Promise<string[]>;
 }
 
 export type RunOptions = {

@@ -15,6 +15,8 @@ type filesystem = {
   glob: string => promise<array<string>>,
   /** Basenames of the plain files directly inside the dir, name-sorted; `[]` when it does not exist. */
   listFiles: string => promise<array<string>>,
+  /** Basenames of the folders directly inside the dir, name-sorted; `[]` when it does not exist. */
+  listDirs: string => promise<array<string>>,
 }
 
 /** Pure text transform applied to a content body after variable resolution. */

@@ -17,6 +17,7 @@ Undefined variable {{`missing`}} at line 3 in file content/intro.md
 Variable cycle in file content/intro.md: intro -> intro
 Undefined variable {{`missing`}} in build[0] output
 Undefined variable {{`slug`}} in build[0] output (page cvs/b.md)
+Undefined variable {{`role`}} in folder candidatures/acme (var (config.yaml).applications)
 ```
 
 The innermost site wins: an error is labeled once, where it happened, and not
@@ -30,7 +31,7 @@ By default any error aborts the run. With `inlineErrors: true`, content
 errors instead surface as an error box (thin red border, faint red
 background, class `minidoc-error`, message HTML-escaped) at their place in
 the output page, and each is also logged to the console. The blast radius is
-the nearest content boundary: a failing `dir` item boxes only that item, the
+the nearest content boundary: a failing `dir` or `dirs` item boxes only that item, the
 rest of the page still renders; a failing page boxes only in its own output. Meant for a dev server — the site keeps
 building and the error shows up where it happens. Output path errors still
 fail loud even in this mode: a file cannot be written without a path. Leave

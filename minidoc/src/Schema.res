@@ -8,8 +8,14 @@ let fail = JsError.throwWithMessage
 
 // Run `fn`, prefixing any thrown Error message with `prefix` (schema errors
 // then read "config.yaml: ...").
+// Sury errors expose `message` as a getter only: those are rethrown as a
+// plain Error carrying the original as `cause`.
 let rawGuard: (string, unit => unknown) => unknown = %raw(`(prefix, fn) => {
-  try { return fn() } catch (e) { e.message = prefix + ": " + e.message; throw e }
+  try { return fn() } catch (e) {
+    const message = prefix + ": " + e.message
+    try { e.message = message } catch { throw new Error(message, { cause: e }) }
+    throw e
+  }
 }`)
 let guard = (prefix, fn: unit => 'a): 'a => magic(rawGuard(prefix, magic(fn)))
 
@@ -33,20 +39,46 @@ let dirname = path => {
 
 let join = (dir, path) => dir == "" || String.startsWith(path, "/") ? path : `${dir}/${path}`
 
-type filev = {file: string, transform: option<string>}
+/** Listing order: by path, ascending (the default) or descending. */
+type order = | @as("asc") Asc | @as("desc") Desc
+
+/** A content file. `optional` renders a missing file as ""; `template` wraps a
+ non-empty body as `{{body}}`. */
+type filev = {
+  file: string,
+  transform: option<string>,
+  optional: option<bool>,
+  template: option<string>,
+}
 /** A folder of content files. `optional` accepts an empty match (or a missing folder). */
-type source = {dir: string, glob: option<string>, transform: option<string>, optional: option<bool>}
+type source = {
+  dir: string,
+  glob: option<string>,
+  transform: option<string>,
+  optional: option<bool>,
+  order: option<order>,
+}
 type dirv = {...source, each: option<string>}
 type listv = {list: string, each: string, join: option<string>, template: option<string>}
 type pipev = {value: string, transform: string}
 
-type varv =
+type rec varv =
   | Scalar(string)
   | Scalars(array<string>)
   | FileV(filev)
   | DirV(dirv)
+  | DirsV(dirsv)
   | ListV(listv)
   | PipeV(pipev)
+/** A folder of folders: one item per subfolder, each rendered through `each`
+ with its own `vars`, whose paths are relative to that subfolder. */
+and dirsv = {
+  dirs: string,
+  each: string,
+  vars: option<dict<varv>>,
+  optional: option<bool>,
+  order: option<order>,
+}
 
 type inputv =
   | Text(string)
@@ -69,9 +101,13 @@ let opt = s => S.nullableAsOption(s)
 // A YAML scalar of any type reads as its string form.
 let scalarS = S.union([S.string, S.float->S.to(S.string), S.bool->S.to(S.string)])
 
+let orderS = S.enum([Asc, Desc])
+
 let fileS = S.object((s): filev => {
   file: s.field("file", S.string),
   transform: s.field("transform", opt(S.string)),
+  optional: s.field("optional", opt(S.bool)),
+  template: s.field("template", opt(S.string)),
 })
 
 let sourceS = S.object((s): source => {
@@ -79,6 +115,7 @@ let sourceS = S.object((s): source => {
   glob: s.field("glob", opt(S.string)),
   transform: s.field("transform", opt(S.string)),
   optional: s.field("optional", opt(S.bool)),
+  order: s.field("order", opt(orderS)),
 })
 
 let dirS = S.object((s): dirv => {
@@ -87,6 +124,7 @@ let dirS = S.object((s): dirv => {
   each: s.field("each", opt(S.string)),
   transform: s.field("transform", opt(S.string)),
   optional: s.field("optional", opt(S.bool)),
+  order: s.field("order", opt(orderS)),
 })
 
 let listS = S.object((s): listv => {
@@ -101,14 +139,23 @@ let pipeS = S.object((s): pipev => {
   transform: s.field("transform", S.string),
 })
 
-let varS = S.union([
-  scalarS->S.shape(s => Scalar(s)),
-  S.array(scalarS)->S.shape(a => Scalars(a)),
-  dirS->S.shape(d => DirV(d)),
-  fileS->S.shape(f => FileV(f)),
-  listS->S.shape(l => ListV(l)),
-  pipeS->S.shape(p => PipeV(p)),
-])
+let varS = S.recursive("Var", varS =>
+  S.union([
+    scalarS->S.shape(s => Scalar(s)),
+    S.array(scalarS)->S.shape(a => Scalars(a)),
+    dirS->S.shape(d => DirV(d)),
+    S.object((s): dirsv => {
+      dirs: s.field("dirs", S.string),
+      each: s.field("each", S.string),
+      vars: s.field("var", opt(S.dict(varS))),
+      optional: s.field("optional", opt(S.bool)),
+      order: s.field("order", opt(orderS)),
+    })->S.shape(d => DirsV(d)),
+    fileS->S.shape(f => FileV(f)),
+    listS->S.shape(l => ListV(l)),
+    pipeS->S.shape(p => PipeV(p)),
+  ])
+)
 
 let inputS = S.union([
   S.string->S.shape(t => Text(t)),
@@ -133,10 +180,13 @@ let configS = S.object((s): rawconfig => {
 let dataS = S.union([scalarS->S.shape(s => One(s)), S.array(scalarS)->S.shape(a => Many(a))])
 let frontS = opt(S.dict(dataS))
 
+// A `dirs` var anchors only its own folder: the paths of its item vars are
+// relative to each subfolder, anchored when the items are listed.
 let anchor = (dir, v) =>
   switch v {
   | FileV(f) => FileV({...f, file: join(dir, f.file)})
   | DirV(d) => DirV({...d, dir: join(dir, d.dir)})
+  | DirsV(d) => DirsV({...d, dirs: join(dir, d.dirs)})
   | v => v
   }
 

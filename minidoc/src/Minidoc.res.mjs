@@ -8,6 +8,7 @@ import * as Belt_Array from "@rescript/runtime/lib/es6/Belt_Array.js";
 import * as Stdlib_Dict from "@rescript/runtime/lib/es6/Stdlib_Dict.js";
 import * as Stdlib_Array from "@rescript/runtime/lib/es6/Stdlib_Array.js";
 import * as Stdlib_Option from "@rescript/runtime/lib/es6/Stdlib_Option.js";
+import * as Primitive_object from "@rescript/runtime/lib/es6/Primitive_object.js";
 import * as Primitive_option from "@rescript/runtime/lib/es6/Primitive_option.js";
 import * as Primitive_string from "@rescript/runtime/lib/es6/Primitive_string.js";
 
@@ -98,8 +99,12 @@ function data(front) {
   });
 }
 
+function basename(path) {
+  return path.slice(path.lastIndexOf("/") + 1 | 0);
+}
+
 function naming(c) {
-  let name = c.path.slice(c.path.lastIndexOf("/") + 1 | 0);
+  let name = basename(c.path);
   let dot = name.lastIndexOf(".");
   let stem = dot > 0 ? name.slice(0, dot) : name;
   return Object.fromEntries([
@@ -120,6 +125,16 @@ function naming(c) {
         _0: {
           TAG: "One",
           _0: stem
+        }
+      }
+    ],
+    [
+      "file.dir",
+      {
+        TAG: "V",
+        _0: {
+          TAG: "One",
+          _0: basename(Schema.dirname(c.path))
         }
       }
     ]
@@ -157,10 +172,31 @@ function $$eval(lv, self) {
     case "V" :
       return lv._0;
     case "F" :
+      let wrap = lv._1;
       let c = lv._0;
       return {
         TAG: "One",
-        _0: rawBoxed(stack, self.inline, () => rawSite(c.at, () => unpad(c.transform(render(c.body, sub(self, data(c.front)).get)), c.pad)))
+        _0: rawBoxed(stack, self.inline, () => rawSite(c.at, () => {
+          let front = sub(self, data(c.front));
+          let body = unpad(c.transform(render(c.body, front.get)), c.pad);
+          if (wrap === undefined) {
+            return body;
+          }
+          if (body.trim() === "") {
+            return "";
+          }
+          let template = wrap[0];
+          return rawSite(wrap[1], () => render(template, sub(front, Object.fromEntries([[
+              "body",
+              {
+                TAG: "V",
+                _0: {
+                  TAG: "One",
+                  _0: body
+                }
+              }
+            ]])).get));
+        }))
       };
     case "D" :
       let at = lv._2;
@@ -184,6 +220,13 @@ function $$eval(lv, self) {
               }
             ]])).get);
         }))).join("\n"))
+      };
+    case "G" :
+      let each$1 = lv._1;
+      let items$1 = lv._0;
+      return {
+        TAG: "One",
+        _0: rawSite(lv._2, () => items$1.map(item => rawBoxed(stack, self.inline, () => rawSite(item.where, () => render(each$1, sub(self, item.lvars).get)))).join("\n"))
       };
     case "R" :
       let at$1 = lv._1;
@@ -424,10 +467,28 @@ async function content(fs, transforms, path, explicit, at) {
   };
 }
 
+function ordered(names, order) {
+  if (Primitive_object.equal(order, "desc")) {
+    return names.toReversed();
+  } else {
+    return names;
+  }
+}
+
+async function walk(fs, dir, prefix) {
+  let here = prefix === "" ? dir : Schema.join(dir, prefix);
+  let files = (await fs.listFiles(here)).map(__x => Schema.join(prefix, __x));
+  let nested = await Promise.all((await fs.listDirs(here)).map(d => walk(fs, dir, Schema.join(prefix, d))));
+  return files.concat(nested.flat());
+}
+
 async function listing(fs, transforms, pget, src, at) {
   let dir = top(at + ` dir`, () => render(src.dir, pget));
   let glob = Stdlib_Option.getOr(src.glob, "*.md");
-  let names = (await fs.listFiles(dir)).filter(matcher(glob));
+  let deep = glob.includes("/") || glob.includes("**");
+  let names = ordered((
+    deep ? await walk(fs, dir, "") : await fs.listFiles(dir)
+  ).filter(matcher(glob)).toSorted(Primitive_string.compare), src.order);
   if (names.length === 0 && !Stdlib_Option.getOr(src.optional, false)) {
     Schema.fail(`No files matching "` + glob + `" in ` + dir + ` (declared at ` + at + `)`);
   }
@@ -460,6 +521,16 @@ async function load(fs, transforms, pget, label, vars) {
         return;
       case "FileV" :
         let f = v._0;
+        if (Primitive_object.equal(f.optional, true) && !await fs.exists(top(at + ` file`, () => render(f.file, pget)))) {
+          out[name] = {
+            TAG: "V",
+            _0: {
+              TAG: "One",
+              _0: ""
+            }
+          };
+          return;
+        }
         let path = top(at + ` file`, () => render(f.file, pget));
         let c = await content(fs, transforms, path, f.transform, at);
         Object.entries(data(c.front)).forEach(param => {
@@ -473,7 +544,11 @@ async function load(fs, transforms, pget, label, vars) {
         });
         out[name] = {
           TAG: "F",
-          _0: c
+          _0: c,
+          _1: Stdlib_Option.map(f.template, t => [
+            t,
+            at + ` template`
+          ])
         };
         return;
       case "DirV" :
@@ -482,11 +557,13 @@ async function load(fs, transforms, pget, label, vars) {
         let src_glob = d.glob;
         let src_transform = d.transform;
         let src_optional = d.optional;
+        let src_order = d.order;
         let src = {
           dir: src_dir,
           glob: src_glob,
           transform: src_transform,
-          optional: src_optional
+          optional: src_optional,
+          order: src_order
         };
         let match = await listing(fs, transforms, pget, src, at);
         out[name] = {
@@ -494,6 +571,51 @@ async function load(fs, transforms, pget, label, vars) {
           _0: match[1],
           _1: Stdlib_Option.getOr(d.each, "{{body}}"),
           _2: `dir ` + match[0] + ` (` + at + `)`
+        };
+        return;
+      case "DirsV" :
+        let d$1 = v._0;
+        let root = top(at + ` dirs`, () => render(d$1.dirs, pget));
+        let names = ordered((await fs.listDirs(root)).toSorted(Primitive_string.compare), d$1.order);
+        if (names.length === 0 && !Stdlib_Option.getOr(d$1.optional, false)) {
+          Schema.fail(`No folders in ` + root + ` (declared at ` + at + `)`);
+        }
+        let items = await Promise.all(names.map(async n => {
+          let dir = Schema.join(root, n);
+          let fget = key => {
+            if (key === "folder.name") {
+              return {
+                TAG: "One",
+                _0: n
+              };
+            } else {
+              return pget(key);
+            }
+          };
+          let vars = Stdlib_Dict.mapValues(Stdlib_Option.getOr(d$1.vars, {}), extra => Schema.anchor(dir, extra));
+          let match = await load(fs, transforms, strs(vars, fget), at + `.var`, vars);
+          let parent = Object.fromEntries([[
+              "folder.name",
+              {
+                TAG: "V",
+                _0: {
+                  TAG: "One",
+                  _0: n
+                }
+              }
+            ]]);
+          let parent$1 = Object.assign(Object.assign({}, parent), match[1]);
+          let lvars = Object.assign(Object.assign({}, parent$1), match[0]);
+          return {
+            where: `folder ` + dir + ` (` + at + `)`,
+            lvars: lvars
+          };
+        }));
+        out[name] = {
+          TAG: "G",
+          _0: items,
+          _1: d$1.each,
+          _2: `dirs ` + root + ` (` + at + `)`
         };
         return;
       case "ListV" :
@@ -597,28 +719,45 @@ async function exec(fs, transforms, inline, entry) {
         break;
       case "FileI" :
         let f = match$1._0;
-        let path$1 = top(at + ` input file`, () => render(f.file, bpget));
-        let match$4 = await load(fs, transforms, bpget, at, Object.fromEntries([[
-            "input",
-            {
-              TAG: "FileV",
-              _0: {
-                file: path$1,
-                transform: f.transform
-              }
-            }
-          ]]));
-        let match$5 = match$4[0]["input"];
-        if (match$5 !== undefined) {
-          if (match$5.TAG === "F") {
-            let c = match$5._0;
-            match$3 = [
+        if (f.optional !== undefined) {
+          match$3 = Schema.fail(at + ` input: "optional" and "template" apply to file vars, not to a file input`);
+        } else if (f.template !== undefined) {
+          match$3 = Schema.fail(at + ` input: "optional" and "template" apply to file vars, not to a file input`);
+        } else {
+          let path$1 = top(at + ` input file`, () => render(f.file, bpget));
+          let match$4 = await load(fs, transforms, bpget, at, Object.fromEntries([[
+              "input",
               {
-                TAG: "F",
-                _0: c
-              },
-              data(c.front)
-            ];
+                TAG: "FileV",
+                _0: {
+                  file: path$1,
+                  transform: f.transform,
+                  optional: f.optional,
+                  template: f.template
+                }
+              }
+            ]]));
+          let match$5 = match$4[0]["input"];
+          if (match$5 !== undefined) {
+            if (match$5.TAG === "F") {
+              let c = match$5._0;
+              match$3 = [
+                {
+                  TAG: "F",
+                  _0: c,
+                  _1: match$5._1
+                },
+                data(c.front)
+              ];
+            } else {
+              match$3 = [
+                {
+                  TAG: "T",
+                  _0: ""
+                },
+                {}
+              ];
+            }
           } else {
             match$3 = [
               {
@@ -628,14 +767,6 @@ async function exec(fs, transforms, inline, entry) {
               {}
             ];
           }
-        } else {
-          match$3 = [
-            {
-              TAG: "T",
-              _0: ""
-            },
-            {}
-          ];
         }
         break;
       case "DirI" :
@@ -715,7 +846,8 @@ async function exec(fs, transforms, inline, entry) {
           "page",
           {
             TAG: "F",
-            _0: c
+            _0: c,
+            _1: undefined
           }
         ]]);
       let own$1 = data(c.front);
@@ -787,6 +919,22 @@ function makeMemoryFileSystem(seed) {
           return false;
         }
       }).map(p => p.slice(prefix.length)));
+    },
+    listDirs: async dir => {
+      let prefix = dir === "" ? "" : dir + `/`;
+      let names = {};
+      Object.keys(files).forEach(p => {
+        if (!p.startsWith(prefix)) {
+          return;
+        }
+        let rest = p.slice(prefix.length);
+        let slash = rest.indexOf("/");
+        if (slash > 0) {
+          names[rest.slice(0, slash)] = undefined;
+          return;
+        }
+      });
+      return sorted(Object.keys(names));
     }
   };
 }
@@ -916,6 +1064,19 @@ function nodeFs(root) {
         entries = [];
       }
       return entries.filter(__x => __x.isFile()).map(__x => __x.name).toSorted(Primitive_string.compare);
+    },
+    listDirs: async dir => {
+      let match = await mods();
+      let entries;
+      try {
+        entries = await match[0].readdir(absolute(match[1], dir), {
+          withFileTypes: true,
+          recursive: false
+        });
+      } catch (exn) {
+        entries = [];
+      }
+      return entries.filter(__x => __x.isDirectory()).map(__x => __x.name).toSorted(Primitive_string.compare);
     }
   };
 }

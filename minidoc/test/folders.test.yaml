@@ -1,0 +1,199 @@
+feature: Folders as items
+background:
+  given: a filesystem
+examples:
+  - scenario: it should render one item per subfolder, its file vars relative to that subfolder
+    options:
+      glob: site/config.yaml
+    source:
+      site/config.yaml:
+        var:
+          applications:
+            dirs: candidatures
+            each: "{{folder.name}}: {{role}} | {{cv}} | {{lettre}} | [{{email}}]"
+            var:
+              cv: { file: cv.md, transform: none }
+              lettre: { file: lettre.md, transform: none }
+              email: { file: email.md, transform: none, optional: true }
+        build:
+          - output: index.txt
+            input: "{{applications}}"
+      site/candidatures/2026-01-acme/cv.md: |-
+        ---
+        role: Engineer
+        ---
+        cv acme
+      site/candidatures/2026-01-acme/lettre.md: lettre acme
+      site/candidatures/2026-01-acme/email.md: email acme
+      site/candidatures/2026-02-globex/cv.md: |-
+        ---
+        role: Designer
+        ---
+        cv globex
+      site/candidatures/2026-02-globex/lettre.md: lettre globex
+    target:
+      site/index.txt: |-
+        2026-01-acme: Engineer | cv acme | lettre acme | [email acme]
+        2026-02-globex: Designer | cv globex | lettre globex | []
+
+  - scenario: it should list folders newest first with order desc
+    source:
+      config.yaml:
+        var:
+          rows:
+            dirs: jobs
+            order: desc
+            each: "{{folder.name}}"
+        build:
+          - output: out.txt
+            input: "{{rows}}"
+      jobs/2026-01-a/cv.md: a
+      jobs/2026-03-c/cv.md: c
+      jobs/2026-02-b/cv.md: b
+    target:
+      out.txt: |-
+        2026-03-c
+        2026-02-b
+        2026-01-a
+
+  - scenario: it should resolve {{folder.name}} and scalar vars in item paths
+    source:
+      config.yaml:
+        var:
+          lang: fr
+          rows:
+            dirs: jobs
+            each: "{{cv}}"
+            var:
+              cv: { file: "{{folder.name}}.{{lang}}.md", transform: none }
+        build:
+          - output: out.txt
+            input: "{{rows}}"
+      jobs/acme/acme.fr.md: cv acme
+    target:
+      out.txt: cv acme
+
+  - scenario: it should keep each item's frontmatter local to that item
+    source:
+      config.yaml:
+        var:
+          rows:
+            dirs: jobs
+            each: "{{title}}"
+            var:
+              cv: { file: cv.md, transform: none }
+        build:
+          - output: out.txt
+            input: "{{rows}}"
+      jobs/a/cv.md: |-
+        ---
+        title: Alpha
+        ---
+        a
+      jobs/b/cv.md: b
+    error: "Undefined variable {{title}} in folder jobs/b (var (config.yaml).rows)"
+
+  - scenario: it should fail loud when two files of one item export the same frontmatter name
+    source:
+      config.yaml:
+        var:
+          rows:
+            dirs: jobs
+            each: "{{cv}}"
+            var:
+              cv: { file: cv.md, transform: none }
+              lettre: { file: lettre.md, transform: none }
+        build:
+          - output: out.txt
+            input: "{{rows}}"
+      jobs/a/cv.md: |-
+        ---
+        company: Acme
+        ---
+        cv
+      jobs/a/lettre.md: |-
+        ---
+        company: Acme
+        ---
+        lettre
+    error: 'Frontmatter conflict in var (config.yaml).rows.var: "company" defined by both jobs/a/cv.md and jobs/a/lettre.md'
+
+  - scenario: it should fail loud on a missing file in one folder
+    source:
+      config.yaml:
+        var:
+          rows:
+            dirs: jobs
+            each: "{{cv}}"
+            var:
+              cv: { file: cv.md, transform: none }
+        build:
+          - output: out.txt
+            input: "{{rows}}"
+      jobs/a/cv.md: a
+      jobs/b/lettre.md: b
+    error: "Content file not found: jobs/b/cv.md (declared at var (config.yaml).rows.var.cv)"
+
+  - scenario: it should fail loud on a missing or empty folder
+    source:
+      config.yaml:
+        var:
+          rows:
+            dirs: jobs
+            each: "{{folder.name}}"
+        build:
+          - output: out.txt
+            input: "{{rows}}"
+    error: "No folders in jobs (declared at var (config.yaml).rows)"
+
+  - scenario: it should render nothing for an optional missing folder
+    source:
+      config.yaml:
+        var:
+          rows:
+            dirs: jobs
+            optional: true
+            each: "{{folder.name}}"
+        build:
+          - output: out.txt
+            input: "[{{rows}}]"
+    target:
+      out.txt: "[]"
+
+  - scenario: it should report an undefined variable in each with its folder
+    source:
+      config.yaml:
+        var:
+          rows:
+            dirs: jobs
+            each: "{{missing}}"
+        build:
+          - output: out.txt
+            input: "{{rows}}"
+      jobs/a/cv.md: a
+    error: "Undefined variable {{missing}} in folder jobs/a (var (config.yaml).rows)"
+
+  - scenario: it should box a failing folder and still render the others
+    options:
+      inlineErrors: true
+    source:
+      config.yaml:
+        var:
+          rows:
+            dirs: jobs
+            each: "<li>{{title}}</li>"
+            var:
+              cv: { file: cv.md, transform: none }
+        build:
+          - output: out.html
+            input: "{{rows}}"
+      jobs/a/cv.md: |-
+        ---
+        title: Alpha
+        ---
+        a
+      jobs/b/cv.md: b
+    target:
+      out.html: |-
+        <li>Alpha</li>
+        <div class="minidoc-error" style="border:1px solid #c00;background:rgba(255,0,0,.04);padding:.5em .75em;font-family:monospace;white-space:pre-wrap;">Undefined variable {{title}} in folder jobs/b (var (config.yaml).rows)</div>

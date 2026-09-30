@@ -44,6 +44,10 @@ await run({ fs: makeMemoryFileSystem(files), glob: "**/config.yaml" })
 await run({ fs: nodeFs(new URL("./content/", import.meta.url)), glob: "**/config.yaml" })
 ```
 
+A custom filesystem implements `readFile`, `writeFile`, `copy`, `exists`,
+`glob`, `listFiles` and `listDirs` — the last lists the subfolders a `dirs`
+var or a subfolder glob walks.
+
 ### Design
 
 Three source files, ReScript, plus the dev runner:

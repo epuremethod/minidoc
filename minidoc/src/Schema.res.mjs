@@ -9,7 +9,11 @@ import * as Stdlib_Option from "@rescript/runtime/lib/es6/Stdlib_Option.js";
 import * as Stdlib_JsError from "@rescript/runtime/lib/es6/Stdlib_JsError.js";
 
 let rawGuard = ((prefix, fn) => {
-  try { return fn() } catch (e) { e.message = prefix + ": " + e.message; throw e }
+  try { return fn() } catch (e) {
+    const message = prefix + ": " + e.message
+    try { e.message = message } catch { throw new Error(message, { cause: e }) }
+    throw e
+  }
 });
 
 function guard(prefix, fn) {
@@ -45,16 +49,24 @@ let scalarS = Sury.union([
   S.to(Sury.bool, Sury.string)
 ]);
 
+let orderS = Sury.enum([
+  "asc",
+  "desc"
+]);
+
 let fileS = Sury.object(s => ({
   file: s.f("file", Sury.string),
-  transform: s.f("transform", Sury.$res_nullableAsOption(Sury.string))
+  transform: s.f("transform", Sury.$res_nullableAsOption(Sury.string)),
+  optional: s.f("optional", Sury.$res_nullableAsOption(Sury.bool)),
+  template: s.f("template", Sury.$res_nullableAsOption(Sury.string))
 }));
 
 let sourceS = Sury.object(s => ({
   dir: s.f("dir", Sury.string),
   glob: s.f("glob", Sury.$res_nullableAsOption(Sury.string)),
   transform: s.f("transform", Sury.$res_nullableAsOption(Sury.string)),
-  optional: s.f("optional", Sury.$res_nullableAsOption(Sury.bool))
+  optional: s.f("optional", Sury.$res_nullableAsOption(Sury.bool)),
+  order: s.f("order", Sury.$res_nullableAsOption(orderS))
 }));
 
 let dirS = Sury.object(s => ({
@@ -62,6 +74,7 @@ let dirS = Sury.object(s => ({
   glob: s.f("glob", Sury.$res_nullableAsOption(Sury.string)),
   transform: s.f("transform", Sury.$res_nullableAsOption(Sury.string)),
   optional: s.f("optional", Sury.$res_nullableAsOption(Sury.bool)),
+  order: s.f("order", Sury.$res_nullableAsOption(orderS)),
   each: s.f("each", Sury.$res_nullableAsOption(Sury.string))
 }));
 
@@ -77,7 +90,7 @@ let pipeS = Sury.object(s => ({
   transform: s.f("transform", Sury.string)
 }));
 
-let varS = Sury.union([
+let varS = Sury.recursive("Var", varS => Sury.union([
   Sury.shape(scalarS, s => ({
     TAG: "Scalar",
     _0: s
@@ -88,6 +101,16 @@ let varS = Sury.union([
   })),
   Sury.shape(dirS, d => ({
     TAG: "DirV",
+    _0: d
+  })),
+  Sury.shape(Sury.object(s => ({
+    dirs: s.f("dirs", Sury.string),
+    each: s.f("each", Sury.string),
+    vars: s.f("var", Sury.$res_nullableAsOption(Sury.dict(varS))),
+    optional: s.f("optional", Sury.$res_nullableAsOption(Sury.bool)),
+    order: s.f("order", Sury.$res_nullableAsOption(orderS))
+  })), d => ({
+    TAG: "DirsV",
     _0: d
   })),
   Sury.shape(fileS, f => ({
@@ -102,7 +125,7 @@ let varS = Sury.union([
     TAG: "PipeV",
     _0: p
   }))
-]);
+]));
 
 let inputS = Sury.union([
   Sury.shape(Sury.string, t => ({
@@ -157,7 +180,9 @@ function anchor(dir, v) {
         TAG: "FileV",
         _0: {
           file: join(dir, f.file),
-          transform: f.transform
+          transform: f.transform,
+          optional: f.optional,
+          template: f.template
         }
       };
     case "DirV" :
@@ -169,7 +194,20 @@ function anchor(dir, v) {
           glob: d.glob,
           transform: d.transform,
           optional: d.optional,
+          order: d.order,
           each: d.each
+        }
+      };
+    case "DirsV" :
+      let d$1 = v._0;
+      return {
+        TAG: "DirsV",
+        _0: {
+          dirs: join(dir, d$1.dirs),
+          each: d$1.each,
+          vars: d$1.vars,
+          optional: d$1.optional,
+          order: d$1.order
         }
       };
     default:
@@ -198,7 +236,9 @@ function convert(path, raw) {
             TAG: "FileI",
             _0: {
               file: join(dir, f.file),
-              transform: f.transform
+              transform: f.transform,
+              optional: f.optional,
+              template: f.template
             }
           };
           break;
@@ -211,6 +251,7 @@ function convert(path, raw) {
               glob: d.glob,
               transform: d.transform,
               optional: d.optional,
+              order: d.order,
               each: d.each
             }
           };
@@ -228,7 +269,8 @@ function convert(path, raw) {
           dir: join(dir, p.dir),
           glob: p.glob,
           transform: p.transform,
-          optional: p.optional
+          optional: p.optional,
+          order: p.order
         })),
         output: join(dir, b.output),
         input: tmp
@@ -287,6 +329,7 @@ export {
   join,
   opt,
   scalarS,
+  orderS,
   fileS,
   sourceS,
   dirS,

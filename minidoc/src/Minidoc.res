@@ -25,6 +25,7 @@ type filesystem = {
   exists: string => promise<bool>,
   glob: string => promise<array<string>>,
   listFiles: string => promise<array<string>>,
+  listDirs: string => promise<array<string>>,
 }
 
 type transform = string => string
@@ -49,14 +50,18 @@ type content = {
 }
 
 /** A loaded var, ready to evaluate in a context. */
-type lvar =
+type rec lvar =
   | T(string) // template scalar
   | L(array<string>) // list of template scalars
   | V(data) // pre-rendered value — no further expansion
-  | F(content) // file
+  | F(content, option<(string, string)>) // file, wrapper template and its site
   | D(array<content>, string, string) // dir items, each template, site
+  | G(array<folder>, string, string) // dirs items, each template, site
   | R(listv, string) // list renderer, site
   | P(string, transform, string) // template, transform, site
+
+/** A `dirs` item: its render site and its own templates. */
+and folder = {where: string, lvars: dict<lvar>}
 
 /** One context: a carve of every template visible to it. `inline` renders
  errors as boxes in the output instead of aborting. */
@@ -136,13 +141,19 @@ let data = front =>
     }
   )
 
+let basename = path => String.slice(path, ~start=String.lastIndexOf(path, "/") + 1)
+
 /** A content file's own name, for templates that would otherwise need a
  `slug` in every frontmatter. Pre-rendered: a file name is never a template. */
 let naming = (c: content) => {
-  let name = String.slice(c.path, ~start=String.lastIndexOf(c.path, "/") + 1)
+  let name = basename(c.path)
   let dot = String.lastIndexOf(name, ".")
   let stem = dot > 0 ? String.slice(name, ~start=0, ~end=dot) : name
-  Dict.fromArray([("file.name", V(One(name))), ("file.stem", V(One(stem)))])
+  Dict.fromArray([
+    ("file.name", V(One(name))),
+    ("file.stem", V(One(stem))),
+    ("file.dir", V(One(basename(dirname(c.path))))),
+  ])
 }
 
 let rec make = (inline, lvars: dict<lvar>): ctx =>
@@ -160,10 +171,20 @@ and eval = (lv, self: ctx) =>
   | V(d) => d
   | P(value, transform, at) =>
     One(boxed(self.inline, () => site(at, () => transform(render(value, self.get)))))
-  | F(c) =>
+  | F(c, wrap) =>
     One(
       boxed(self.inline, () =>
-        site(c.at, () => unpad(c.transform(render(c.body, sub(self, data(c.front)).get)), c.pad))
+        site(c.at, () => {
+          let front = sub(self, data(c.front))
+          let body = unpad(c.transform(render(c.body, front.get)), c.pad)
+          // Like a `list` wrapper: an empty body renders nothing, wrapper included.
+          switch wrap {
+          | Some((template, at)) if String.trim(body) != "" =>
+            site(at, () => render(template, sub(front, Dict.fromArray([("body", V(One(body)))])).get))
+          | Some(_) => ""
+          | None => body
+          }
+        })
       ),
     )
   | D(items, each, at) =>
@@ -178,6 +199,16 @@ and eval = (lv, self: ctx) =>
               render(each, sub(front, Dict.fromArray([("body", V(One(body)))])).get)
             })
           )
+        )
+        ->Array.join("\n")
+      ),
+    )
+  | G(items, each, at) =>
+    One(
+      site(at, () =>
+        items
+        ->Array.map(item =>
+          boxed(self.inline, () => site(item.where, () => render(each, sub(self, item.lvars).get)))
         )
         ->Array.join("\n")
       ),
@@ -371,12 +402,28 @@ let content = async (fs: filesystem, transforms, path, explicit, at) => {
   {body, transform: named(transforms, name, at), front, at: `file ${path}`, pad, path}
 }
 
-/** The files a `dir` var or a `pages` entry selects, in filename order. An
+let ordered = (names, order) => order == Some(Desc) ? Array.toReversed(names) : names
+
+// Every file below `dir`, as paths relative to it.
+let rec walk = async (fs: filesystem, dir, prefix) => {
+  let here = prefix == "" ? dir : join(dir, prefix)
+  let files = (await fs.listFiles(here))->Array.map(join(prefix, _))
+  let nested = await Promise.all((await fs.listDirs(here))->Array.map(d => walk(fs, dir, join(prefix, d))))
+  Array.concat(files, Array.flat(nested))
+}
+
+/** The files a `dir` var or a `pages` entry selects, in path order (`order:
+ desc` reverses it). A glob with a `/` or a `**` reaches into subfolders. An
  empty match fails loud unless the source is `optional`. */
 let listing = async (fs: filesystem, transforms, pget, src: source, at) => {
   let dir = top(`${at} dir`, () => render(src.dir, pget))
   let glob = src.glob->Option.getOr("*.md")
-  let names = (await fs.listFiles(dir))->Array.filter(matcher(glob))
+  let deep = String.includes(glob, "/") || String.includes(glob, "**")
+  let names =
+    (deep ? await walk(fs, dir, "") : await fs.listFiles(dir))
+    ->Array.filter(matcher(glob))
+    ->Array.toSorted(String.compare)
+    ->ordered(src.order)
   if Array.length(names) == 0 && !(src.optional->Option.getOr(false)) {
     fail(`No files matching "${glob}" in ${dir} (declared at ${at})`)
   }
@@ -384,7 +431,7 @@ let listing = async (fs: filesystem, transforms, pget, src: source, at) => {
 }
 
 /** Load one `var` block: its lvars plus the frontmatter its file vars export. */
-let load = async (fs: filesystem, transforms: dict<transform>, pget, label, vars: dict<varv>) => {
+let rec load = async (fs: filesystem, transforms: dict<transform>, pget, label, vars: dict<varv>) => {
   let out: dict<lvar> = Dict.make()
   let exports: dict<lvar> = Dict.make()
   let owners: dict<string> = Dict.make()
@@ -395,6 +442,8 @@ let load = async (fs: filesystem, transforms: dict<transform>, pget, label, vars
     | Scalars(a) => Dict.set(out, name, L(a))
     | ListV(l) => Dict.set(out, name, R(l, at))
     | PipeV(p) => Dict.set(out, name, P(p.value, named(transforms, p.transform, at), at))
+    | FileV(f) if f.optional == Some(true) && !(await fs.exists(top(`${at} file`, () => render(f.file, pget)))) =>
+      Dict.set(out, name, V(One("")))
     | FileV(f) =>
       let path = top(`${at} file`, () => render(f.file, pget))
       let c = await content(fs, transforms, path, f.transform, at)
@@ -409,11 +458,30 @@ let load = async (fs: filesystem, transforms: dict<transform>, pget, label, vars
         Dict.set(owners, fname, path)
         Dict.set(exports, fname, lv)
       })
-      Dict.set(out, name, F(c))
+      Dict.set(out, name, F(c, f.template->Option.map(t => (t, `${at} template`))))
     | DirV(d) =>
-      let src = {dir: d.dir, glob: d.glob, transform: d.transform, optional: d.optional}
+      let src = {dir: d.dir, glob: d.glob, transform: d.transform, optional: d.optional, order: d.order}
       let (dir, items) = await listing(fs, transforms, pget, src, at)
       Dict.set(out, name, D(items, d.each->Option.getOr("{{body}}"), `dir ${dir} (${at})`))
+    | DirsV(d) =>
+      let root = top(`${at} dirs`, () => render(d.dirs, pget))
+      let names = (await fs.listDirs(root))->Array.toSorted(String.compare)->ordered(d.order)
+      if Array.length(names) == 0 && !(d.optional->Option.getOr(false)) {
+        fail(`No folders in ${root} (declared at ${at})`)
+      }
+      // Each subfolder loads the item vars as its own `var` block: paths
+      // anchor at the subfolder, and file frontmatter stays in the item.
+      let items = await Promise.all(
+        names->Array.map(async n => {
+          let dir = join(root, n)
+          let fget = key => key == "folder.name" ? Some(One(n)) : pget(key)
+          let vars = d.vars->Option.getOr(Dict.make())->Dict.mapValues(anchor(dir, ...))
+          let (own, exports) = await load(fs, transforms, strs(vars, fget), `${at}.var`, vars)
+          let lvars = over(over(Dict.fromArray([("folder.name", V(One(n)))]), exports), own)
+          {where: `folder ${dir} (${at})`, lvars}
+        }),
+      )
+      Dict.set(out, name, G(items, d.each, `dirs ${root} (${at})`))
     }
   })
   (out, exports)
@@ -472,11 +540,13 @@ let exec = async (fs: filesystem, transforms, inline, entry) => {
         // A file input contributes its frontmatter as the least local
         // templates — usable even in the output path.
         let (lv, front) = switch input {
+        | FileI({optional: Some(_)}) | FileI({template: Some(_)}) =>
+          fail(`${at} input: "optional" and "template" apply to file vars, not to a file input`)
         | FileI(f) =>
           let path = top(`${at} input file`, () => render(f.file, bpget))
-          let (own, _) = await load(fs, transforms, bpget, at, Dict.fromArray([("input", FileV({file: path, transform: f.transform}))]))
+          let (own, _) = await load(fs, transforms, bpget, at, Dict.fromArray([("input", FileV({...f, file: path}))]))
           switch Dict.get(own, "input") {
-          | Some(F(c)) => (F(c), data(c.front))
+          | Some(F(c, wrap)) => (F(c, wrap), data(c.front))
           | _ => (T(""), Dict.make())
           }
         | DirI(d) =>
@@ -514,7 +584,7 @@ let exec = async (fs: filesystem, transforms, inline, entry) => {
           let (_, items) = await listing(fs, transforms, bpget, src, `${at}.pages`)
           items->Array.map(c =>
             job(
-              over(over(naming(c), data(c.front)), Dict.fromArray([("page", F(c))])),
+              over(over(naming(c), data(c.front)), Dict.fromArray([("page", F(c, None))])),
               ` (page ${c.path})`,
             )
           )
@@ -579,6 +649,20 @@ let makeMemoryFileSystem = (seed: option<dict<string>>): filesystem => {
       ->Array.map(p => String.slice(p, ~start=String.length(prefix)))
       ->sorted
     },
+    listDirs: async dir => {
+      let prefix = dir == "" ? "" : `${dir}/`
+      let names: dict<unit> = Dict.make()
+      Dict.keysToArray(files)->Array.forEach(p =>
+        if String.startsWith(p, prefix) {
+          let rest = String.slice(p, ~start=String.length(prefix))
+          let slash = String.indexOf(rest, "/")
+          if slash > 0 {
+            Dict.set(names, String.slice(rest, ~start=0, ~end=slash), ())
+          }
+        }
+      )
+      Dict.keysToArray(names)->sorted
+    },
   }
 }
 
@@ -587,6 +671,7 @@ let makeMemoryFileSystem = (seed: option<dict<string>>): filesystem => {
 
 type dirent
 @send external isFile: dirent => bool = "isFile"
+@send external isDirectory: dirent => bool = "isDirectory"
 @get external dname: dirent => string = "name"
 @get external parent: dirent => string = "parentPath"
 
@@ -710,6 +795,15 @@ let nodeFs = (root: option<string>): filesystem => {
       | _ => []
       }
       entries->Array.filter(isFile(_))->Array.map(dname(_))->Array.toSorted(String.compare)
+    },
+    listDirs: async dir => {
+      let (fs, base) = await mods()
+      let entries = try {
+        await fs.readdir(absolute(base, dir), {withFileTypes: true, recursive: false})
+      } catch {
+      | _ => []
+      }
+      entries->Array.filter(isDirectory(_))->Array.map(dname(_))->Array.toSorted(String.compare)
     },
   }
 }

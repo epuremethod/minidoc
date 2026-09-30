@@ -1,0 +1,104 @@
+feature: Optional file vars
+background:
+  given: a filesystem
+examples:
+  - scenario: it should render a missing optional file as an empty string
+    source:
+      config.yaml:
+        var:
+          email:
+            file: email.md
+            optional: true
+        build:
+          - output: out.txt
+            input: "[{{email}}]"
+    target:
+      out.txt: "[]"
+
+  - scenario: it should still fail loud on a missing file that is not optional
+    source:
+      config.yaml:
+        var:
+          email:
+            file: email.md
+        build:
+          - output: out.txt
+            input: "[{{email}}]"
+    error: "Content file not found: email.md (declared at var (config.yaml).email)"
+
+  - scenario: it should wrap a present file in its template, with its frontmatter
+    source:
+      config.yaml:
+        var:
+          email:
+            file: email.md
+            transform: none
+            optional: true
+            template: "<section><h3>{{subject}}</h3>{{body}}</section>"
+        build:
+          - output: out.txt
+            input: "{{email}}"
+      email.md: |-
+        ---
+        subject: Hello
+        ---
+        Dear team
+    target:
+      out.txt: "<section><h3>Hello</h3>Dear team</section>"
+
+  - scenario: it should drop the template of a missing optional file
+    source:
+      config.yaml:
+        var:
+          email:
+            file: email.md
+            optional: true
+            template: "<section>{{body}}</section>"
+        build:
+          - output: out.txt
+            input: "[{{email}}]"
+    target:
+      out.txt: "[]"
+
+  - scenario: it should drop the template of an empty file
+    source:
+      config.yaml:
+        var:
+          email:
+            file: email.md
+            template: "<section>{{body}}</section>"
+        build:
+          - output: out.txt
+            input: "[{{email}}]"
+      email.md: |-
+        ---
+        subject: Draft
+        ---
+
+    target:
+      out.txt: "[]"
+
+  - scenario: it should report an undefined variable in a file template with its site
+    source:
+      config.yaml:
+        var:
+          email:
+            file: email.md
+            transform: none
+            template: "{{missing}}{{body}}"
+        build:
+          - output: out.txt
+            input: "{{email}}"
+      email.md: hi
+    error: "Undefined variable {{missing}} in var (config.yaml).email template"
+
+  - scenario: it should refuse optional and template on a file input
+    source:
+      config.yaml:
+        build:
+          - output: out.txt
+            input:
+              file: page.md
+              optional: true
+      page.md: hi
+    error: 'build[0] input: "optional" and "template" apply to file vars, not to a file input'

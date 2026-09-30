@@ -1,0 +1,118 @@
+feature: Pages and dirs in subfolders, ordering
+background:
+  given: a filesystem
+examples:
+  - scenario: it should write one page per subfolder file, named after its folder
+    options:
+      glob: site/config.yaml
+    source:
+      site/config.yaml:
+        build:
+          - pages: { dir: candidatures, glob: "*/cv.md", transform: none }
+            output: "dist/{{file.dir}}-cv.html"
+            input: "{{title}}: {{page}}"
+      site/candidatures/acme/cv.md: |-
+        ---
+        title: Acme
+        ---
+        cv acme
+      site/candidatures/acme/lettre.md: not a cv
+      site/candidatures/globex/cv.md: |-
+        ---
+        title: Globex
+        ---
+        cv globex
+      site/candidatures/cv.md: not one level down
+    target:
+      site/dist/acme-cv.html: "Acme: cv acme"
+      site/dist/globex-cv.html: "Globex: cv globex"
+
+  - scenario: it should reach any depth with **
+    source:
+      config.yaml:
+        build:
+          - pages: { dir: jobs, glob: "**/cv.md", transform: none }
+            output: "dist/{{file.dir}}.txt"
+            input: "{{page}}"
+      jobs/cv.md: top
+      jobs/2026/acme/cv.md: acme
+      jobs/2025/globex/cv.md: globex
+    target:
+      dist/jobs.txt: top
+      dist/acme.txt: acme
+      dist/globex.txt: globex
+
+  - scenario: it should fail loud when two folders produce the same output path
+    source:
+      config.yaml:
+        build:
+          - pages: { dir: jobs, glob: "**/cv.md", transform: none }
+            output: "dist/{{file.dir}}-cv.html"
+            input: "{{page}}"
+      jobs/2025/acme/cv.md: old
+      jobs/2026/acme/cv.md: new
+    error: "Output path collision: dist/acme-cv.html is written by both build[0] (page jobs/2025/acme/cv.md) and build[0] (page jobs/2026/acme/cv.md)"
+
+  - scenario: it should list pages in descending order with order desc
+    source:
+      config.yaml:
+        build:
+          - pages: { dir: jobs, glob: "*/cv.md", transform: none, order: desc }
+            output: "dist/same.html"
+            input: "{{page}}"
+      jobs/2025-a/cv.md: a
+      jobs/2026-b/cv.md: b
+    error: "Output path collision: dist/same.html is written by both build[0] (page jobs/2026-b/cv.md) and build[0] (page jobs/2025-a/cv.md)"
+
+  - scenario: it should render a dir var newest first with order desc
+    source:
+      config.yaml:
+        var:
+          news:
+            dir: posts
+            transform: none
+            order: desc
+            each: "{{file.stem}}"
+        build:
+          - output: out.txt
+            input: "{{news}}"
+      posts/2026-01-01.md: a
+      posts/2026-03-01.md: c
+      posts/2026-02-01.md: b
+    target:
+      out.txt: |-
+        2026-03-01
+        2026-02-01
+        2026-01-01
+
+  - scenario: it should let a dir var gather one file per subfolder, exposing file.dir
+    source:
+      config.yaml:
+        var:
+          rows:
+            dir: jobs
+            glob: "*/cv.md"
+            transform: none
+            each: "{{file.dir}}: {{body}}"
+        build:
+          - output: out.txt
+            input: "{{rows}}"
+      jobs/acme/cv.md: a
+      jobs/globex/cv.md: g
+    target:
+      out.txt: |-
+        acme: a
+        globex: g
+
+  - scenario: it should reject an unknown order
+    source:
+      config.yaml:
+        var:
+          rows:
+            dir: jobs
+            order: newest
+        build:
+          - output: out.txt
+            input: "{{rows}}"
+      jobs/a.md: a
+    error: 'At ["order"]: Expected "asc" | "desc" | undefined | null, received "newest"'

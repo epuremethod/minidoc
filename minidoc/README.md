@@ -147,6 +147,7 @@ string is just a template; a mapping picks a kind by its key:
 |------|--------|---------|
 | `file` | one html/md file | the body |
 | `dir` | a folder of content files | each item through `each`, newline-joined |
+| `dirs` | a folder of folders | each subfolder through `each`, newline-joined |
 | `list` | a scalar list | each item through `each`, joined by `join` |
 | `value` | an inline template | the template through a named transform |
 
@@ -175,6 +176,20 @@ just below its explicit vars (so an explicit `var: title:` wins). Two files
 in one block exporting the same name fail loud. Dots are ordinary characters
 in names, so dotted namespaces like `signature.ts` are fine.
 
+A missing file fails loud. `optional: true` renders it as an empty string
+instead (and it exports no frontmatter). An optional `template` wraps the
+rendered body as `{{body}}`, in the file's frontmatter context; like a
+`list` wrapper, it renders nothing when the body is empty — a missing
+optional file, or one with only frontmatter or whitespace:
+
+```yaml
+var:
+  email:
+    file: email.md
+    optional: true
+    template: '<section><h3>{{subject}}</h3>{{body}}</section>'
+```
+
 ### `dir`
 
 Loads a folder of content files and renders each through an `each` template —
@@ -192,13 +207,44 @@ var:
 
 Each item's `each` renders in a child context of the file's frontmatter plus
 its rendered content as `{{body}}`. Items join with newlines, in filename
-order — prefix files `01-intro.md` to control it. `glob` (default `*.md`)
-selects files; `transform` overrides the per-file inference. Unlike `file`
+order — prefix files `01-intro.md` to control it; `order: desc` reverses it,
+so date-prefixed files list newest first. `glob` (default `*.md`) selects
+files; a glob with a `/` reaches into subfolders (`*/cv.md` one level down,
+`**/cv.md` any depth), ordered by path. `transform` overrides the per-file
+inference. Unlike `file`
 vars, items do *not* export their frontmatter outward (eight chapters would
 conflict on `title`); it stays local to each item. Each item also sees its
-file name: `{{file.name}}` (`01-intro.md`) and `{{file.stem}}` (`01-intro`).
-An empty match fails loud; `optional: true` accepts it (or a missing folder)
-and renders nothing.
+file name: `{{file.name}}` (`01-intro.md`), `{{file.stem}}` (`01-intro`)
+and `{{file.dir}}`, the name of its parent folder. An empty match fails loud;
+`optional: true` accepts it (or a missing folder) and renders nothing.
+
+### `dirs`
+
+Iterates over the subfolders of a folder: one item per subfolder, rendered
+through `each`. The item's own `var` block loads in each subfolder — its
+`file` and `dir` paths are relative to that subfolder — so one row can use
+several files of the folder:
+
+```yaml
+var:
+  applications:
+    dirs: candidatures           # candidatures/2026-01-acme/cv.md, ...
+    order: desc                  # newest folder first
+    each: '<tr><td>{{folder.name}}</td><td>{{role}}</td><td>{{email}}</td></tr>'
+    var:
+      cv: { file: cv.md }
+      lettre: { file: lettre.md }
+      email: { file: email.md, optional: true }
+```
+
+Each item sees `{{folder.name}}`, also usable in its paths
+(`file: "{{folder.name}}.md"`). Its vars behave like a config's `var` block:
+the frontmatter of its `file` vars is available to `each` — two files of one
+folder exporting the same name fail loud — and stays local to the item.
+Folders list in name order; `order: desc` reverses it. `each` is required. A
+missing file in any folder fails loud (unless that var is `optional`); an
+empty or missing folder fails loud unless `optional: true`, which renders
+nothing.
 
 ### `list`
 
@@ -280,11 +326,24 @@ build:
 Each page renders the entry's `input` in its own child context: the file's
 frontmatter layers in like a `file` var's — over the config's vars, under the
 entry's own `var` — plus `{{page}}`, its rendered body, and `{{file.name}}` /
-`{{file.stem}}`. All of it is usable in the output path, so a `slug:` in
-every frontmatter is optional. A page's frontmatter stays local to that page.
-`dir`, `glob` (default `*.md`) and `transform` work as for a `dir` var; the
-`input` may be a template or a `file`, not a `copy`. An empty match fails
-loud; `optional: true` accepts it and writes nothing.
+`{{file.stem}}` / `{{file.dir}}` (its parent folder's name). All of it is
+usable in the output path, so a `slug:` in every frontmatter is optional. A
+page's frontmatter stays local to that page. `dir`, `glob` (default `*.md`),
+`transform` and `order` work as for a `dir` var; the `input` may be a
+template or a `file`, not a `copy`. An empty match fails loud;
+`optional: true` accepts it and writes nothing.
+
+A glob with a `/` reaches into subfolders — one page per folder:
+
+```yaml
+var:
+  layouts.cv:                  # a dotted name, not a nested mapping
+    file: layouts/cv.html
+build:
+  - pages: { dir: candidatures, glob: "*/cv.md" }
+    output: "../dist/{{file.dir}}-cv.html"   # dist/2026-01-acme-cv.html
+    input: "{{layouts.cv}}"
+```
 
 Every output path resolves before anything is written. Two outputs resolving
 to the same path — two pages sharing a slug, two entries — fail loud, naming
@@ -301,8 +360,10 @@ live server keeps serving the previous files until replacements are written.
 
 ### Paths — the one exception
 
-Declared paths (`base`, `output`, `file`, `dir`, `pages`, `copy`) are relative to the
-config file that declares them, anchored at parse time. Paths may contain
+Declared paths (`base`, `output`, `file`, `dir`, `dirs`, `pages`, `copy`) are
+relative to the config file that declares them, anchored at parse time. The
+one nesting: the vars inside a `dirs` item are relative to that item's
+subfolder, itself anchored at the config. Paths may contain
 `{{refs}}`, but they resolve against plain string vars only — paths must
 resolve before content loads, so they can never depend on it. Refs can
 contribute path segments but never move the anchor; absolute paths (`/...`)
@@ -319,6 +380,7 @@ Undefined variable {{missing}} at line 3 in file content/intro.md
 Variable cycle in file content/intro.md: intro -> intro
 Undefined variable {{missing}} in build[0] output
 Undefined variable {{slug}} in build[0] output (page cvs/b.md)
+Undefined variable {{role}} in folder candidatures/acme (var (config.yaml).applications)
 ```
 
 The innermost site wins: an error is labeled once, where it happened, and not
@@ -330,7 +392,7 @@ By default any error aborts the run. With `inlineErrors: true`, content
 errors instead surface as an error box (thin red border, faint red
 background, class `minidoc-error`, message HTML-escaped) at their place in
 the output page, and each is also logged to the console. The blast radius is
-the nearest content boundary: a failing `dir` item boxes only that item, the
+the nearest content boundary: a failing `dir` or `dirs` item boxes only that item, the
 rest of the page still renders; a failing page boxes only in its own output. Meant for a dev server — the site keeps
 building and the error shows up where it happens. Output path errors still
 fail loud even in this mode: a file cannot be written without a path. Leave
@@ -376,6 +438,10 @@ import { run, nodeFs, makeMemoryFileSystem } from "@epure/minidoc"
 await run({ fs: makeMemoryFileSystem(files), glob: "**/config.yaml" })
 await run({ fs: nodeFs(new URL("./content/", import.meta.url)), glob: "**/config.yaml" })
 ```
+
+A custom filesystem implements `readFile`, `writeFile`, `copy`, `exists`,
+`glob`, `listFiles` and `listDirs` — the last lists the subfolders a `dirs`
+var or a subfolder glob walks.
 
 ## Development
 
@@ -480,6 +546,16 @@ stand in for. `pnpm check` runs everything.
 ## Changelog
 
 - Unreleased
+  - `dirs` vars: one item per subfolder, each with its own `var` block whose
+    paths are relative to that subfolder, and `{{folder.name}}`.
+  - `optional: true` on `file` vars renders a missing file as `""`; a
+    `template` wraps a non-empty body as `{{body}}`.
+  - `order: desc` on `dir` vars, `dirs` vars, `dir` inputs and `pages`.
+  - A `glob` with a `/` or `**` reaches into subfolders; items and pages
+    expose `{{file.dir}}`, the parent folder's name.
+  - `FileSystem` gains `listDirs` — custom filesystems must implement it.
+  - Config schema errors report the config path instead of crashing with
+    "Cannot set property message of SuryError".
   - `pages` on a build entry: one output per file of a folder, the file's
     rendered body as `{{page}}`, its frontmatter local to its page.
   - `dir` items and pages expose `{{file.name}}` and `{{file.stem}}`.
