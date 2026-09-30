@@ -69,7 +69,7 @@ examples:
       out.html: |
         <p>Hello <strong>Marmot</strong> !</p>
 
-  - scenario: it should export frontmatter vars below the declaring scope, usable even in output paths
+  - scenario: it should read a file var's frontmatter under its name, even in output paths
     source:
       config.yaml:
         build:
@@ -77,9 +77,9 @@ examples:
             var:
               body:
                 file: content/home.md
-            output: "{{slug}}.html"
+            output: "{{body.slug}}.html"
             input: |-
-              <title>{{title}}</title>
+              <title>{{body.title}}</title>
               {{body}}
       content/home.md: |-
         ---
@@ -92,7 +92,7 @@ examples:
         <title>Home</title>
         <h1>Home</h1>
 
-  - scenario: it should prefer an explicit var over frontmatter, while the file body prefers its own frontmatter
+  - scenario: it should keep a file var's frontmatter out of the declaring scope, while its body sees it
     source:
       config.yaml:
         var:
@@ -168,17 +168,19 @@ examples:
         Hello
     error: 'var (config.yaml).body: unknown transform "nope" (available: md, none)'
 
-  - scenario: it should fail loud when two files in one var block export the same frontmatter name
+  - scenario: it should let two file vars share a frontmatter name, each under its own var
     source:
       config.yaml:
         var:
           a:
             file: content/a.md
+            transform: none
           b:
             file: content/b.md
+            transform: none
         build:
           - output: out.html
-            input: "{{a}}{{b}}"
+            input: "{{a.title}}{{a}} {{b.title}}{{b}}"
       content/a.md: |-
         ---
         title: A
@@ -189,7 +191,8 @@ examples:
         title: B
         ---
         b
-    error: 'Frontmatter conflict in var (config.yaml): "title" defined by both content/a.md and content/b.md'
+    target:
+      out.html: "Aa Bb"
 
   - scenario: it should fail loud on an unterminated frontmatter block
     source:

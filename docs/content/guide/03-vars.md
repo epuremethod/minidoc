@@ -9,7 +9,9 @@ desc: The five var kinds — file, dir, dirs, list, value — plus transform
 ---
 
 Every var is a template plus, optionally, a source and a transform. A plain
-string is just a template; a mapping picks a kind by its key.
+string is just a template; a group holding one of the keys below renders as
+that kind. The key is read after layers merge (see [nested vars](#model)), so
+each field of a kind can be overridden on its own.
 
 ### file
 
@@ -29,13 +31,11 @@ The transform is inferred from the extension (`.md`/`.markdown` -> `md`,
 `transform` fails loud. ``{{`refs`}}`` in the body render first, then the
 transform runs — so a var can inject markdown that gets rendered.
 
-A content file may start with a YAML frontmatter block of scalars and scalar
-lists. The body renders in a child context of that frontmatter, and — for
-single `file` vars — the frontmatter also merges into the declaring context,
-just below its explicit vars (so an explicit `var: title:` wins). Two files
-in one block exporting the same name is a conflict and fails loud. Dots are
-ordinary characters in names, so dotted namespaces like `signature.ts` are
-fine.
+A content file may start with a YAML frontmatter block — scalars, lists
+and nested groups. The body renders in a child context of that frontmatter,
+and the declaring context reads it under the var's name: `{{`intro.title`}}`
+is the `title` of the file `intro` loads — usable even in an output path. Two
+files can share frontmatter names without conflict, each under its own var.
 
 A missing file fails loud. `optional: true` renders it as an empty string
 instead (and it exports no frontmatter). An optional `template` wraps the
@@ -72,7 +72,7 @@ order (prefix files `01-intro.md` to control it); `order: desc` reverses it,
 so date-prefixed files list newest first. `glob` (default `*.md`) selects
 files; a glob with a `/` reaches into subfolders (`*/cv.md` one level down,
 `**/cv.md` any depth), ordered by path. `transform` overrides the per-file
-inference. Unlike `file`
+inference; `join` (default a newline) sits between items. Unlike `file`
 vars, items do *not* export their frontmatter outward — eight chapters would
 conflict on `title`; it stays local to each item. Each item also sees its
 file name: ``{{`file.name`}}`` (`01-intro.md`), ``{{`file.stem`}}``
@@ -92,7 +92,7 @@ var:
   applications:
     dirs: candidatures           # candidatures/2026-01-acme/cv.md, ...
     order: desc                  # newest folder first
-    each: '<tr><td>{{`folder.name`}}</td><td>{{`role`}}</td><td>{{`email`}}</td></tr>'
+    each: '<tr><td>{{`folder.name`}}</td><td>{{`cv.role`}}</td><td>{{`email`}}</td></tr>'
     var:
       cv: { file: cv.md }
       lettre: { file: lettre.md }
@@ -100,9 +100,9 @@ var:
 ```
 
 Each item sees ``{{`folder.name`}}``, also usable in its paths
-(`file: "{{`folder.name`}}.md"`). Its vars behave like a config's `var` block:
-the frontmatter of its `file` vars is available to `each` — two files of one
-folder exporting the same name fail loud — and stays local to the item.
+(`file: "{{`folder.name`}}.md"`). The frontmatter of its files reads under
+their names — `{{`cv.role`}}`, `{{`lettre.company`}}` — and stays local to the
+item.
 Folders list in name order; `order: desc` reverses it. `each` is required. A
 missing file in any folder fails loud (unless that var is `optional`); an
 empty or missing folder fails loud unless `optional: true`, which renders

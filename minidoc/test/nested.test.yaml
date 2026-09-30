@@ -1,0 +1,165 @@
+feature: Nested vars
+background:
+  given: a filesystem
+examples:
+  - scenario: it should read a nested var by its dotted path
+    source:
+      config.yaml:
+        var:
+          layouts:
+            cv: common-cv
+            letter: common-letter
+        build:
+          - output: out.txt
+            input: "{{layouts.cv}} / {{layouts.letter}}"
+    target:
+      out.txt: common-cv / common-letter
+
+  - scenario: it should merge nested vars leaf by leaf, a page overriding one key
+    source:
+      base.yaml:
+        var:
+          layouts:
+            cv: common-cv
+            letter: common-letter
+      config.yaml:
+        base: base.yaml
+        build:
+          - pages: { dir: pages, transform: none }
+            output: "{{file.stem}}.txt"
+            input: "{{layouts.cv}} / {{layouts.letter}}"
+      pages/foo.md: |-
+        ---
+        layouts:
+          cv: this-cv
+        ---
+        foo
+      pages/bar.md: bar
+    target:
+      foo.txt: this-cv / common-letter
+      bar.txt: common-cv / common-letter
+
+  - scenario: it should treat dotted keys and nesting as the same var
+    source:
+      config.yaml:
+        var:
+          layouts:
+            cv: common-cv
+        build:
+          - var:
+              layouts.cv: entry-cv
+            output: out.txt
+            input: "{{layouts.cv}}"
+    target:
+      out.txt: entry-cv
+
+  - scenario: it should fail loud when one layer defines a leaf twice
+    source:
+      config.yaml:
+        var:
+          layouts.cv: a
+          layouts:
+            cv: b
+        build:
+          - output: out.txt
+            input: "{{layouts.cv}}"
+    error: 'var (config.yaml): "layouts.cv" is defined twice'
+
+  - scenario: it should override a file group's path alone, keeping its other keys, anchored where it is declared
+    source:
+      config.yaml:
+        var:
+          layouts:
+            cv:
+              file: layouts/common-cv.html
+              template: "<main>{{body}}</main>"
+        build:
+          - pages: { dir: pages, transform: none }
+            output: "{{file.stem}}.html"
+            input: "{{layouts.cv}}"
+      layouts/common-cv.html: common
+      pages/foo.md: |-
+        ---
+        layouts.cv.file: foo-cv.html
+        ---
+        foo
+      pages/foo-cv.html: special
+      pages/bar.md: bar
+    target:
+      foo.html: "<main>special</main>"
+      bar.html: "<main>common</main>"
+
+  - scenario: it should read a file's frontmatter under its group
+    source:
+      config.yaml:
+        var:
+          layouts:
+            cv: { file: cv.html }
+        build:
+          - output: out.txt
+            input: "{{layouts.cv.title}}: {{layouts.cv}}"
+      cv.html: |-
+        ---
+        title: CV
+        ---
+        <h1>{{title}}</h1>
+    target:
+      out.txt: "CV: <h1>CV</h1>"
+
+  - scenario: it should read nested frontmatter
+    source:
+      config.yaml:
+        build:
+          - pages: { dir: pages, transform: none }
+            output: "{{file.stem}}.txt"
+            input: "{{meta.author.name}}"
+      pages/a.md: |-
+        ---
+        meta:
+          author:
+            name: Ada
+        ---
+        a
+    target:
+      a.txt: Ada
+
+  - scenario: it should resolve a file path from another file's frontmatter
+    source:
+      config.yaml:
+        var:
+          settings: { file: settings.md }
+          hero: { file: "{{settings.hero}}", transform: none }
+        build:
+          - output: out.txt
+            input: "{{hero}}"
+      settings.md: |-
+        ---
+        hero: parts/hero.html
+        ---
+      parts/hero.html: <h1>Hero</h1>
+    target:
+      out.txt: <h1>Hero</h1>
+
+  - scenario: it should fail loud when reading a group as a value
+    source:
+      config.yaml:
+        var:
+          layouts:
+            cv: a
+            letter: b
+        build:
+          - output: out.txt
+            input: "{{layouts}}"
+    error: "{{layouts}} is a group (cv, letter), not a value in build[0] input"
+
+  - scenario: it should fail loud on a group with two kinds
+    source:
+      config.yaml:
+        var:
+          both:
+            file: a.md
+            dir: docs
+        build:
+          - output: out.txt
+            input: "{{both}}"
+    error: "{{both}} has several kinds (file, dir): keep one"

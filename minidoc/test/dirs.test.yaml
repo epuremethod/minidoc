@@ -241,3 +241,19 @@ examples:
             input: "[{{entries}}]"
     target:
       out.txt: "[]"
+
+  - scenario: it should join items with join
+    source:
+      config.yaml:
+        var:
+          entries:
+            dir: content
+            transform: none
+            join: ", "
+        build:
+          - output: out.txt
+            input: "{{entries}}"
+      content/a.md: a
+      content/b.md: b
+    target:
+      out.txt: "a, b"

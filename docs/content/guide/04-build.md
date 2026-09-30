@@ -82,13 +82,12 @@ both; copies into one directory merge and are exempt:
 Output path collision: dist/same.html is written by both build[0] (page cvs/a.md) and build[0] (page cvs/b.md)
 ```
 
-### Paths — the one exception
+### Paths
 
 Declared paths (`base`, `output`, `file`, `dir`, `dirs`, `pages`, `copy`) are
-relative to the config file that declares them, anchored at parse time. The
-one nesting: the vars inside a `dirs` item are relative to that item's
-subfolder, itself anchored at the config. Paths may contain
-``{{`refs`}}``, but they resolve against plain string vars only — paths must
-resolve before content loads, so they can never depend on it. Refs can
-contribute path segments but never move the anchor; absolute paths (`/...`)
-pass through untouched.
+relative to the layer that declares them: a config's paths to that config's
+folder, a frontmatter's paths to its content file's folder, a `dirs` item's
+vars to that item's subfolder. Paths are templates like any other and may
+depend on anything — a var, a page's frontmatter, another file's frontmatter
+— but refs only contribute segments after the anchor: they never move it.
+Absolute paths (`/...`) written as such pass through untouched.

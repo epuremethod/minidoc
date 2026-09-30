@@ -115,4 +115,4 @@ examples:
           - output: out.txt
             input: "{{rows}}"
       jobs/a.md: a
-    error: 'At ["order"]: Expected "asc" | "desc" | undefined | null, received "newest"'
+    error: 'var (config.yaml).rows: "order" must be "asc" or "desc", got "newest"'

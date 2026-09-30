@@ -4,7 +4,6 @@ import * as S from "sury/src/S.res.mjs";
 import * as Sury from "sury";
 import * as Yaml from "yaml";
 import * as Stdlib_Int from "@rescript/runtime/lib/es6/Stdlib_Int.js";
-import * as Stdlib_Dict from "@rescript/runtime/lib/es6/Stdlib_Dict.js";
 import * as Stdlib_Option from "@rescript/runtime/lib/es6/Stdlib_Option.js";
 import * as Stdlib_JsError from "@rescript/runtime/lib/es6/Stdlib_JsError.js";
 
@@ -54,13 +53,6 @@ let orderS = Sury.enum([
   "desc"
 ]);
 
-let fileS = Sury.object(s => ({
-  file: s.f("file", Sury.string),
-  transform: s.f("transform", Sury.$res_nullableAsOption(Sury.string)),
-  optional: s.f("optional", Sury.$res_nullableAsOption(Sury.bool)),
-  template: s.f("template", Sury.$res_nullableAsOption(Sury.string))
-}));
-
 let sourceS = Sury.object(s => ({
   dir: s.f("dir", Sury.string),
   glob: s.f("glob", Sury.$res_nullableAsOption(Sury.string)),
@@ -69,61 +61,18 @@ let sourceS = Sury.object(s => ({
   order: s.f("order", Sury.$res_nullableAsOption(orderS))
 }));
 
-let dirS = Sury.object(s => ({
-  dir: s.f("dir", Sury.string),
-  glob: s.f("glob", Sury.$res_nullableAsOption(Sury.string)),
-  transform: s.f("transform", Sury.$res_nullableAsOption(Sury.string)),
-  optional: s.f("optional", Sury.$res_nullableAsOption(Sury.bool)),
-  order: s.f("order", Sury.$res_nullableAsOption(orderS)),
-  each: s.f("each", Sury.$res_nullableAsOption(Sury.string))
-}));
-
-let listS = Sury.object(s => ({
-  list: s.f("list", Sury.string),
-  each: s.f("each", Sury.string),
-  join: s.f("join", Sury.$res_nullableAsOption(Sury.string)),
-  template: s.f("template", Sury.$res_nullableAsOption(Sury.string))
-}));
-
-let pipeS = Sury.object(s => ({
-  value: s.f("value", Sury.string),
-  transform: s.f("transform", Sury.string)
-}));
-
-let varS = Sury.recursive("Var", varS => Sury.union([
+let treeS = Sury.recursive("Tree", treeS => Sury.union([
   Sury.shape(scalarS, s => ({
-    TAG: "Scalar",
+    TAG: "Str",
     _0: s
   })),
   Sury.shape(Sury.array(scalarS), a => ({
-    TAG: "Scalars",
+    TAG: "Strs",
     _0: a
   })),
-  Sury.shape(dirS, d => ({
-    TAG: "DirV",
+  Sury.shape(Sury.dict(treeS), d => ({
+    TAG: "Tree",
     _0: d
-  })),
-  Sury.shape(Sury.object(s => ({
-    dirs: s.f("dirs", Sury.string),
-    each: s.f("each", Sury.string),
-    vars: s.f("var", Sury.$res_nullableAsOption(Sury.dict(varS))),
-    optional: s.f("optional", Sury.$res_nullableAsOption(Sury.bool)),
-    order: s.f("order", Sury.$res_nullableAsOption(orderS))
-  })), d => ({
-    TAG: "DirsV",
-    _0: d
-  })),
-  Sury.shape(fileS, f => ({
-    TAG: "FileV",
-    _0: f
-  })),
-  Sury.shape(listS, l => ({
-    TAG: "ListV",
-    _0: l
-  })),
-  Sury.shape(pipeS, p => ({
-    TAG: "PipeV",
-    _0: p
   }))
 ]));
 
@@ -136,135 +85,50 @@ let inputS = Sury.union([
     TAG: "Copy",
     _0: s.f("copy", Sury.string)
   })),
-  Sury.shape(dirS, d => ({
-    TAG: "DirI",
+  Sury.shape(Sury.dict(treeS), d => ({
+    TAG: "Node",
     _0: d
-  })),
-  Sury.shape(fileS, f => ({
-    TAG: "FileI",
-    _0: f
   }))
 ]);
 
 let buildS = Sury.object(s => ({
-  vars: s.f("var", Sury.$res_nullableAsOption(Sury.dict(varS))),
+  vars: s.f("var", Sury.$res_nullableAsOption(Sury.dict(treeS))),
   pages: s.f("pages", Sury.$res_nullableAsOption(sourceS)),
   output: s.f("output", Sury.string),
   input: s.f("input", inputS)
 }));
 
 let configS = Sury.object(s => ({
-  vars: s.f("var", Sury.$res_nullableAsOption(Sury.dict(varS))),
+  vars: s.f("var", Sury.$res_nullableAsOption(Sury.dict(treeS))),
   base: s.f("base", Sury.$res_nullableAsOption(Sury.string)),
   build: s.f("build", Sury.$res_nullableAsOption(Sury.array(buildS)))
 }));
 
-let dataS = Sury.union([
-  Sury.shape(scalarS, s => ({
-    TAG: "One",
-    _0: s
-  })),
-  Sury.shape(Sury.array(scalarS), a => ({
-    TAG: "Many",
-    _0: a
-  }))
-]);
-
-let frontS = Sury.$res_nullableAsOption(Sury.dict(dataS));
-
-function anchor(dir, v) {
-  switch (v.TAG) {
-    case "FileV" :
-      let f = v._0;
-      return {
-        TAG: "FileV",
-        _0: {
-          file: join(dir, f.file),
-          transform: f.transform,
-          optional: f.optional,
-          template: f.template
-        }
-      };
-    case "DirV" :
-      let d = v._0;
-      return {
-        TAG: "DirV",
-        _0: {
-          dir: join(dir, d.dir),
-          glob: d.glob,
-          transform: d.transform,
-          optional: d.optional,
-          order: d.order,
-          each: d.each
-        }
-      };
-    case "DirsV" :
-      let d$1 = v._0;
-      return {
-        TAG: "DirsV",
-        _0: {
-          dirs: join(dir, d$1.dirs),
-          each: d$1.each,
-          vars: d$1.vars,
-          optional: d$1.optional,
-          order: d$1.order
-        }
-      };
-    default:
-      return v;
-  }
-}
+let frontS = Sury.$res_nullableAsOption(Sury.dict(treeS));
 
 function convert(path, raw) {
   let dir = dirname(path);
   return {
-    vars: Stdlib_Dict.mapValues(Stdlib_Option.getOr(raw.vars, {}), extra => anchor(dir, extra)),
+    path: path,
+    vars: Stdlib_Option.getOr(raw.vars, {}),
     base: Stdlib_Option.map(raw.base, extra => join(dir, extra)),
     build: Stdlib_Option.getOr(raw.build, []).map(b => {
-      let t = b.input;
+      let c = b.input;
       let tmp;
-      switch (t.TAG) {
-        case "Text" :
-          tmp = {
-            TAG: "Text",
-            _0: t._0
-          };
-          break;
-        case "FileI" :
-          let f = t._0;
-          tmp = {
-            TAG: "FileI",
-            _0: {
-              file: join(dir, f.file),
-              transform: f.transform,
-              optional: f.optional,
-              template: f.template
-            }
-          };
-          break;
-        case "DirI" :
-          let d = t._0;
-          tmp = {
-            TAG: "DirI",
-            _0: {
-              dir: join(dir, d.dir),
-              glob: d.glob,
-              transform: d.transform,
-              optional: d.optional,
-              order: d.order,
-              each: d.each
-            }
-          };
-          break;
+      switch (c.TAG) {
         case "Copy" :
           tmp = {
             TAG: "Copy",
-            _0: join(dir, t._0)
+            _0: join(dir, c._0)
           };
+          break;
+        case "Text" :
+        case "Node" :
+          tmp = c;
           break;
       }
       return {
-        vars: Stdlib_Dict.mapValues(Stdlib_Option.getOr(b.vars, {}), extra => anchor(dir, extra)),
+        vars: Stdlib_Option.getOr(b.vars, {}),
         pages: Stdlib_Option.map(b.pages, p => ({
           dir: join(dir, p.dir),
           glob: p.glob,
@@ -330,18 +194,12 @@ export {
   opt,
   scalarS,
   orderS,
-  fileS,
   sourceS,
-  dirS,
-  listS,
-  pipeS,
-  varS,
+  treeS,
   inputS,
   buildS,
   configS,
-  dataS,
   frontS,
-  anchor,
   convert,
   parse,
   front,

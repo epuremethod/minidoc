@@ -1,6 +1,6 @@
-// Config and frontmatter schemas — Sury parses the YAML into tagged variants,
-// then `convert` anchors every declared path to the declaring config's
-// directory, before any var interpolation.
+// Config and frontmatter schemas — Sury parses the YAML: build entries into
+// typed records whose paths `convert` anchors to the declaring config's
+// directory, var blocks and frontmatter into plain trees.
 
 external magic: 'a => 'b = "%identity"
 
@@ -42,15 +42,8 @@ let join = (dir, path) => dir == "" || String.startsWith(path, "/") ? path : `${
 /** Listing order: by path, ascending (the default) or descending. */
 type order = | @as("asc") Asc | @as("desc") Desc
 
-/** A content file. `optional` renders a missing file as ""; `template` wraps a
- non-empty body as `{{body}}`. */
-type filev = {
-  file: string,
-  transform: option<string>,
-  optional: option<bool>,
-  template: option<string>,
-}
-/** A folder of content files. `optional` accepts an empty match (or a missing folder). */
+/** A folder of content files for `pages`. `optional` accepts an empty match
+ (or a missing folder). */
 type source = {
   dir: string,
   glob: option<string>,
@@ -58,42 +51,28 @@ type source = {
   optional: option<bool>,
   order: option<order>,
 }
-type dirv = {...source, each: option<string>}
-type listv = {list: string, each: string, join: option<string>, template: option<string>}
-type pipev = {value: string, transform: string}
 
-type rec varv =
-  | Scalar(string)
-  | Scalars(array<string>)
-  | FileV(filev)
-  | DirV(dirv)
-  | DirsV(dirsv)
-  | ListV(listv)
-  | PipeV(pipev)
-/** A folder of folders: one item per subfolder, each rendered through `each`
- with its own `vars`, whose paths are relative to that subfolder. */
-and dirsv = {
-  dirs: string,
-  each: string,
-  vars: option<dict<varv>>,
-  optional: option<bool>,
-  order: option<order>,
-}
+/** A var block or a frontmatter block, as written: scalars, scalar lists and
+ nested mappings. What a mapping *is* (a file, a dir, a plain group) is
+ decided when it is read, after every layer has merged. */
+type rec tree =
+  | Str(string)
+  | Strs(array<string>)
+  | Tree(dict<tree>)
 
 type inputv =
   | Text(string)
-  | FileI(filev)
-  | DirI(dirv)
   | Copy(string)
+  | Node(dict<tree>)
 
-type buildv = {vars: dict<varv>, pages: option<source>, output: string, input: inputv}
-type configv = {vars: dict<varv>, base: option<string>, build: array<buildv>}
+type buildv = {vars: dict<tree>, pages: option<source>, output: string, input: inputv}
+type configv = {path: string, vars: dict<tree>, base: option<string>, build: array<buildv>}
 
-/** A frontmatter value: a scalar or a list of scalars. */
+/** An evaluated value: a scalar or a list of scalars. */
 type data = One(string) | Many(array<string>)
 
-type rawbuild = {vars: option<dict<varv>>, pages: option<source>, output: string, input: inputv}
-type rawconfig = {vars: option<dict<varv>>, base: option<string>, build: option<array<rawbuild>>}
+type rawbuild = {vars: option<dict<tree>>, pages: option<source>, output: string, input: inputv}
+type rawconfig = {vars: option<dict<tree>>, base: option<string>, build: option<array<rawbuild>>}
 
 // Missing and explicit-null keys both read as None.
 let opt = s => S.nullableAsOption(s)
@@ -103,13 +82,6 @@ let scalarS = S.union([S.string, S.float->S.to(S.string), S.bool->S.to(S.string)
 
 let orderS = S.enum([Asc, Desc])
 
-let fileS = S.object((s): filev => {
-  file: s.field("file", S.string),
-  transform: s.field("transform", opt(S.string)),
-  optional: s.field("optional", opt(S.bool)),
-  template: s.field("template", opt(S.string)),
-})
-
 let sourceS = S.object((s): source => {
   dir: s.field("dir", S.string),
   glob: s.field("glob", opt(S.string)),
@@ -118,94 +90,52 @@ let sourceS = S.object((s): source => {
   order: s.field("order", opt(orderS)),
 })
 
-let dirS = S.object((s): dirv => {
-  dir: s.field("dir", S.string),
-  glob: s.field("glob", opt(S.string)),
-  each: s.field("each", opt(S.string)),
-  transform: s.field("transform", opt(S.string)),
-  optional: s.field("optional", opt(S.bool)),
-  order: s.field("order", opt(orderS)),
-})
-
-let listS = S.object((s): listv => {
-  list: s.field("list", S.string),
-  each: s.field("each", S.string),
-  join: s.field("join", opt(S.string)),
-  template: s.field("template", opt(S.string)),
-})
-
-let pipeS = S.object((s): pipev => {
-  value: s.field("value", S.string),
-  transform: s.field("transform", S.string),
-})
-
-let varS = S.recursive("Var", varS =>
+let treeS = S.recursive("Tree", treeS =>
   S.union([
-    scalarS->S.shape(s => Scalar(s)),
-    S.array(scalarS)->S.shape(a => Scalars(a)),
-    dirS->S.shape(d => DirV(d)),
-    S.object((s): dirsv => {
-      dirs: s.field("dirs", S.string),
-      each: s.field("each", S.string),
-      vars: s.field("var", opt(S.dict(varS))),
-      optional: s.field("optional", opt(S.bool)),
-      order: s.field("order", opt(orderS)),
-    })->S.shape(d => DirsV(d)),
-    fileS->S.shape(f => FileV(f)),
-    listS->S.shape(l => ListV(l)),
-    pipeS->S.shape(p => PipeV(p)),
+    scalarS->S.shape(s => Str(s)),
+    S.array(scalarS)->S.shape(a => Strs(a)),
+    S.dict(treeS)->S.shape(d => Tree(d)),
   ])
 )
 
 let inputS = S.union([
   S.string->S.shape(t => Text(t)),
   S.object(s => Copy(s.field("copy", S.string))),
-  dirS->S.shape(d => DirI(d)),
-  fileS->S.shape(f => FileI(f)),
+  S.dict(treeS)->S.shape(d => Node(d)),
 ])
 
 let buildS = S.object((s): rawbuild => {
-  vars: s.field("var", opt(S.dict(varS))),
+  vars: s.field("var", opt(S.dict(treeS))),
   pages: s.field("pages", opt(sourceS)),
   output: s.field("output", S.string),
   input: s.field("input", inputS),
 })
 
 let configS = S.object((s): rawconfig => {
-  vars: s.field("var", opt(S.dict(varS))),
+  vars: s.field("var", opt(S.dict(treeS))),
   base: s.field("base", opt(S.string)),
   build: s.field("build", opt(S.array(buildS))),
 })
 
-let dataS = S.union([scalarS->S.shape(s => One(s)), S.array(scalarS)->S.shape(a => Many(a))])
-let frontS = opt(S.dict(dataS))
+let frontS = opt(S.dict(treeS))
 
-// A `dirs` var anchors only its own folder: the paths of its item vars are
-// relative to each subfolder, anchored when the items are listed.
-let anchor = (dir, v) =>
-  switch v {
-  | FileV(f) => FileV({...f, file: join(dir, f.file)})
-  | DirV(d) => DirV({...d, dir: join(dir, d.dir)})
-  | DirsV(d) => DirsV({...d, dirs: join(dir, d.dirs)})
-  | v => v
-  }
-
+// Typed paths anchor here, at parse time. Paths inside var trees carry their
+// declaring directory instead and anchor when they are read.
 let convert = (path, raw: rawconfig): configv => {
   let dir = dirname(path)
   {
-    vars: raw.vars->Option.getOr(Dict.make())->Dict.mapValues(anchor(dir, ...)),
+    path,
+    vars: raw.vars->Option.getOr(Dict.make()),
     base: raw.base->Option.map(join(dir, ...)),
     build: raw.build
     ->Option.getOr([])
     ->Array.map((b): buildv => {
-      vars: b.vars->Option.getOr(Dict.make())->Dict.mapValues(anchor(dir, ...)),
+      vars: b.vars->Option.getOr(Dict.make()),
       pages: b.pages->Option.map(p => {...p, dir: join(dir, p.dir)}),
       output: join(dir, b.output),
       input: switch b.input {
-      | Text(t) => Text(t)
       | Copy(c) => Copy(join(dir, c))
-      | FileI(f) => FileI({...f, file: join(dir, f.file)})
-      | DirI(d) => DirI({...d, dir: join(dir, d.dir)})
+      | input => input
       },
     }),
   }

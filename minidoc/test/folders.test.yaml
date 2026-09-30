@@ -10,7 +10,7 @@ examples:
         var:
           applications:
             dirs: candidatures
-            each: "{{folder.name}}: {{role}} | {{cv}} | {{lettre}} | [{{email}}]"
+            each: "{{folder.name}}: {{cv.role}} | {{cv}} | {{lettre}} | [{{email}}]"
             var:
               cv: { file: cv.md, transform: none }
               lettre: { file: lettre.md, transform: none }
@@ -79,7 +79,7 @@ examples:
         var:
           rows:
             dirs: jobs
-            each: "{{title}}"
+            each: "{{cv.title}}"
             var:
               cv: { file: cv.md, transform: none }
         build:
@@ -91,15 +91,15 @@ examples:
         ---
         a
       jobs/b/cv.md: b
-    error: "Undefined variable {{title}} in folder jobs/b (var (config.yaml).rows)"
+    error: "Undefined variable {{cv.title}} in folder jobs/b (var (config.yaml).rows)"
 
-  - scenario: it should fail loud when two files of one item export the same frontmatter name
+  - scenario: it should read the same frontmatter name from two files of one folder
     source:
       config.yaml:
         var:
           rows:
             dirs: jobs
-            each: "{{cv}}"
+            each: "{{cv.company}} {{cv}} / {{lettre.company}} {{lettre}}"
             var:
               cv: { file: cv.md, transform: none }
               lettre: { file: lettre.md, transform: none }
@@ -116,7 +116,8 @@ examples:
         company: Acme
         ---
         lettre
-    error: 'Frontmatter conflict in var (config.yaml).rows.var: "company" defined by both jobs/a/cv.md and jobs/a/lettre.md'
+    target:
+      out.txt: "Acme cv / Acme lettre"
 
   - scenario: it should fail loud on a missing file in one folder
     source:
@@ -181,7 +182,7 @@ examples:
         var:
           rows:
             dirs: jobs
-            each: "<li>{{title}}</li>"
+            each: "<li>{{cv.title}}</li>"
             var:
               cv: { file: cv.md, transform: none }
         build:
@@ -196,4 +197,4 @@ examples:
     target:
       out.html: |-
         <li>Alpha</li>
-        <div class="minidoc-error" style="border:1px solid #c00;background:rgba(255,0,0,.04);padding:.5em .75em;font-family:monospace;white-space:pre-wrap;">Undefined variable {{title}} in folder jobs/b (var (config.yaml).rows)</div>
+        <div class="minidoc-error" style="border:1px solid #c00;background:rgba(255,0,0,.04);padding:.5em .75em;font-family:monospace;white-space:pre-wrap;">Undefined variable {{cv.title}} in folder jobs/b (var (config.yaml).rows)</div>

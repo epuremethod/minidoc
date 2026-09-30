@@ -1,9 +1,9 @@
 // minidoc — a small documentation website generator, built on tilia.
 //
-// A context is a dict of templates, carved with tilia: every var is a lazy,
+// A context is a tree of templates, carved with tilia: every var is a lazy,
 // cached, dependency-tracked computed. A child context re-hosts its parent's
-// *templates* (own wins), so inherited templates re-resolve against local
-// overrides — you inherit formulas, not values.
+// *templates*, merged leaf by leaf (own wins), so inherited templates
+// re-resolve against local overrides — you inherit formulas, not values.
 
 open Schema
 open Tilia
@@ -36,36 +36,52 @@ let defaults: dict<transform> = Dict.fromArray([
 ])
 
 // ---------------------------------------------------------------------------
-// Rendering — carved contexts.
+// Rendering — carved contexts over merged trees.
 
-/** A loaded content file: frontmatter split off, transform resolved. `pad`
- counts the blank lines standing in for the frontmatter at the top of `body`. */
-type content = {
+/** Where a leaf was declared: the directory its paths anchor to, and the
+ label errors name it by. */
+type origin = {dir: string, label: string}
+
+/** A loaded content file: frontmatter split off. `pad` counts the blank lines
+ standing in for the frontmatter at the top of `body`. */
+type rec content = {
   body: string,
-  transform: transform,
-  front: dict<data>,
+  front: dict<node>,
   at: string,
   pad: int,
   path: string,
 }
 
-/** A loaded var, ready to evaluate in a context. */
-type rec lvar =
-  | T(string) // template scalar
-  | L(array<string>) // list of template scalars
-  | V(data) // pre-rendered value — no further expansion
-  | F(content, option<(string, string)>) // file, wrapper template and its site
-  | D(array<content>, string, string) // dir items, each template, site
-  | G(array<folder>, string, string) // dirs items, each template, site
-  | R(listv, string) // list renderer, site
-  | P(string, transform, string) // template, transform, site
+/** A merged var tree. A group is a plain namespace until it is read: then its
+ keys decide what it renders as (`file`, `dir`, `dirs`, `list`, `value`). */
+and node =
+  | Leaf(string, origin) // template scalar
+  | List(array<string>, origin) // list of template scalars
+  | Group(dict<node>)
+  | Fixed(data) // pre-rendered value — no further expansion
+  | Body(content, transform) // a page's body, rendered in the page context
 
-/** A `dirs` item: its render site and its own templates. */
-and folder = {where: string, lvars: dict<lvar>}
+/** A settled read: its value, or the error it threw, rethrown as is. */
+type outcome = {ok: bool, value: unknown}
+
+/** Per-run I/O cache. Rendering is synchronous; a read it needs and does not
+ have yet starts in `started` and the render stalls (see `Pending`). */
+type env = {
+  fs: filesystem,
+  transforms: dict<transform>,
+  cache: dict<outcome>,
+  started: dict<promise<unit>>,
+}
 
 /** One context: a carve of every template visible to it. `inline` renders
  errors as boxes in the output instead of aborting. */
-type ctx = {lvars: dict<lvar>, vars: dict<data>, get: string => option<data>, inline: bool}
+type rec ctx = {
+  env: env,
+  inline: bool,
+  tree: dict<node>,
+  vars: dict<data>,
+  get: string => option<data>,
+}
 
 // A backtick-quoted name is an escape: `{{`name`}}` renders as the literal
 // reference, unevaluated and spaced exactly as written.
@@ -86,6 +102,26 @@ let stack: ref<array<string>> = ref([])
 // an exception with the stack left mid-flight, so a later detection reports a
 // phantom path (`b -> b`); rethrowing the first keeps the real one.
 let cycle: ref<option<string>> = ref(None)
+
+// A render that needs a read not done yet throws this marker. It carries no
+// message, so sites never label it, and boxes never catch it: the whole
+// render is retried once the reads land.
+let pending: unit => 'a = %raw(`() => { throw { minidocPending: true } }`)
+
+// `Some(fn())`, or `None` when it stalled on a pending read.
+let attempt: (unit => 'a) => option<'a> = %raw(`(fn) => {
+  try { return fn() } catch (e) { if (e && e.minidocPending) return undefined; throw e }
+}`)
+
+let capture: (unit => promise<unknown>) => promise<outcome> = %raw(`async (load) => {
+  try { return { ok: true, value: await load() } } catch (e) { return { ok: false, value: e } }
+}`)
+let rethrow: unknown => 'a = %raw(`(e) => { throw e }`)
+
+// An error whose message already names its site.
+let loud: string => 'a = %raw(`(message) => {
+  const e = new Error(message); e.minidocSited = true; throw e
+}`)
 
 // Decorate an error with its render site; the innermost site wins.
 let rawSite: (string, unit => unknown) => unknown = %raw(`(at, fn) => {
@@ -108,6 +144,7 @@ let rawBoxed: (ref<array<string>>, bool, unit => string) => string = %raw(`(stac
   const active = stack.contents
   try { return fn() } catch (e) {
     stack.contents = active
+    if (e && e.minidocPending) throw e
     const message = String((e && e.message) || e)
     console.error("minidoc: " + message)
     const text = message.replace(/&/g, "&amp;").replace(/</g, "&lt;")
@@ -115,6 +152,49 @@ let rawBoxed: (ref<array<string>>, bool, unit => string) => string = %raw(`(stac
   }
 }`)
 let boxed = (inline, fn: unit => string): string => rawBoxed(stack, inline, fn)
+
+/** `f` over every item; every item's pending reads start before it stalls. */
+let all = (xs, f) => {
+  let stalled = ref(false)
+  let out = xs->Array.map(x =>
+    switch attempt(() => f(x)) {
+    | Some(v) => Some(v)
+    | None =>
+      stalled := true
+      None
+    }
+  )
+  if stalled.contents {
+    pending()
+  }
+  out->Array.filterMap(v => v)
+}
+
+/** A cached read: its value, or a pending stall while it loads. A failed read
+ rethrows its error wherever it is needed. */
+let need = (env, key, load: unit => promise<'a>): 'a =>
+  switch Dict.get(env.cache, key) {
+  | Some({ok: true, value}) => magic(value)
+  | Some({value}) => rethrow(value)
+  | None =>
+    if !Dict.has(env.started, key) {
+      Dict.set(env.started, key, capture(magic(load))->Promise.thenResolve(o => Dict.set(env.cache, key, o)))
+    }
+    pending()
+  }
+
+/** Run a synchronous render until no read is pending. */
+let rec settle = async (env, fn: unit => 'a): 'a =>
+  switch attempt(fn) {
+  | Some(v) => v
+  | None =>
+    let before = Dict.keysToArray(env.cache)->Array.length
+    let _ = await Promise.all(Dict.valuesToArray(env.started))
+    if Dict.keysToArray(env.cache)->Array.length == before {
+      fail("minidoc: render stalled with no read pending")
+    }
+    await settle(env, fn)
+  }
 
 // Multi-line templates get a line number; one-liners locate themselves.
 let lined = (template, offset) =>
@@ -130,16 +210,88 @@ let unpad = (text, pad) => {
   String.slice(text, ~start=go(0))
 }
 
-/** Child templates shadow the parent's. */
-let over = (parent, own) => Dict.assign(Dict.copy(parent), own)
+// ---------------------------------------------------------------------------
+// Trees — as written, then merged.
 
-let data = front =>
-  front->Dict.mapValues(d =>
-    switch d {
-    | One(s) => T(s)
-    | Many(a) => L(a)
+/** A tree as written, dotted keys spelled out as nesting: `a.b: x` and
+ `a: { b: x }` are the same var. Defining one leaf twice fails loud. */
+let rec nodes = (trees: dict<tree>, origin): dict<node> => {
+  let out = Dict.make()
+  trees->Dict.forEachWithKey((t, key) => {
+    let n = switch t {
+    | Str(s) => Leaf(s, origin)
+    | Strs(a) => List(a, origin)
+    | Tree(d) => Group(nodes(d, origin))
+    }
+    place(out, String.split(key, "."), n, key, origin)
+  })
+  out
+}
+and place = (out, path, n, key, origin) => {
+  let head = Array.getUnsafe(path, 0)
+  let twice = () => fail(`${origin.label}: "${key}" is defined twice`)
+  if Array.length(path) == 1 {
+    switch (Dict.get(out, head), n) {
+    | (None, n) => Dict.set(out, head, n)
+    | (Some(Group(into)), Group(more)) =>
+      more->Dict.forEachWithKey((m, k) => place(into, [k], m, `${key}.${k}`, origin))
+    | _ => twice()
+    }
+  } else {
+    let into = switch Dict.get(out, head) {
+    | None =>
+      let d = Dict.make()
+      Dict.set(out, head, Group(d))
+      d
+    | Some(Group(d)) => d
+    | Some(_) => twice()
+    }
+    place(into, Array.slice(path, ~start=1), n, key, origin)
+  }
+}
+
+/** Deep merge: a child layer's leaves shadow the parent's one by one; groups
+ merge key by key, so overriding `layouts.cv` keeps `layouts.letter`. */
+let rec merge = (parent: dict<node>, own: dict<node>) => {
+  let out = Dict.copy(parent)
+  own->Dict.forEachWithKey((n, k) =>
+    switch (Dict.get(out, k), n) {
+    | (Some(Group(a)), Group(b)) => Dict.set(out, k, Group(merge(a, b)))
+    | _ => Dict.set(out, k, n)
     }
   )
+  out
+}
+
+/** The same tree, its paths anchored at `dir` and its errors labeled `label`. */
+let rec reanchor = (tree: dict<node>, origin) =>
+  tree->Dict.mapValues(n =>
+    switch n {
+    | Leaf(s, _) => Leaf(s, origin)
+    | List(a, _) => List(a, origin)
+    | Group(d) => Group(reanchor(d, origin))
+    | n => n
+    }
+  )
+
+/** Every node by its dotted path, groups included. */
+let paths = tree => {
+  let out = Dict.make()
+  let rec go = (tree, prefix) =>
+    tree->Dict.forEachWithKey((n, k) => {
+      let p = prefix == "" ? k : `${prefix}.${k}`
+      Dict.set(out, p, n)
+      switch n {
+      | Group(d) => go(d, p)
+      | _ => ()
+      }
+    })
+  go(tree, "")
+  out
+}
+
+let fixed = s => Fixed(One(s))
+let group = pairs => Group(Dict.fromArray(pairs))
 
 let basename = path => String.slice(path, ~start=String.lastIndexOf(path, "/") + 1)
 
@@ -150,136 +302,11 @@ let naming = (c: content) => {
   let dot = String.lastIndexOf(name, ".")
   let stem = dot > 0 ? String.slice(name, ~start=0, ~end=dot) : name
   Dict.fromArray([
-    ("file.name", V(One(name))),
-    ("file.stem", V(One(stem))),
-    ("file.dir", V(One(basename(dirname(c.path))))),
+    (
+      "file",
+      group([("name", fixed(name)), ("stem", fixed(stem)), ("dir", fixed(basename(dirname(c.path))))]),
+    ),
   ])
-}
-
-let rec make = (inline, lvars: dict<lvar>): ctx =>
-  carve(({derived}) => {
-    inline,
-    lvars,
-    vars: lvars->Dict.mapValues(lv => derived((self: ctx) => eval(lv, self))),
-    get: derived((self: ctx) => name => Dict.get(self.vars, name)),
-  })
-and sub = (self: ctx, extra: dict<lvar>) => make(self.inline, over(self.lvars, extra))
-and eval = (lv, self: ctx) =>
-  switch lv {
-  | T(s) => One(render(s, self.get))
-  | L(items) => Many(items->Array.map(render(_, self.get)))
-  | V(d) => d
-  | P(value, transform, at) =>
-    One(boxed(self.inline, () => site(at, () => transform(render(value, self.get)))))
-  | F(c, wrap) =>
-    One(
-      boxed(self.inline, () =>
-        site(c.at, () => {
-          let front = sub(self, data(c.front))
-          let body = unpad(c.transform(render(c.body, front.get)), c.pad)
-          // Like a `list` wrapper: an empty body renders nothing, wrapper included.
-          switch wrap {
-          | Some((template, at)) if String.trim(body) != "" =>
-            site(at, () => render(template, sub(front, Dict.fromArray([("body", V(One(body)))])).get))
-          | Some(_) => ""
-          | None => body
-          }
-        })
-      ),
-    )
-  | D(items, each, at) =>
-    One(
-      site(at, () =>
-        items
-        ->Array.map(c =>
-          boxed(self.inline, () =>
-            site(at, () => {
-              let front = sub(self, over(naming(c), data(c.front)))
-              let body = unpad(c.transform(site(c.at, () => render(c.body, front.get))), c.pad)
-              render(each, sub(front, Dict.fromArray([("body", V(One(body)))])).get)
-            })
-          )
-        )
-        ->Array.join("\n")
-      ),
-    )
-  | G(items, each, at) =>
-    One(
-      site(at, () =>
-        items
-        ->Array.map(item =>
-          boxed(self.inline, () => site(item.where, () => render(each, sub(self, item.lvars).get)))
-        )
-        ->Array.join("\n")
-      ),
-    )
-  | R(l, at) =>
-    One(
-      boxed(self.inline, () =>
-        site(at, () =>
-          switch self.get(l.list) {
-          | None => fail(`Undefined variable {{${l.list}}}`)
-          | Some(One(_)) => fail(`"${l.list}" must resolve to a scalar list`)
-          | Some(Many(items)) =>
-            if Array.length(items) == 0 {
-              ""
-            } else {
-              let one = (name, value, template) =>
-                render(template, sub(self, Dict.fromArray([(name, V(One(value)))])).get)
-              let body =
-                items
-                ->Array.map(item => one("item", item, l.each))
-                ->Array.join(l.join->Option.getOr(""))
-              switch l.template {
-              | Some(template) => one("body", body, template)
-              | None => body
-              }
-            }
-          }
-        )
-      ),
-    )
-  }
-and render = (template, get) =>
-  template->String.replaceRegExpBy2Unsafe(reference, (
-    ~match as ref,
-    ~group1 as quote,
-    ~group2 as name,
-    ~offset,
-    ~input,
-  ) =>
-    if quote != "" {
-      // Drop the quotes and keep the rest of the match exactly as written, so
-      // spacing survives: `{{ `name` }}` stays `{{ name }}`. An escape is a
-      // passthrough, and a passthrough that reformats its input is a rewrite.
-      String.replaceRegExp(ref, backtick, "")
-    } else {
-      let active = stack.contents
-      if Array.includes(active, name) {
-        let from = Array.indexOf(active, name)
-        let path = switch cycle.contents {
-        | Some(path) => path
-        | None => [...Array.slice(active, ~start=from), name]->Array.join(" -> ")
-        }
-        cycle := Some(path)
-        fail(`Variable cycle: ${path}`)
-      }
-      stack := [...active, name]
-      let out = switch get(name) {
-      | Some(One(s)) => s
-      | Some(Many(a)) => a->Array.join("")
-      | None => fail(`Undefined variable ${ref}${lined(input, offset)}`)
-      }
-      stack := active
-      out
-    }
-  )
-
-/** A top-level render site: fresh cycle stack, site-labeled errors. */
-let top = (at, fn: unit => 'a): 'a => {
-  stack := []
-  cycle := None
-  site(at, fn)
 }
 
 // ---------------------------------------------------------------------------
@@ -323,31 +350,38 @@ let normalize = path => {
 
 let matter = RegExp.fromString("^---\\n(?:([\\s\\S]*?)\\n)?---(?:\\n|$)")
 
-type page = {front: dict<data>, body: string, pad: int}
-
-let split = (text, at) =>
-  if !String.startsWith(text, "---\n") {
-    {front: Dict.make(), body: text, pad: 0}
+/** Split a content file. Its frontmatter's own paths anchor at its folder. */
+let split = (text, path): content => {
+  let at = `file ${path}`
+  let parsed = if !String.startsWith(text, "---\n") {
+    None
   } else {
     switch RegExp.exec(matter, text) {
-    | None => fail(`${at}: unterminated frontmatter (missing closing "---" line)`)
-    | Some(m) =>
-      let vars = switch m->RegExp.Result.matches->Array.get(0) {
-      | Some(Some(head)) => front(head, at)
-      | _ => Dict.make()
-      }
-      // Blank lines stand in for the frontmatter so the body keeps its place
-      // in the document: line numbers in errors — ours and the transforms' —
-      // point at the real file line.
-      let full = RegExp.Result.fullMatch(m)
-      let pad = Array.length(String.split(full, "\n")) - 1
-      {
-        front: vars,
-        body: String.repeat("\n", pad) ++ String.slice(text, ~start=String.length(full)),
-        pad,
-      }
+    | None => fail(`${path}: unterminated frontmatter (missing closing "---" line)`)
+    | Some(m) => Some(m)
     }
   }
+  switch parsed {
+  | None => {body: text, front: Dict.make(), at, pad: 0, path}
+  | Some(m) =>
+    let trees = switch m->RegExp.Result.matches->Array.get(0) {
+    | Some(Some(head)) => front(head, path)
+    | _ => Dict.make()
+    }
+    // Blank lines stand in for the frontmatter so the body keeps its place
+    // in the document: line numbers in errors — ours and the transforms' —
+    // point at the real file line.
+    let full = RegExp.Result.fullMatch(m)
+    let pad = Array.length(String.split(full, "\n")) - 1
+    {
+      body: String.repeat("\n", pad) ++ String.slice(text, ~start=String.length(full)),
+      front: nodes(trees, {dir: dirname(path), label: at}),
+      at,
+      pad,
+      path,
+    }
+  }
+}
 
 let infer = path =>
   if String.endsWith(path, ".md") || String.endsWith(path, ".markdown") {
@@ -358,26 +392,6 @@ let infer = path =>
     None
   }
 
-let rec seq = async (xs, i, fn) =>
-  if i < Array.length(xs) {
-    await fn(Array.getUnsafe(xs, i))
-    await seq(xs, i + 1, fn)
-  }
-
-// ---------------------------------------------------------------------------
-// Loading — read configs and content up front; contexts are carved after.
-
-// Scalar-only lookup for `{{refs}}` inside declared paths, which resolve
-// before any content loads and so can never depend on it.
-let strs = (vars: dict<varv>, parent) => {
-  let rec get = name =>
-    switch Dict.get(vars, name) {
-    | Some(Scalar(s)) => Some(One(render(s, get)))
-    | _ => parent(name)
-    }
-  get
-}
-
 let named = (transforms, name, at) =>
   switch Dict.get(transforms, name) {
   | Some(t) => t
@@ -385,13 +399,10 @@ let named = (transforms, name, at) =>
     fail(`${at}: unknown transform "${name}" (available: ${Dict.keysToArray(transforms)->Array.join(", ")})`)
   }
 
-let content = async (fs: filesystem, transforms, path, explicit, at) => {
-  if !(await fs.exists(path)) {
-    fail(`Content file not found: ${path} (declared at ${at})`)
-  }
-  let {front, body, pad} = split(await fs.readFile(path), path)
-  let name = switch explicit->Option.orElse(infer(path)) {
-  | Some(name) => name
+/** The transform of `path`: the explicit one, else inferred from its extension. */
+let transformOf = (transforms, path, explicit, at) =>
+  switch explicit->Option.orElse(infer(path)) {
+  | Some(name) => named(transforms, name, at)
   | None =>
     fail(
       `${at}: cannot infer a transform for ${path} — set "transform" (available: ${Dict.keysToArray(
@@ -399,93 +410,349 @@ let content = async (fs: filesystem, transforms, path, explicit, at) => {
         )->Array.join(", ")})`,
     )
   }
-  {body, transform: named(transforms, name, at), front, at: `file ${path}`, pad, path}
-}
+
+// Cached reads. A missing file reads as None: whether that is an error
+// depends on who asked.
+let read = (env, path): option<content> =>
+  need(env, `read:${path}`, async () =>
+    (await env.fs.exists(path)) ? Some(split(await env.fs.readFile(path), path)) : None
+  )
+let exists = (env, path): bool => need(env, `exists:${path}`, () => env.fs.exists(path))
+let files = (env, dir): array<string> => need(env, `files:${dir}`, () => env.fs.listFiles(dir))
+let folders = (env, dir): array<string> => need(env, `dirs:${dir}`, () => env.fs.listDirs(dir))
 
 let ordered = (names, order) => order == Some(Desc) ? Array.toReversed(names) : names
 
 // Every file below `dir`, as paths relative to it.
-let rec walk = async (fs: filesystem, dir, prefix) => {
+let rec walk = (env, dir, prefix) => {
   let here = prefix == "" ? dir : join(dir, prefix)
-  let files = (await fs.listFiles(here))->Array.map(join(prefix, _))
-  let nested = await Promise.all((await fs.listDirs(here))->Array.map(d => walk(fs, dir, join(prefix, d))))
-  Array.concat(files, Array.flat(nested))
+  let (own, subs) = (attempt(() => files(env, here)), attempt(() => folders(env, here)))
+  switch (own, subs) {
+  | (Some(own), Some(subs)) =>
+    Array.concat(own->Array.map(join(prefix, _)), all(subs, d => walk(env, dir, join(prefix, d)))->Array.flat)
+  | _ => pending()
+  }
 }
 
 /** The files a `dir` var or a `pages` entry selects, in path order (`order:
  desc` reverses it). A glob with a `/` or a `**` reaches into subfolders. An
- empty match fails loud unless the source is `optional`. */
-let listing = async (fs: filesystem, transforms, pget, src: source, at) => {
-  let dir = top(`${at} dir`, () => render(src.dir, pget))
-  let glob = src.glob->Option.getOr("*.md")
+ empty match fails loud unless `optional`. */
+let listing = (env, dir, glob, order, optional, at) => {
   let deep = String.includes(glob, "/") || String.includes(glob, "**")
   let names =
-    (deep ? await walk(fs, dir, "") : await fs.listFiles(dir))
+    (deep ? walk(env, dir, "") : files(env, dir))
     ->Array.filter(matcher(glob))
     ->Array.toSorted(String.compare)
-    ->ordered(src.order)
-  if Array.length(names) == 0 && !(src.optional->Option.getOr(false)) {
-    fail(`No files matching "${glob}" in ${dir} (declared at ${at})`)
+    ->ordered(order)
+  if Array.length(names) == 0 && !optional {
+    loud(`No files matching "${glob}" in ${dir} (declared at ${at})`)
   }
-  (dir, await Promise.all(names->Array.map(n => content(fs, transforms, join(dir, n), src.transform, at))))
-}
-
-/** Load one `var` block: its lvars plus the frontmatter its file vars export. */
-let rec load = async (fs: filesystem, transforms: dict<transform>, pget, label, vars: dict<varv>) => {
-  let out: dict<lvar> = Dict.make()
-  let exports: dict<lvar> = Dict.make()
-  let owners: dict<string> = Dict.make()
-  await seq(Dict.toArray(vars), 0, async ((name, v)) => {
-    let at = `${label}.${name}`
-    switch v {
-    | Scalar(s) => Dict.set(out, name, T(s))
-    | Scalars(a) => Dict.set(out, name, L(a))
-    | ListV(l) => Dict.set(out, name, R(l, at))
-    | PipeV(p) => Dict.set(out, name, P(p.value, named(transforms, p.transform, at), at))
-    | FileV(f) if f.optional == Some(true) && !(await fs.exists(top(`${at} file`, () => render(f.file, pget)))) =>
-      Dict.set(out, name, V(One("")))
-    | FileV(f) =>
-      let path = top(`${at} file`, () => render(f.file, pget))
-      let c = await content(fs, transforms, path, f.transform, at)
-      // Only file vars export their frontmatter — dir items would conflict
-      // on names like `title`, so theirs stays local to each item.
-      Dict.toArray(data(c.front))->Array.forEach(((fname, lv)) => {
-        switch Dict.get(owners, fname) {
-        | Some(owner) if owner != path =>
-          fail(`Frontmatter conflict in ${label}: "${fname}" defined by both ${owner} and ${path}`)
-        | _ => ()
-        }
-        Dict.set(owners, fname, path)
-        Dict.set(exports, fname, lv)
-      })
-      Dict.set(out, name, F(c, f.template->Option.map(t => (t, `${at} template`))))
-    | DirV(d) =>
-      let src = {dir: d.dir, glob: d.glob, transform: d.transform, optional: d.optional, order: d.order}
-      let (dir, items) = await listing(fs, transforms, pget, src, at)
-      Dict.set(out, name, D(items, d.each->Option.getOr("{{body}}"), `dir ${dir} (${at})`))
-    | DirsV(d) =>
-      let root = top(`${at} dirs`, () => render(d.dirs, pget))
-      let names = (await fs.listDirs(root))->Array.toSorted(String.compare)->ordered(d.order)
-      if Array.length(names) == 0 && !(d.optional->Option.getOr(false)) {
-        fail(`No folders in ${root} (declared at ${at})`)
-      }
-      // Each subfolder loads the item vars as its own `var` block: paths
-      // anchor at the subfolder, and file frontmatter stays in the item.
-      let items = await Promise.all(
-        names->Array.map(async n => {
-          let dir = join(root, n)
-          let fget = key => key == "folder.name" ? Some(One(n)) : pget(key)
-          let vars = d.vars->Option.getOr(Dict.make())->Dict.mapValues(anchor(dir, ...))
-          let (own, exports) = await load(fs, transforms, strs(vars, fget), `${at}.var`, vars)
-          let lvars = over(over(Dict.fromArray([("folder.name", V(One(n)))]), exports), own)
-          {where: `folder ${dir} (${at})`, lvars}
-        }),
-      )
-      Dict.set(out, name, G(items, d.each, `dirs ${root} (${at})`))
+  all(names, n => {
+    let path = join(dir, n)
+    switch read(env, path) {
+    | Some(c) => c
+    | None => loud(`Content file not found: ${path} (declared at ${at})`)
     }
   })
-  (out, exports)
 }
+
+// ---------------------------------------------------------------------------
+// Contexts.
+
+/** A top-level render site: fresh cycle stack, site-labeled errors. */
+let top = (at, fn: unit => 'a): 'a => {
+  stack := []
+  cycle := None
+  site(at, fn)
+}
+
+let kinds = ["file", "dir", "dirs", "list", "value"]
+
+let rec make = (env, inline, tree: dict<node>): ctx =>
+  carve(({derived}) => {
+    env,
+    inline,
+    tree,
+    vars: paths(tree)
+    ->Dict.toArray
+    ->Array.map(((p, n)) => (p, derived((self: ctx) => eval(n, p, self))))
+    ->Dict.fromArray,
+    get: derived((self: ctx) =>
+      name =>
+        switch Dict.get(self.vars, name) {
+        | Some(d) => Some(d)
+        | None => inner(self, name)
+        }
+    ),
+  })
+and sub = (self: ctx, layer) => make(self.env, self.inline, merge(self.tree, layer))
+// A name reaching past a file group reads that file's frontmatter:
+// `{{layouts.cv.title}}` is the `title` of the file `layouts.cv` loads.
+and inner = (self, name) => {
+  let segments = String.split(name, ".")
+  let rec go = (d, i) =>
+    switch Dict.get(d, Array.getUnsafe(segments, i)) {
+    | Some(Group(g)) if i + 1 < Array.length(segments) => go(g, i + 1)
+    | Some(_) => None
+    | None if i > 0 && Dict.has(d, "file") =>
+      let p = segments->Array.slice(~start=0, ~end=i)->Array.join(".")
+      load(d, p, self)->Option.flatMap(c =>
+        sub(self, c.front).get(segments->Array.slice(~start=i)->Array.join("."))
+      )
+    | None => None
+    }
+  go(self.tree, 0)
+}
+and eval = (n, p, self: ctx) =>
+  switch n {
+  | Leaf(s, _) => One(render(s, self.get))
+  | List(items, _) => Many(items->Array.map(render(_, self.get)))
+  | Fixed(d) => d
+  | Body(c, transform) =>
+    One(
+      boxed(self.inline, () =>
+        site(c.at, () => unpad(transform(render(c.body, sub(self, c.front).get)), c.pad))
+      ),
+    )
+  | Group(d) =>
+    switch kinds->Array.filter(k => Dict.has(d, k)) {
+    | [] => fail(`{{${p}}} is a group (${Dict.keysToArray(d)->Array.join(", ")}), not a value`)
+    | ["file"] => file(d, p, self)
+    | ["dir"] => dir(d, p, self)
+    | ["dirs"] => dirs(d, p, self)
+    | ["list"] => list(d, p, self)
+    | ["value"] => value(d, p, self)
+    | several => fail(`{{${p}}} has several kinds (${several->Array.join(", ")}): keep one`)
+    }
+  }
+// The site of a kind: the layer that declared its kind key, and its path.
+and at = (d, key, p) =>
+  switch Dict.get(d, key) {
+  | Some(Leaf(_, o)) | Some(List(_, o)) => `${o.label}.${p}`
+  | _ => p
+  }
+// A kind's fields. `text` renders in the context; `raw` is a template for a
+// child context (`each`, `template`) or a literal (`join`, `list`); `path`
+// anchors before it renders, so a ref never moves the anchor.
+and text = (d, key, p, self) =>
+  switch Dict.get(d, key) {
+  | None => None
+  | Some(Leaf(s, _)) => Some(render(s, self.get))
+  | Some(_) => fail(`${at(d, key, p)}: "${key}" must be a string`)
+  }
+and raw = (d, key, p) =>
+  switch Dict.get(d, key) {
+  | None => None
+  | Some(Leaf(s, _)) => Some(s)
+  | Some(_) => fail(`${at(d, key, p)}: "${key}" must be a string`)
+  }
+and path = (d, key, p, self) =>
+  switch Dict.get(d, key) {
+  | Some(Leaf(s, o)) => site(`${at(d, key, p)} ${key}`, () => render(join(o.dir, s), self.get))
+  | _ => fail(`${at(d, key, p)}: "${key}" must be a path`)
+  }
+and flag = (d, key, p, self) =>
+  switch text(d, key, p, self) {
+  | None | Some("false") => false
+  | Some("true") => true
+  | Some(v) => fail(`${at(d, key, p)}: "${key}" must be true or false, got "${v}"`)
+  }
+and order = (d, key, p, self) =>
+  switch text(d, "order", p, self) {
+  | None | Some("asc") => None
+  | Some("desc") => Some(Desc)
+  | Some(v) => fail(`${at(d, key, p)}: "order" must be "asc" or "desc", got "${v}"`)
+  }
+// The file a file group loads; None for a missing optional file.
+and load = (d, p, self) => {
+  let file = path(d, "file", p, self)
+  switch read(self.env, file) {
+  | Some(c) => Some(c)
+  | None if flag(d, "optional", p, self) => None
+  | None => loud(`Content file not found: ${file} (declared at ${at(d, "file", p)})`)
+  }
+}
+and file = (d, p, self) => {
+  let where = at(d, "file", p)
+  switch load(d, p, self) {
+  | None => One("")
+  | Some(c) =>
+    let transform = transformOf(self.env.transforms, c.path, text(d, "transform", p, self), where)
+    One(
+      boxed(self.inline, () =>
+        site(c.at, () => {
+          let front = sub(self, c.front)
+          let body = unpad(transform(render(c.body, front.get)), c.pad)
+          // Like a `list` wrapper: an empty body renders nothing, wrapper included.
+          switch raw(d, "template", p) {
+          | Some(template) if String.trim(body) != "" =>
+            site(`${where} template`, () =>
+              render(template, sub(front, Dict.fromArray([("body", fixed(body))])).get)
+            )
+          | Some(_) => ""
+          | None => body
+          }
+        })
+      ),
+    )
+  }
+}
+and dir = (d, p, self) => {
+  let where = at(d, "dir", p)
+  let folder = path(d, "dir", p, self)
+  let glob = text(d, "glob", p, self)->Option.getOr("*.md")
+  let explicit = text(d, "transform", p, self)
+  let each = raw(d, "each", p)->Option.getOr("{{body}}")
+  let items = listing(self.env, folder, glob, order(d, "dir", p, self), flag(d, "optional", p, self), where)
+  let site_ = `dir ${folder} (${where})`
+  One(
+    site(site_, () =>
+      items
+      ->Array.map(c =>
+        boxed(self.inline, () =>
+          site(site_, () => {
+            let transform = transformOf(self.env.transforms, c.path, explicit, where)
+            // Each item's frontmatter stays local to it: eight chapters
+            // would all define `title`.
+            let front = sub(self, merge(naming(c), c.front))
+            let body = unpad(transform(site(c.at, () => render(c.body, front.get))), c.pad)
+            render(each, sub(front, Dict.fromArray([("body", fixed(body))])).get)
+          })
+        )
+      )
+      ->Array.join(raw(d, "join", p)->Option.getOr("\n"))
+    ),
+  )
+}
+and dirs = (d, p, self) => {
+  let where = at(d, "dirs", p)
+  let root = path(d, "dirs", p, self)
+  let each = switch raw(d, "each", p) {
+  | Some(each) => each
+  | None => fail(`${where}: "dirs" needs an "each" template`)
+  }
+  let names = folders(self.env, root)->Array.toSorted(String.compare)->ordered(order(d, "dirs", p, self))
+  if Array.length(names) == 0 && !flag(d, "optional", p, self) {
+    loud(`No folders in ${root} (declared at ${where})`)
+  }
+  // The item vars load in each subfolder: their paths anchor there.
+  let vars = switch Dict.get(d, "var") {
+  | Some(Group(v)) => v
+  | _ => Dict.make()
+  }
+  let label = switch Dict.get(d, "dirs") {
+  | Some(Leaf(_, o)) => `${o.label}.${p}.var`
+  | _ => `${p}.var`
+  }
+  One(
+    site(`dirs ${root} (${where})`, () =>
+      names
+      ->Array.map(n => {
+        let folder = join(root, n)
+        let layer = merge(
+          Dict.fromArray([("folder", group([("name", fixed(n))]))]),
+          reanchor(vars, {dir: folder, label}),
+        )
+        boxed(self.inline, () => site(`folder ${folder} (${where})`, () => render(each, sub(self, layer).get)))
+      })
+      ->Array.join(raw(d, "join", p)->Option.getOr("\n"))
+    ),
+  )
+}
+and list = (d, p, self) => {
+  let where = at(d, "list", p)
+  let name = raw(d, "list", p)->Option.getOr("")
+  let each = switch raw(d, "each", p) {
+  | Some(each) => each
+  | None => fail(`${where}: "list" needs an "each" template`)
+  }
+  One(
+    boxed(self.inline, () =>
+      site(where, () =>
+        switch self.get(name) {
+        | None => fail(`Undefined variable {{${name}}}`)
+        | Some(One(_)) => fail(`"${name}" must resolve to a scalar list`)
+        | Some(Many(items)) =>
+          if Array.length(items) == 0 {
+            ""
+          } else {
+            let one = (key, value, template) =>
+              render(template, sub(self, Dict.fromArray([(key, fixed(value))])).get)
+            let body =
+              items
+              ->Array.map(item => one("item", item, each))
+              ->Array.join(raw(d, "join", p)->Option.getOr(""))
+            switch raw(d, "template", p) {
+            | Some(template) => one("body", body, template)
+            | None => body
+            }
+          }
+        }
+      )
+    ),
+  )
+}
+and value = (d, p, self) => {
+  let where = at(d, "value", p)
+  let template = raw(d, "value", p)->Option.getOr("")
+  let transform = switch raw(d, "transform", p) {
+  | Some(name) => named(self.env.transforms, name, where)
+  | None => fail(`${where}: "value" needs a "transform"`)
+  }
+  One(boxed(self.inline, () => site(where, () => transform(render(template, self.get)))))
+}
+and render = (template, get) => {
+  // Every ref of a template is tried before a pending read stalls it, so the
+  // reads of one template start together.
+  let stalled = ref(false)
+  let out = template->String.replaceRegExpBy2Unsafe(reference, (
+    ~match as ref,
+    ~group1 as quote,
+    ~group2 as name,
+    ~offset,
+    ~input,
+  ) =>
+    if quote != "" {
+      // Drop the quotes and keep the rest of the match exactly as written, so
+      // spacing survives: `{{ `name` }}` stays `{{ name }}`. An escape is a
+      // passthrough, and a passthrough that reformats its input is a rewrite.
+      String.replaceRegExp(ref, backtick, "")
+    } else {
+      let active = stack.contents
+      if Array.includes(active, name) {
+        let from = Array.indexOf(active, name)
+        let path = switch cycle.contents {
+        | Some(path) => path
+        | None => [...Array.slice(active, ~start=from), name]->Array.join(" -> ")
+        }
+        cycle := Some(path)
+        fail(`Variable cycle: ${path}`)
+      }
+      stack := [...active, name]
+      let out = attempt(() =>
+        switch get(name) {
+        | Some(One(s)) => s
+        | Some(Many(a)) => a->Array.join("")
+        | None => fail(`Undefined variable ${ref}${lined(input, offset)}`)
+        }
+      )
+      stack := active
+      switch out {
+      | Some(s) => s
+      | None =>
+        stalled := true
+        ""
+      }
+    }
+  )
+  if stalled.contents {
+    pending()
+  }
+  out
+}
+
+// ---------------------------------------------------------------------------
+// Configs and build entries.
 
 // The entry config and its base chain, base-most first: a base contributes
 // templates the child re-hosts (and may shadow) in its own context.
@@ -509,84 +776,91 @@ type job = {output: string, by: string, copy: bool, write: unit => promise<unit>
 /** Read the config at `entry` and execute every build entry through `fs`. */
 let exec = async (fs: filesystem, transforms, inline, entry) => {
   let configs = await chain(fs, entry, [], "")
-  let pget = configs->Array.reduce(_ => None, (parent, c) => strs(c.vars, parent))
-  let rec grow = async (acc, i) =>
-    if i >= Array.length(configs) {
-      acc
-    } else {
-      let (own, exports) = await load(fs, transforms, pget, `var (${entry})`, Array.getUnsafe(configs, i).vars)
-      await grow(over(over(acc, exports), own), i + 1)
-    }
-  let shared = await grow(Dict.make(), 0)
+  let env = {fs, transforms, cache: Dict.make(), started: Dict.make()}
+  let shared =
+    configs->Array.reduce(Dict.make(), (acc, c) =>
+      merge(acc, nodes(c.vars, {dir: dirname(c.path), label: `var (${c.path})`}))
+    )
   let last = Array.getUnsafe(configs, Array.length(configs) - 1)
+  let here = dirname(last.path)
   // Every output path resolves before anything is written, so a collision
   // fails loud with nothing half-built.
   let plans = await Promise.all(
     last.build->Array.mapWithIndex(async (b, i) => {
       let at = `build[${Int.toString(i)}]`
-      let bpget = strs(b.vars, pget)
-      let (own, exports) = await load(fs, transforms, bpget, `${at}.var`, b.vars)
+      let own = nodes(b.vars, {dir: here, label: `${at}.var`})
+      let entryCtx = () => make(env, inline, merge(shared, own))
       switch (b.input, b.pages) {
       | (Copy(_), Some(_)) => fail(`${at}: "pages" cannot be combined with a copy input`)
       | (Copy(path), None) =>
-        let source = top(`${at} input copy`, () => render(path, bpget))
-        if !(await fs.exists(source)) {
-          fail(`Copy source not found: ${source} (declared at ${at} input)`)
-        }
-        let ctx = make(inline, over(over(shared, exports), own))
-        let output = top(`${at} output`, () => render(b.output, ctx.get))
+        let (source, output) = await settle(env, () => {
+          let ctx = entryCtx()
+          let source = top(`${at} input copy`, () => render(path, ctx.get))
+          if !exists(env, source) {
+            fail(`Copy source not found: ${source} (declared at ${at} input)`)
+          }
+          (source, top(`${at} output`, () => render(b.output, ctx.get)))
+        })
         [{output, by: at, copy: true, write: () => fs.copy(source, output)}]
       | (input, pages) =>
+        let origin = {dir: here, label: at}
+        let node = switch input {
+        | Node(d) =>
+          let d = nodes(d, origin)
+          if Dict.has(d, "file") && (Dict.has(d, "optional") || Dict.has(d, "template")) {
+            fail(`${at} input: "optional" and "template" apply to file vars, not to a file input`)
+          }
+          Group(d)
+        | Text(t) | Copy(t) => Leaf(t, origin)
+        }
         // A file input contributes its frontmatter as the least local
         // templates — usable even in the output path.
-        let (lv, front) = switch input {
-        | FileI({optional: Some(_)}) | FileI({template: Some(_)}) =>
-          fail(`${at} input: "optional" and "template" apply to file vars, not to a file input`)
-        | FileI(f) =>
-          let path = top(`${at} input file`, () => render(f.file, bpget))
-          let (own, _) = await load(fs, transforms, bpget, at, Dict.fromArray([("input", FileV({...f, file: path}))]))
-          switch Dict.get(own, "input") {
-          | Some(F(c, wrap)) => (F(c, wrap), data(c.front))
-          | _ => (T(""), Dict.make())
+        let context = layer => {
+          let front = switch node {
+          | Group(d) if Dict.has(d, "file") =>
+            load(d, "input", entryCtx())->Option.mapOr(Dict.make(), c => c.front)
+          | _ => Dict.make()
           }
-        | DirI(d) =>
-          let (own, _) = await load(fs, transforms, bpget, at, Dict.fromArray([("input", DirV(d))]))
-          switch Dict.get(own, "input") {
-          | Some(D(items, each, site)) => (D(items, each, site), Dict.make())
-          | _ => (T(""), Dict.make())
-          }
-        | Text(t) => (T(t), Dict.make())
-        | Copy(_) => (T(""), Dict.make())
+          make(env, inline, merge(merge(merge(front, shared), layer), own))
         }
-        let base = over(over(front, shared), exports)
-        let job = (layer, page) => {
-          let ctx = make(inline, over(over(base, layer), own))
-          let output = top(`${at} output${page}`, () => render(b.output, ctx.get))
+        let job = async (layer, page) => {
+          let output = await settle(env, () =>
+            top(`${at} output${page}`, () => render(b.output, context(layer).get))
+          )
           let write = async () => {
             // Content errors can turn into boxes; output path errors never do —
             // a file cannot be written without a path.
-            let out = boxed(inline, () =>
-              switch top(`${at} input${page}`, () => eval(lv, ctx)) {
-              | One(s) => s
-              | Many(a) => a->Array.join("")
-              }
+            let out = await settle(env, () =>
+              boxed(inline, () =>
+                switch top(`${at} input${page}`, () => eval(node, "input", context(layer))) {
+                | One(s) => s
+                | Many(a) => a->Array.join("")
+                }
+              )
             )
             await fs.writeFile(output, out)
           }
           {output, by: `${at}${page}`, copy: false, write}
         }
         switch pages {
-        | None => [job(Dict.make(), "")]
+        | None => [await job(Dict.make(), "")]
         | Some(src) =>
-          // One output per file. A page layers like a file var's frontmatter —
-          // over the shared templates, under the entry's own vars — and hands
-          // its rendered body over as `page`.
-          let (_, items) = await listing(fs, transforms, bpget, src, `${at}.pages`)
-          items->Array.map(c =>
-            job(
-              over(over(naming(c), data(c.front)), Dict.fromArray([("page", F(c, None))])),
-              ` (page ${c.path})`,
-            )
+          // One output per file. A page layers like a file input's
+          // frontmatter — over the shared templates, under the entry's own
+          // vars — and hands its rendered body over as `page`.
+          let items = await settle(env, () => {
+            let dir = top(`${at}.pages dir`, () => render(src.dir, entryCtx().get))
+            let glob = src.glob->Option.getOr("*.md")
+            listing(env, dir, glob, src.order, src.optional->Option.getOr(false), `${at}.pages`)
+          })
+          await Promise.all(
+            items->Array.map(c => {
+              let transform = transformOf(transforms, c.path, src.transform, `${at}.pages`)
+              job(
+                merge(merge(naming(c), c.front), Dict.fromArray([("page", Body(c, transform))])),
+                ` (page ${c.path})`,
+              )
+            }),
           )
         }
       }

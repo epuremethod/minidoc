@@ -37,6 +37,22 @@ let cycle = {
   contents: undefined
 };
 
+let pending = (() => { throw { minidocPending: true } });
+
+let attempt = ((fn) => {
+  try { return fn() } catch (e) { if (e && e.minidocPending) return undefined; throw e }
+});
+
+let capture = (async (load) => {
+  try { return { ok: true, value: await load() } } catch (e) { return { ok: false, value: e } }
+});
+
+let rethrow = ((e) => { throw e });
+
+let loud = ((message) => {
+  const e = new Error(message); e.minidocSited = true; throw e
+});
+
 let rawSite = ((at, fn) => {
   try { return fn() } catch (e) {
     if (e && e.message && !e.minidocSited) {
@@ -54,12 +70,63 @@ let rawBoxed = ((stack, inline, fn) => {
   const active = stack.contents
   try { return fn() } catch (e) {
     stack.contents = active
+    if (e && e.minidocPending) throw e
     const message = String((e && e.message) || e)
     console.error("minidoc: " + message)
     const text = message.replace(/&/g, "&amp;").replace(/</g, "&lt;")
     return '<div class="minidoc-error" style="border:1px solid #c00;background:rgba(255,0,0,.04);padding:.5em .75em;font-family:monospace;white-space:pre-wrap;">' + text + '</div>'
   }
 });
+
+function all(xs, f) {
+  let stalled = {
+    contents: false
+  };
+  let out = xs.map(x => {
+    let v = attempt(() => f(x));
+    if (v !== undefined) {
+      return Primitive_option.some(Primitive_option.valFromOption(v));
+    } else {
+      stalled.contents = true;
+      return;
+    }
+  });
+  if (stalled.contents) {
+    pending();
+  }
+  return Stdlib_Array.filterMap(out, v => v);
+}
+
+function need(env, key, load) {
+  let match = env.cache[key];
+  if (match !== undefined) {
+    if (match.ok) {
+      return match.value;
+    } else {
+      return rethrow(match.value);
+    }
+  } else {
+    if (!(key in env.started)) {
+      env.started[key] = capture(load).then(o => {
+        env.cache[key] = o;
+      });
+    }
+    return pending();
+  }
+}
+
+async function settle(env, fn) {
+  let v = attempt(fn);
+  if (v !== undefined) {
+    return Primitive_option.valFromOption(v);
+  }
+  let before = Object.keys(env.cache).length;
+  await Promise.all(Object.values(env.started));
+  if (Object.keys(env.cache).length === before) {
+    Schema.fail("minidoc: render stalled with no read pending");
+  }
+  return await settle(env, fn);
+}
 
 function lined(template, offset) {
   if (template.includes("\n")) {
@@ -83,20 +150,130 @@ function unpad(text, pad) {
   return text.slice(go(0));
 }
 
-function data(front) {
-  return Stdlib_Dict.mapValues(front, d => {
-    if (d.TAG === "One") {
-      return {
-        TAG: "T",
-        _0: d._0
-      };
+function nodes(trees, origin) {
+  let out = {};
+  Stdlib_Dict.forEachWithKey(trees, (t, key) => {
+    let n;
+    switch (t.TAG) {
+      case "Str" :
+        n = {
+          TAG: "Leaf",
+          _0: t._0,
+          _1: origin
+        };
+        break;
+      case "Strs" :
+        n = {
+          TAG: "List",
+          _0: t._0,
+          _1: origin
+        };
+        break;
+      case "Tree" :
+        n = {
+          TAG: "Group",
+          _0: nodes(t._0, origin)
+        };
+        break;
+    }
+    place(out, key.split("."), n, key, origin);
+  });
+  return out;
+}
+
+function place(_out, _path, n, key, origin) {
+  while (true) {
+    let path = _path;
+    let out = _out;
+    let head = path[0];
+    let twice = () => Schema.fail(origin.label + `: "` + key + `" is defined twice`);
+    if (path.length === 1) {
+      let match = out[head];
+      if (match !== undefined) {
+        if (match.TAG !== "Group") {
+          return twice();
+        }
+        if (n.TAG !== "Group") {
+          return twice();
+        }
+        let into = match._0;
+        return Stdlib_Dict.forEachWithKey(n._0, (m, k) => place(into, [k], m, key + `.` + k, origin));
+      }
+      out[head] = n;
+      return;
+    }
+    let match$1 = out[head];
+    let into$1;
+    if (match$1 !== undefined) {
+      into$1 = match$1.TAG === "Group" ? match$1._0 : twice();
     } else {
-      return {
-        TAG: "L",
-        _0: d._0
+      let d = {};
+      out[head] = {
+        TAG: "Group",
+        _0: d
       };
+      into$1 = d;
+    }
+    _path = path.slice(1);
+    _out = into$1;
+    continue;
+  };
+}
+
+function merge(parent, own) {
+  let out = Object.assign({}, parent);
+  Stdlib_Dict.forEachWithKey(own, (n, k) => {
+    let match = out[k];
+    if (match !== undefined && match.TAG === "Group" && n.TAG === "Group") {
+      out[k] = {
+        TAG: "Group",
+        _0: merge(match._0, n._0)
+      };
+      return;
+    }
+    out[k] = n;
+  });
+  return out;
+}
+
+function reanchor(tree, origin) {
+  return Stdlib_Dict.mapValues(tree, n => {
+    switch (n.TAG) {
+      case "Leaf" :
+        return {
+          TAG: "Leaf",
+          _0: n._0,
+          _1: origin
+        };
+      case "List" :
+        return {
+          TAG: "List",
+          _0: n._0,
+          _1: origin
+        };
+      case "Group" :
+        return {
+          TAG: "Group",
+          _0: reanchor(n._0, origin)
+        };
+      case "Fixed" :
+      case "Body" :
+        return n;
     }
   });
+}
+
+function paths(tree) {
+  let out = {};
+  let go = (tree, prefix) => Stdlib_Dict.forEachWithKey(tree, (n, k) => {
+    let p = prefix === "" ? k : prefix + `.` + k;
+    out[p] = n;
+    if (n.TAG === "Group") {
+      return go(n._0, p);
+    }
+  });
+  go(tree, "");
+  return out;
 }
 
 function basename(path) {
@@ -107,11 +284,12 @@ function naming(c) {
   let name = basename(c.path);
   let dot = name.lastIndexOf(".");
   let stem = dot > 0 ? name.slice(0, dot) : name;
-  return Object.fromEntries([
+  let s = basename(Schema.dirname(c.path));
+  let pairs = [
     [
-      "file.name",
+      "name",
       {
-        TAG: "V",
+        TAG: "Fixed",
         _0: {
           TAG: "One",
           _0: name
@@ -119,9 +297,9 @@ function naming(c) {
       }
     ],
     [
-      "file.stem",
+      "stem",
       {
-        TAG: "V",
+        TAG: "Fixed",
         _0: {
           TAG: "One",
           _0: stem
@@ -129,185 +307,23 @@ function naming(c) {
       }
     ],
     [
-      "file.dir",
+      "dir",
       {
-        TAG: "V",
+        TAG: "Fixed",
         _0: {
           TAG: "One",
-          _0: basename(Schema.dirname(c.path))
+          _0: s
         }
       }
     ]
-  ]);
-}
-
-function make(inline, lvars) {
-  return Tilia.carve(param => {
-    let derived = param.derived;
-    return {
-      lvars: lvars,
-      vars: Stdlib_Dict.mapValues(lvars, lv => derived(self => $$eval(lv, self))),
-      get: derived(self => (name => self.vars[name])),
-      inline: inline
-    };
-  });
-}
-
-function sub(self, extra) {
-  return make(self.inline, Object.assign(Object.assign({}, self.lvars), extra));
-}
-
-function $$eval(lv, self) {
-  switch (lv.TAG) {
-    case "T" :
-      return {
-        TAG: "One",
-        _0: render(lv._0, self.get)
-      };
-    case "L" :
-      return {
-        TAG: "Many",
-        _0: lv._0.map(__x => render(__x, self.get))
-      };
-    case "V" :
-      return lv._0;
-    case "F" :
-      let wrap = lv._1;
-      let c = lv._0;
-      return {
-        TAG: "One",
-        _0: rawBoxed(stack, self.inline, () => rawSite(c.at, () => {
-          let front = sub(self, data(c.front));
-          let body = unpad(c.transform(render(c.body, front.get)), c.pad);
-          if (wrap === undefined) {
-            return body;
-          }
-          if (body.trim() === "") {
-            return "";
-          }
-          let template = wrap[0];
-          return rawSite(wrap[1], () => render(template, sub(front, Object.fromEntries([[
-              "body",
-              {
-                TAG: "V",
-                _0: {
-                  TAG: "One",
-                  _0: body
-                }
-              }
-            ]])).get));
-        }))
-      };
-    case "D" :
-      let at = lv._2;
-      let each = lv._1;
-      let items = lv._0;
-      return {
-        TAG: "One",
-        _0: rawSite(at, () => items.map(c => rawBoxed(stack, self.inline, () => rawSite(at, () => {
-          let own = data(c.front);
-          let parent = naming(c);
-          let front = sub(self, Object.assign(Object.assign({}, parent), own));
-          let body = unpad(c.transform(rawSite(c.at, () => render(c.body, front.get))), c.pad);
-          return render(each, sub(front, Object.fromEntries([[
-              "body",
-              {
-                TAG: "V",
-                _0: {
-                  TAG: "One",
-                  _0: body
-                }
-              }
-            ]])).get);
-        }))).join("\n"))
-      };
-    case "G" :
-      let each$1 = lv._1;
-      let items$1 = lv._0;
-      return {
-        TAG: "One",
-        _0: rawSite(lv._2, () => items$1.map(item => rawBoxed(stack, self.inline, () => rawSite(item.where, () => render(each$1, sub(self, item.lvars).get)))).join("\n"))
-      };
-    case "R" :
-      let at$1 = lv._1;
-      let l = lv._0;
-      return {
-        TAG: "One",
-        _0: rawBoxed(stack, self.inline, () => rawSite(at$1, () => {
-          let match = self.get(l.list);
-          if (match === undefined) {
-            return Schema.fail(`Undefined variable {{` + l.list + `}}`);
-          }
-          if (match.TAG === "One") {
-            return Schema.fail(`"` + l.list + `" must resolve to a scalar list`);
-          }
-          let items = match._0;
-          if (items.length === 0) {
-            return "";
-          }
-          let one = (name, value, template) => render(template, sub(self, Object.fromEntries([[
-              name,
-              {
-                TAG: "V",
-                _0: {
-                  TAG: "One",
-                  _0: value
-                }
-              }
-            ]])).get);
-          let body = items.map(item => one("item", item, l.each)).join(Stdlib_Option.getOr(l.join, ""));
-          let template = l.template;
-          if (template !== undefined) {
-            return one("body", body, template);
-          } else {
-            return body;
-          }
-        }))
-      };
-    case "P" :
-      let at$2 = lv._2;
-      let transform = lv._1;
-      let value = lv._0;
-      return {
-        TAG: "One",
-        _0: rawBoxed(stack, self.inline, () => rawSite(at$2, () => transform(render(value, self.get))))
-      };
-  }
-}
-
-function render(template, get) {
-  return template.replace(reference, (ref, quote, name, offset, input) => {
-    if (quote !== "") {
-      return ref.replace(backtick, "");
-    }
-    let active = stack.contents;
-    if (active.includes(name)) {
-      let from = active.indexOf(name);
-      let path = cycle.contents;
-      let path$1 = path !== undefined ? path : Belt_Array.concatMany([
-          active.slice(from),
-          [name]
-        ]).join(" -> ");
-      cycle.contents = path$1;
-      Schema.fail(`Variable cycle: ` + path$1);
-    }
-    stack.contents = Belt_Array.concatMany([
-      active,
-      [name]
-    ]);
-    let match = get(name);
-    let out = match !== undefined ? (
-        match.TAG === "One" ? match._0 : match._0.join("")
-      ) : Schema.fail(`Undefined variable ` + ref + lined(input, offset));
-    stack.contents = active;
-    return out;
-  });
-}
-
-function top(at, fn) {
-  stack.contents = [];
-  cycle.contents = undefined;
-  return rawSite(at, fn);
+  ];
+  return Object.fromEntries([[
+      "file",
+      {
+        TAG: "Group",
+        _0: Object.fromEntries(pairs)
+      }
+    ]]);
 }
 
 let special = new RegExp("[.*+?^${}()|[\\]\\\\]", "g");
@@ -380,32 +396,43 @@ function normalize(path) {
 
 let matter = new RegExp("^---\\n(?:([\\s\\S]*?)\\n)?---(?:\\n|$)");
 
-function split(text, at) {
-  if (!text.startsWith("---\n")) {
+function split(text, path) {
+  let at = `file ` + path;
+  let parsed;
+  if (text.startsWith("---\n")) {
+    let m = matter.exec(text);
+    parsed = (m == null) ? Schema.fail(path + `: unterminated frontmatter (missing closing "---" line)`) : m;
+  } else {
+    parsed = undefined;
+  }
+  if (parsed === undefined) {
     return {
-      front: {},
       body: text,
-      pad: 0
+      front: {},
+      at: at,
+      pad: 0,
+      path: path
     };
   }
-  let m = matter.exec(text);
-  if (m == null) {
-    return Schema.fail(at + `: unterminated frontmatter (missing closing "---" line)`);
-  }
-  let match = m.slice(1)[0];
-  let vars;
+  let match = parsed.slice(1)[0];
+  let trees;
   if (match !== undefined) {
     let head = Primitive_option.valFromOption(match);
-    vars = head !== undefined ? Schema.front(head, at) : ({});
+    trees = head !== undefined ? Schema.front(head, path) : ({});
   } else {
-    vars = {};
+    trees = {};
   }
-  let full = m[0];
+  let full = parsed[0];
   let pad = full.split("\n").length - 1 | 0;
   return {
-    front: vars,
     body: "\n".repeat(pad) + text.slice(full.length),
-    pad: pad
+    front: nodes(trees, {
+      dir: Schema.dirname(path),
+      label: at
+    }),
+    at: at,
+    pad: pad,
+    path: path
   };
 }
 
@@ -419,28 +446,6 @@ function infer(path) {
   }
 }
 
-async function seq(xs, i, fn) {
-  if (i < xs.length) {
-    await fn(xs[i]);
-    return await seq(xs, i + 1 | 0, fn);
-  }
-}
-
-function strs(vars, parent) {
-  let get = name => {
-    let match = vars[name];
-    if (match !== undefined && match.TAG === "Scalar") {
-      return {
-        TAG: "One",
-        _0: render(match._0, get)
-      };
-    } else {
-      return parent(name);
-    }
-  };
-  return get;
-}
-
 function named(transforms, name, at) {
   let t = transforms[name];
   if (t !== undefined) {
@@ -450,21 +455,33 @@ function named(transforms, name, at) {
   }
 }
 
-async function content(fs, transforms, path, explicit, at) {
-  if (!await fs.exists(path)) {
-    Schema.fail(`Content file not found: ` + path + ` (declared at ` + at + `)`);
-  }
-  let match = split(await fs.readFile(path), path);
+function transformOf(transforms, path, explicit, at) {
   let name = Stdlib_Option.orElse(explicit, infer(path));
-  let name$1 = name !== undefined ? name : Schema.fail(at + `: cannot infer a transform for ` + path + ` — set "transform" (available: ` + Object.keys(transforms).join(", ") + `)`);
-  return {
-    body: match.body,
-    transform: named(transforms, name$1, at),
-    front: match.front,
-    at: `file ` + path,
-    pad: match.pad,
-    path: path
-  };
+  if (name !== undefined) {
+    return named(transforms, name, at);
+  } else {
+    return Schema.fail(at + `: cannot infer a transform for ` + path + ` — set "transform" (available: ` + Object.keys(transforms).join(", ") + `)`);
+  }
+}
+
+function read(env, path) {
+  return need(env, `read:` + path, async () => {
+    if (await env.fs.exists(path)) {
+      return split(await env.fs.readFile(path), path);
+    }
+  });
+}
+
+function exists(env, path) {
+  return need(env, `exists:` + path, () => env.fs.exists(path));
+}
+
+function files(env, dir) {
+  return need(env, `files:` + dir, () => env.fs.listFiles(dir));
+}
+
+function folders(env, dir) {
+  return need(env, `dirs:` + dir, () => env.fs.listDirs(dir));
 }
 
 function ordered(names, order) {
@@ -475,171 +492,430 @@ function ordered(names, order) {
   }
 }
 
-async function walk(fs, dir, prefix) {
+function walk(env, dir, prefix) {
   let here = prefix === "" ? dir : Schema.join(dir, prefix);
-  let files = (await fs.listFiles(here)).map(__x => Schema.join(prefix, __x));
-  let nested = await Promise.all((await fs.listDirs(here)).map(d => walk(fs, dir, Schema.join(prefix, d))));
-  return files.concat(nested.flat());
+  let own = attempt(() => files(env, here));
+  let subs = attempt(() => folders(env, here));
+  if (own !== undefined && subs !== undefined) {
+    return own.map(__x => Schema.join(prefix, __x)).concat(all(subs, d => walk(env, dir, Schema.join(prefix, d))).flat());
+  } else {
+    return pending();
+  }
 }
 
-async function listing(fs, transforms, pget, src, at) {
-  let dir = top(at + ` dir`, () => render(src.dir, pget));
-  let glob = Stdlib_Option.getOr(src.glob, "*.md");
+function listing(env, dir, glob, order, optional, at) {
   let deep = glob.includes("/") || glob.includes("**");
   let names = ordered((
-    deep ? await walk(fs, dir, "") : await fs.listFiles(dir)
-  ).filter(matcher(glob)).toSorted(Primitive_string.compare), src.order);
-  if (names.length === 0 && !Stdlib_Option.getOr(src.optional, false)) {
-    Schema.fail(`No files matching "` + glob + `" in ` + dir + ` (declared at ` + at + `)`);
+    deep ? walk(env, dir, "") : files(env, dir)
+  ).filter(matcher(glob)).toSorted(Primitive_string.compare), order);
+  if (names.length === 0 && !optional) {
+    loud(`No files matching "` + glob + `" in ` + dir + ` (declared at ` + at + `)`);
   }
-  return [
-    dir,
-    await Promise.all(names.map(n => content(fs, transforms, Schema.join(dir, n), src.transform, at)))
-  ];
-}
-
-async function load(fs, transforms, pget, label, vars) {
-  let out = {};
-  let $$exports = {};
-  let owners = {};
-  await seq(Object.entries(vars), 0, async param => {
-    let v = param[1];
-    let name = param[0];
-    let at = label + `.` + name;
-    switch (v.TAG) {
-      case "Scalar" :
-        out[name] = {
-          TAG: "T",
-          _0: v._0
-        };
-        return;
-      case "Scalars" :
-        out[name] = {
-          TAG: "L",
-          _0: v._0
-        };
-        return;
-      case "FileV" :
-        let f = v._0;
-        if (Primitive_object.equal(f.optional, true) && !await fs.exists(top(at + ` file`, () => render(f.file, pget)))) {
-          out[name] = {
-            TAG: "V",
-            _0: {
-              TAG: "One",
-              _0: ""
-            }
-          };
-          return;
-        }
-        let path = top(at + ` file`, () => render(f.file, pget));
-        let c = await content(fs, transforms, path, f.transform, at);
-        Object.entries(data(c.front)).forEach(param => {
-          let fname = param[0];
-          let owner = owners[fname];
-          if (owner !== undefined && owner !== path) {
-            Schema.fail(`Frontmatter conflict in ` + label + `: "` + fname + `" defined by both ` + owner + ` and ` + path);
-          }
-          owners[fname] = path;
-          $$exports[fname] = param[1];
-        });
-        out[name] = {
-          TAG: "F",
-          _0: c,
-          _1: Stdlib_Option.map(f.template, t => [
-            t,
-            at + ` template`
-          ])
-        };
-        return;
-      case "DirV" :
-        let d = v._0;
-        let src_dir = d.dir;
-        let src_glob = d.glob;
-        let src_transform = d.transform;
-        let src_optional = d.optional;
-        let src_order = d.order;
-        let src = {
-          dir: src_dir,
-          glob: src_glob,
-          transform: src_transform,
-          optional: src_optional,
-          order: src_order
-        };
-        let match = await listing(fs, transforms, pget, src, at);
-        out[name] = {
-          TAG: "D",
-          _0: match[1],
-          _1: Stdlib_Option.getOr(d.each, "{{body}}"),
-          _2: `dir ` + match[0] + ` (` + at + `)`
-        };
-        return;
-      case "DirsV" :
-        let d$1 = v._0;
-        let root = top(at + ` dirs`, () => render(d$1.dirs, pget));
-        let names = ordered((await fs.listDirs(root)).toSorted(Primitive_string.compare), d$1.order);
-        if (names.length === 0 && !Stdlib_Option.getOr(d$1.optional, false)) {
-          Schema.fail(`No folders in ` + root + ` (declared at ` + at + `)`);
-        }
-        let items = await Promise.all(names.map(async n => {
-          let dir = Schema.join(root, n);
-          let fget = key => {
-            if (key === "folder.name") {
-              return {
-                TAG: "One",
-                _0: n
-              };
-            } else {
-              return pget(key);
-            }
-          };
-          let vars = Stdlib_Dict.mapValues(Stdlib_Option.getOr(d$1.vars, {}), extra => Schema.anchor(dir, extra));
-          let match = await load(fs, transforms, strs(vars, fget), at + `.var`, vars);
-          let parent = Object.fromEntries([[
-              "folder.name",
-              {
-                TAG: "V",
-                _0: {
-                  TAG: "One",
-                  _0: n
-                }
-              }
-            ]]);
-          let parent$1 = Object.assign(Object.assign({}, parent), match[1]);
-          let lvars = Object.assign(Object.assign({}, parent$1), match[0]);
-          return {
-            where: `folder ` + dir + ` (` + at + `)`,
-            lvars: lvars
-          };
-        }));
-        out[name] = {
-          TAG: "G",
-          _0: items,
-          _1: d$1.each,
-          _2: `dirs ` + root + ` (` + at + `)`
-        };
-        return;
-      case "ListV" :
-        out[name] = {
-          TAG: "R",
-          _0: v._0,
-          _1: at
-        };
-        return;
-      case "PipeV" :
-        let p = v._0;
-        out[name] = {
-          TAG: "P",
-          _0: p.value,
-          _1: named(transforms, p.transform, at),
-          _2: at
-        };
-        return;
+  return all(names, n => {
+    let path = Schema.join(dir, n);
+    let c = read(env, path);
+    if (c !== undefined) {
+      return c;
+    } else {
+      return loud(`Content file not found: ` + path + ` (declared at ` + at + `)`);
     }
   });
-  return [
-    out,
-    $$exports
-  ];
+}
+
+function top(at, fn) {
+  stack.contents = [];
+  cycle.contents = undefined;
+  return rawSite(at, fn);
+}
+
+let kinds = [
+  "file",
+  "dir",
+  "dirs",
+  "list",
+  "value"
+];
+
+function make(env, inline, tree) {
+  return Tilia.carve(param => {
+    let derived = param.derived;
+    return {
+      env: env,
+      inline: inline,
+      tree: tree,
+      vars: Object.fromEntries(Object.entries(paths(tree)).map(param => {
+        let n = param[1];
+        let p = param[0];
+        return [
+          p,
+          derived(self => $$eval(n, p, self))
+        ];
+      })),
+      get: derived(self => (name => {
+        let d = self.vars[name];
+        if (d !== undefined) {
+          return d;
+        } else {
+          let segments = name.split(".");
+          let _d = self.tree;
+          let _i = 0;
+          while (true) {
+            let i = _i;
+            let d$1 = _d;
+            let match = d$1[segments[i]];
+            if (match !== undefined) {
+              if (match.TAG !== "Group") {
+                return;
+              }
+              if ((i + 1 | 0) >= segments.length) {
+                return;
+              }
+              _i = i + 1 | 0;
+              _d = match._0;
+              continue;
+            }
+            if (!(i > 0 && "file" in d$1)) {
+              return;
+            }
+            let p = segments.slice(0, i).join(".");
+            return Stdlib_Option.flatMap(load(d$1, p, self), c => sub(self, c.front).get(segments.slice(i).join(".")));
+          };
+        }
+      }))
+    };
+  });
+}
+
+function sub(self, layer) {
+  return make(self.env, self.inline, merge(self.tree, layer));
+}
+
+function $$eval(n, p, self) {
+  switch (n.TAG) {
+    case "Leaf" :
+      return {
+        TAG: "One",
+        _0: render(n._0, self.get)
+      };
+    case "List" :
+      return {
+        TAG: "Many",
+        _0: n._0.map(__x => render(__x, self.get))
+      };
+    case "Group" :
+      let d = n._0;
+      let several = kinds.filter(k => k in d);
+      let len = several.length;
+      if (len !== 1) {
+        if (len === 0) {
+          return Schema.fail(`{{` + p + `}} is a group (` + Object.keys(d).join(", ") + `), not a value`);
+        }
+      } else {
+        let match = several[0];
+        switch (match) {
+          case "dir" :
+            let where = at(d, "dir", p);
+            let folder = path(d, "dir", p, self);
+            let glob = Stdlib_Option.getOr(text(d, "glob", p, self), "*.md");
+            let explicit = text(d, "transform", p, self);
+            let each = Stdlib_Option.getOr(raw(d, "each", p), "{{body}}");
+            let items = listing(self.env, folder, glob, order(d, "dir", p, self), flag(d, "optional", p, self), where);
+            let site_ = `dir ` + folder + ` (` + where + `)`;
+            return {
+              TAG: "One",
+              _0: rawSite(site_, () => items.map(c => rawBoxed(stack, self.inline, () => rawSite(site_, () => {
+                let transform = transformOf(self.env.transforms, c.path, explicit, where);
+                let front = sub(self, merge(naming(c), c.front));
+                let body = unpad(transform(rawSite(c.at, () => render(c.body, front.get))), c.pad);
+                return render(each, sub(front, Object.fromEntries([[
+                    "body",
+                    {
+                      TAG: "Fixed",
+                      _0: {
+                        TAG: "One",
+                        _0: body
+                      }
+                    }
+                  ]])).get);
+              }))).join(Stdlib_Option.getOr(raw(d, "join", p), "\n")))
+            };
+          case "dirs" :
+            let where$1 = at(d, "dirs", p);
+            let root = path(d, "dirs", p, self);
+            let each$1 = raw(d, "each", p);
+            let each$2 = each$1 !== undefined ? each$1 : Schema.fail(where$1 + `: "dirs" needs an "each" template`);
+            let names = ordered(folders(self.env, root).toSorted(Primitive_string.compare), order(d, "dirs", p, self));
+            if (names.length === 0 && !flag(d, "optional", p, self)) {
+              loud(`No folders in ` + root + ` (declared at ` + where$1 + `)`);
+            }
+            let match$1 = d["var"];
+            let vars = match$1 !== undefined ? (
+                match$1.TAG === "Group" ? match$1._0 : ({})
+              ) : ({});
+            let match$2 = d["dirs"];
+            let label = match$2 !== undefined ? (
+                match$2.TAG === "Leaf" ? match$2._1.label + `.` + p + `.var` : p + `.var`
+              ) : p + `.var`;
+            return {
+              TAG: "One",
+              _0: rawSite(`dirs ` + root + ` (` + where$1 + `)`, () => names.map(n => {
+                let folder = Schema.join(root, n);
+                let layer = merge(Object.fromEntries([[
+                    "folder",
+                    {
+                      TAG: "Group",
+                      _0: Object.fromEntries([[
+                          "name",
+                          {
+                            TAG: "Fixed",
+                            _0: {
+                              TAG: "One",
+                              _0: n
+                            }
+                          }
+                        ]])
+                    }
+                  ]]), reanchor(vars, {
+                  dir: folder,
+                  label: label
+                }));
+                return rawBoxed(stack, self.inline, () => rawSite(`folder ` + folder + ` (` + where$1 + `)`, () => render(each$2, sub(self, layer).get)));
+              }).join(Stdlib_Option.getOr(raw(d, "join", p), "\n")))
+            };
+          case "file" :
+            let where$2 = at(d, "file", p);
+            let c = load(d, p, self);
+            if (c === undefined) {
+              return {
+                TAG: "One",
+                _0: ""
+              };
+            }
+            let transform = transformOf(self.env.transforms, c.path, text(d, "transform", p, self), where$2);
+            return {
+              TAG: "One",
+              _0: rawBoxed(stack, self.inline, () => rawSite(c.at, () => {
+                let front = sub(self, c.front);
+                let body = unpad(transform(render(c.body, front.get)), c.pad);
+                let template = raw(d, "template", p);
+                if (template !== undefined) {
+                  if (body.trim() !== "") {
+                    return rawSite(where$2 + ` template`, () => render(template, sub(front, Object.fromEntries([[
+                        "body",
+                        {
+                          TAG: "Fixed",
+                          _0: {
+                            TAG: "One",
+                            _0: body
+                          }
+                        }
+                      ]])).get));
+                  } else {
+                    return "";
+                  }
+                } else {
+                  return body;
+                }
+              }))
+            };
+          case "list" :
+            let where$3 = at(d, "list", p);
+            let name = Stdlib_Option.getOr(raw(d, "list", p), "");
+            let each$3 = raw(d, "each", p);
+            let each$4 = each$3 !== undefined ? each$3 : Schema.fail(where$3 + `: "list" needs an "each" template`);
+            return {
+              TAG: "One",
+              _0: rawBoxed(stack, self.inline, () => rawSite(where$3, () => {
+                let match = self.get(name);
+                if (match === undefined) {
+                  return Schema.fail(`Undefined variable {{` + name + `}}`);
+                }
+                if (match.TAG === "One") {
+                  return Schema.fail(`"` + name + `" must resolve to a scalar list`);
+                }
+                let items = match._0;
+                if (items.length === 0) {
+                  return "";
+                }
+                let one = (key, value, template) => render(template, sub(self, Object.fromEntries([[
+                    key,
+                    {
+                      TAG: "Fixed",
+                      _0: {
+                        TAG: "One",
+                        _0: value
+                      }
+                    }
+                  ]])).get);
+                let body = items.map(item => one("item", item, each$4)).join(Stdlib_Option.getOr(raw(d, "join", p), ""));
+                let template = raw(d, "template", p);
+                if (template !== undefined) {
+                  return one("body", body, template);
+                } else {
+                  return body;
+                }
+              }))
+            };
+          case "value" :
+            let where$4 = at(d, "value", p);
+            let template = Stdlib_Option.getOr(raw(d, "value", p), "");
+            let name$1 = raw(d, "transform", p);
+            let transform$1 = name$1 !== undefined ? named(self.env.transforms, name$1, where$4) : Schema.fail(where$4 + `: "value" needs a "transform"`);
+            return {
+              TAG: "One",
+              _0: rawBoxed(stack, self.inline, () => rawSite(where$4, () => transform$1(render(template, self.get))))
+            };
+        }
+      }
+      return Schema.fail(`{{` + p + `}} has several kinds (` + several.join(", ") + `): keep one`);
+    case "Fixed" :
+      return n._0;
+    case "Body" :
+      let transform$2 = n._1;
+      let c$1 = n._0;
+      return {
+        TAG: "One",
+        _0: rawBoxed(stack, self.inline, () => rawSite(c$1.at, () => unpad(transform$2(render(c$1.body, sub(self, c$1.front).get)), c$1.pad)))
+      };
+  }
+}
+
+function at(d, key, p) {
+  let match = d[key];
+  if (match === undefined) {
+    return p;
+  }
+  switch (match.TAG) {
+    case "Leaf" :
+    case "List" :
+      break;
+    default:
+      return p;
+  }
+  return match._1.label + `.` + p;
+}
+
+function text(d, key, p, self) {
+  let match = d[key];
+  if (match !== undefined) {
+    if (match.TAG === "Leaf") {
+      return render(match._0, self.get);
+    } else {
+      return Schema.fail(at(d, key, p) + `: "` + key + `" must be a string`);
+    }
+  }
+}
+
+function raw(d, key, p) {
+  let match = d[key];
+  if (match !== undefined) {
+    if (match.TAG === "Leaf") {
+      return match._0;
+    } else {
+      return Schema.fail(at(d, key, p) + `: "` + key + `" must be a string`);
+    }
+  }
+}
+
+function path(d, key, p, self) {
+  let match = d[key];
+  if (match !== undefined && match.TAG === "Leaf") {
+    let o = match._1;
+    let s = match._0;
+    return rawSite(at(d, key, p) + ` ` + key, () => render(Schema.join(o.dir, s), self.get));
+  }
+  return Schema.fail(at(d, key, p) + `: "` + key + `" must be a path`);
+}
+
+function flag(d, key, p, self) {
+  let v = text(d, key, p, self);
+  if (v === undefined) {
+    return false;
+  }
+  switch (v) {
+    case "false" :
+      return false;
+    case "true" :
+      return true;
+    default:
+      return Schema.fail(at(d, key, p) + `: "` + key + `" must be true or false, got "` + v + `"`);
+  }
+}
+
+function order(d, key, p, self) {
+  let v = text(d, "order", p, self);
+  if (v === undefined) {
+    return;
+  }
+  switch (v) {
+    case "asc" :
+      return;
+    case "desc" :
+      return "desc";
+    default:
+      return Schema.fail(at(d, key, p) + `: "order" must be "asc" or "desc", got "` + v + `"`);
+  }
+}
+
+function load(d, p, self) {
+  let file = path(d, "file", p, self);
+  let c = read(self.env, file);
+  if (c !== undefined) {
+    return c;
+  } else if (flag(d, "optional", p, self)) {
+    return;
+  } else {
+    return loud(`Content file not found: ` + file + ` (declared at ` + at(d, "file", p) + `)`);
+  }
+}
+
+function render(template, get) {
+  let stalled = {
+    contents: false
+  };
+  let out = template.replace(reference, (ref, quote, name, offset, input) => {
+    if (quote !== "") {
+      return ref.replace(backtick, "");
+    }
+    let active = stack.contents;
+    if (active.includes(name)) {
+      let from = active.indexOf(name);
+      let path = cycle.contents;
+      let path$1 = path !== undefined ? path : Belt_Array.concatMany([
+          active.slice(from),
+          [name]
+        ]).join(" -> ");
+      cycle.contents = path$1;
+      Schema.fail(`Variable cycle: ` + path$1);
+    }
+    stack.contents = Belt_Array.concatMany([
+      active,
+      [name]
+    ]);
+    let out = attempt(() => {
+      let match = get(name);
+      if (match !== undefined) {
+        if (match.TAG === "One") {
+          return match._0;
+        } else {
+          return match._0.join("");
+        }
+      } else {
+        return Schema.fail(`Undefined variable ` + ref + lined(input, offset));
+      }
+    });
+    stack.contents = active;
+    if (out !== undefined) {
+      return out;
+    } else {
+      stalled.contents = true;
+      return "";
+    }
+  });
+  if (stalled.contents) {
+    pending();
+  }
+  return out;
 }
 
 async function chain(fs, path, visited, from) {
@@ -668,166 +944,104 @@ async function chain(fs, path, visited, from) {
 
 async function exec(fs, transforms, inline, entry) {
   let configs = await chain(fs, entry, [], "");
-  let pget = Stdlib_Array.reduce(configs, param => {}, (parent, c) => strs(c.vars, parent));
-  let grow = async (acc, i) => {
-    if (i >= configs.length) {
-      return acc;
-    }
-    let match = await load(fs, transforms, pget, `var (` + entry + `)`, configs[i].vars);
-    let parent = Object.assign(Object.assign({}, acc), match[1]);
-    return await grow(Object.assign(Object.assign({}, parent), match[0]), i + 1 | 0);
+  let env_cache = {};
+  let env_started = {};
+  let env = {
+    fs: fs,
+    transforms: transforms,
+    cache: env_cache,
+    started: env_started
   };
-  let shared = await grow({}, 0);
+  let shared = Stdlib_Array.reduce(configs, {}, (acc, c) => merge(acc, nodes(c.vars, {
+    dir: Schema.dirname(c.path),
+    label: `var (` + c.path + `)`
+  })));
   let last = configs[configs.length - 1 | 0];
+  let here = Schema.dirname(last.path);
   let plans = await Promise.all(last.build.map(async (b, i) => {
     let at = `build[` + i.toString() + `]`;
-    let bpget = strs(b.vars, pget);
-    let match = await load(fs, transforms, bpget, at + `.var`, b.vars);
-    let $$exports = match[1];
-    let own = match[0];
-    let match$1 = b.input;
-    let match$2 = b.pages;
-    if (match$1.TAG === "Copy") {
-      let path = match$1._0;
-      if (match$2 !== undefined) {
-        return Schema.fail(at + `: "pages" cannot be combined with a copy input`);
-      }
-      let source = top(at + ` input copy`, () => render(path, bpget));
-      if (!await fs.exists(source)) {
-        Schema.fail(`Copy source not found: ` + source + ` (declared at ` + at + ` input)`);
-      }
-      let parent = Object.assign(Object.assign({}, shared), $$exports);
-      let ctx = make(inline, Object.assign(Object.assign({}, parent), own));
-      let output = top(at + ` output`, () => render(b.output, ctx.get));
-      return [{
-          output: output,
-          by: at,
-          copy: true,
-          write: () => fs.copy(source, output)
-        }];
-    }
-    let match$3;
-    switch (match$1.TAG) {
-      case "Text" :
-        match$3 = [
-          {
-            TAG: "T",
-            _0: match$1._0
-          },
-          {}
-        ];
-        break;
-      case "FileI" :
-        let f = match$1._0;
-        if (f.optional !== undefined) {
-          match$3 = Schema.fail(at + ` input: "optional" and "template" apply to file vars, not to a file input`);
-        } else if (f.template !== undefined) {
-          match$3 = Schema.fail(at + ` input: "optional" and "template" apply to file vars, not to a file input`);
-        } else {
-          let path$1 = top(at + ` input file`, () => render(f.file, bpget));
-          let match$4 = await load(fs, transforms, bpget, at, Object.fromEntries([[
-              "input",
-              {
-                TAG: "FileV",
-                _0: {
-                  file: path$1,
-                  transform: f.transform,
-                  optional: f.optional,
-                  template: f.template
-                }
-              }
-            ]]));
-          let match$5 = match$4[0]["input"];
-          if (match$5 !== undefined) {
-            if (match$5.TAG === "F") {
-              let c = match$5._0;
-              match$3 = [
-                {
-                  TAG: "F",
-                  _0: c,
-                  _1: match$5._1
-                },
-                data(c.front)
-              ];
-            } else {
-              match$3 = [
-                {
-                  TAG: "T",
-                  _0: ""
-                },
-                {}
-              ];
-            }
-          } else {
-            match$3 = [
-              {
-                TAG: "T",
-                _0: ""
-              },
-              {}
-            ];
-          }
-        }
-        break;
-      case "DirI" :
-        let match$6 = await load(fs, transforms, bpget, at, Object.fromEntries([[
-            "input",
-            {
-              TAG: "DirV",
-              _0: match$1._0
-            }
-          ]]));
-        let match$7 = match$6[0]["input"];
-        match$3 = match$7 !== undefined ? (
-            match$7.TAG === "D" ? [
-                {
-                  TAG: "D",
-                  _0: match$7._0,
-                  _1: match$7._1,
-                  _2: match$7._2
-                },
-                {}
-              ] : [
-                {
-                  TAG: "T",
-                  _0: ""
-                },
-                {}
-              ]
-          ) : [
-            {
-              TAG: "T",
-              _0: ""
-            },
-            {}
-          ];
-        break;
+    let own = nodes(b.vars, {
+      dir: here,
+      label: at + `.var`
+    });
+    let entryCtx = () => make(env, inline, merge(shared, own));
+    let match = b.input;
+    let match$1 = b.pages;
+    switch (match.TAG) {
       case "Copy" :
-        match$3 = [
-          {
-            TAG: "T",
-            _0: ""
-          },
-          {}
-        ];
+        let path = match._0;
+        if (match$1 !== undefined) {
+          return Schema.fail(at + `: "pages" cannot be combined with a copy input`);
+        }
+        let match$2 = await settle(env, () => {
+          let ctx = entryCtx();
+          let source = top(at + ` input copy`, () => render(path, ctx.get));
+          if (!exists(env, source)) {
+            Schema.fail(`Copy source not found: ` + source + ` (declared at ` + at + ` input)`);
+          }
+          return [
+            source,
+            top(at + ` output`, () => render(b.output, ctx.get))
+          ];
+        });
+        let output = match$2[1];
+        let source = match$2[0];
+        return [{
+            output: output,
+            by: at,
+            copy: true,
+            write: () => fs.copy(source, output)
+          }];
+      case "Text" :
+      case "Node" :
         break;
     }
-    let lv = match$3[0];
-    let parent$1 = Object.assign(Object.assign({}, match$3[1]), shared);
-    let base = Object.assign(Object.assign({}, parent$1), $$exports);
-    let job = (layer, page) => {
-      let parent = Object.assign(Object.assign({}, base), layer);
-      let ctx = make(inline, Object.assign(Object.assign({}, parent), own));
-      let output = top(at + ` output` + page, () => render(b.output, ctx.get));
+    let origin = {
+      dir: here,
+      label: at
+    };
+    let node;
+    switch (match.TAG) {
+      case "Text" :
+      case "Copy" :
+        node = {
+          TAG: "Leaf",
+          _0: match._0,
+          _1: origin
+        };
+        break;
+      case "Node" :
+        let d = nodes(match._0, origin);
+        if ("file" in d && ("optional" in d || "template" in d)) {
+          Schema.fail(at + ` input: "optional" and "template" apply to file vars, not to a file input`);
+        }
+        node = {
+          TAG: "Group",
+          _0: d
+        };
+        break;
+    }
+    let context = layer => {
+      let front;
+      if (node.TAG === "Group") {
+        let d = node._0;
+        front = "file" in d ? Stdlib_Option.mapOr(load(d, "input", entryCtx()), {}, c => c.front) : ({});
+      } else {
+        front = {};
+      }
+      return make(env, inline, merge(merge(merge(front, shared), layer), own));
+    };
+    let job = async (layer, page) => {
+      let output = await settle(env, () => top(at + ` output` + page, () => render(b.output, context(layer).get)));
       let write = async () => {
-        let out = rawBoxed(stack, inline, () => {
-          let s = top(at + ` input` + page, () => $$eval(lv, ctx));
+        let out = await settle(env, () => rawBoxed(stack, inline, () => {
+          let s = top(at + ` input` + page, () => $$eval(node, "input", context(layer)));
           if (s.TAG === "One") {
             return s._0;
           } else {
             return s._0.join("");
           }
-        });
+        }));
         return await fs.writeFile(output, out);
       };
       return {
@@ -837,24 +1051,25 @@ async function exec(fs, transforms, inline, entry) {
         write: write
       };
     };
-    if (match$2 === undefined) {
-      return [job({}, "")];
+    if (match$1 === undefined) {
+      return [await job({}, "")];
     }
-    let match$8 = await listing(fs, transforms, bpget, match$2, at + `.pages`);
-    return match$8[1].map(c => {
-      let own = Object.fromEntries([[
+    let items = await settle(env, () => {
+      let dir = top(at + `.pages dir`, () => render(match$1.dir, entryCtx().get));
+      let glob = Stdlib_Option.getOr(match$1.glob, "*.md");
+      return listing(env, dir, glob, match$1.order, Stdlib_Option.getOr(match$1.optional, false), at + `.pages`);
+    });
+    return await Promise.all(items.map(c => {
+      let transform = transformOf(transforms, c.path, match$1.transform, at + `.pages`);
+      return job(merge(merge(naming(c), c.front), Object.fromEntries([[
           "page",
           {
-            TAG: "F",
+            TAG: "Body",
             _0: c,
-            _1: undefined
+            _1: transform
           }
-        ]]);
-      let own$1 = data(c.front);
-      let parent = naming(c);
-      let parent$1 = Object.assign(Object.assign({}, parent), own$1);
-      return job(Object.assign(Object.assign({}, parent$1), own), ` (page ` + c.path + `)`);
-    });
+        ]])), ` (page ` + c.path + `)`);
+    }));
   }));
   let jobs = plans.flat();
   let owners = {};

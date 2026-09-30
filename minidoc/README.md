@@ -89,9 +89,9 @@ server — see
 
 One rule:
 
-> A **context** is a dictionary of templates. A child context is the parent's
-> templates merged with its own — own wins. Everything renders in its nearest
-> context.
+> A **context** is a tree of templates. A child context is the parent's
+> tree merged with its own, leaf by leaf — own wins. Everything renders in
+> its nearest context.
 
 A `base` config, the config's `var`, a build's `var`, a content file's
 frontmatter: each is a layer merged into the next context. Precedence is
@@ -121,8 +121,40 @@ Substitution is plain name lookup — no filters, no expressions. Undefined
 names and reference cycles fail loud with their site and line (see
 [Errors](#errors)).
 
+## Nested vars
+
+A var block — or a frontmatter block — nests: `{{layouts.cv}}` reads the
+`cv` key of the `layouts` group. A dotted key is the same var spelled flat,
+so `layouts.cv: x` and `layouts: { cv: x }` are one leaf (defining it twice in
+one layer fails loud). Layers merge **leaf by leaf**, so a page overrides one
+key and inherits the rest:
+
+```yaml
+# base.yaml
+var:
+  layouts:
+    cv: common-cv
+    letter: common-letter
+```
+
+```yaml
+# foo.md frontmatter
+---
+layouts:
+  cv: this-cv          # {{layouts.letter}} is still common-letter
+---
+```
+
+What a group *is* is decided when it is read, after every layer has merged:
+a group holding a `file`, `dir`, `dirs`, `list` or `value` key renders as that
+[kind](#var-kinds); any other group is a namespace, and reading it whole fails
+loud. So a page can override just `layouts.cv.file` and keep the base's
+`template` and `transform`.
+
 Under the hood each context is a [tilia](https://tiliajs.dev) carve: every
-var is a lazy, cached, dependency-tracked computed. (tilia's own
+var is a lazy, cached, dependency-tracked computed. Files load on demand: a
+render that needs a file not read yet stalls, the read runs, and the render
+resumes — so a path may depend on anything, even another file's frontmatter. (tilia's own
 documentation is built with minidoc.)
 
 ## Escaping a reference
@@ -141,13 +173,15 @@ escape unwraps exactly once, where it was written.
 ## Var kinds
 
 Every var is a template plus, optionally, a source and a transform. A plain
-string is just a template; a mapping picks a kind by its key:
+string is just a template; a group holding one of the keys below renders as
+that kind. The key is read after layers merge (see [Nested vars](#nested-vars)),
+so each field of a kind can be overridden on its own:
 
 | kind | source | renders |
 |------|--------|---------|
 | `file` | one html/md file | the body |
-| `dir` | a folder of content files | each item through `each`, newline-joined |
-| `dirs` | a folder of folders | each subfolder through `each`, newline-joined |
+| `dir` | a folder of content files | each item through `each`, joined by `join` |
+| `dirs` | a folder of folders | each subfolder through `each`, joined by `join` |
 | `list` | a scalar list | each item through `each`, joined by `join` |
 | `value` | an inline template | the template through a named transform |
 
@@ -169,12 +203,11 @@ The transform is inferred from the extension (`.md`/`.markdown` → `md`,
 `transform` fails loud. `{{refs}}` in the body render first, then the
 transform runs — so a var can inject markdown that gets rendered.
 
-A content file may open with a YAML frontmatter block of scalars and scalar
-lists. The body renders in a child context of that frontmatter, and — for a
-single `file` var — the frontmatter also merges into the declaring context,
-just below its explicit vars (so an explicit `var: title:` wins). Two files
-in one block exporting the same name fail loud. Dots are ordinary characters
-in names, so dotted namespaces like `signature.ts` are fine.
+A content file may start with a YAML frontmatter block — scalars, lists
+and nested groups. The body renders in a child context of that frontmatter,
+and the declaring context reads it under the var's name: `{{intro.title}}`
+is the `title` of the file `intro` loads — usable even in an output path. Two
+files can share frontmatter names without conflict, each under its own var.
 
 A missing file fails loud. `optional: true` renders it as an empty string
 instead (and it exports no frontmatter). An optional `template` wraps the
@@ -211,7 +244,7 @@ order — prefix files `01-intro.md` to control it; `order: desc` reverses it,
 so date-prefixed files list newest first. `glob` (default `*.md`) selects
 files; a glob with a `/` reaches into subfolders (`*/cv.md` one level down,
 `**/cv.md` any depth), ordered by path. `transform` overrides the per-file
-inference. Unlike `file`
+inference; `join` (default a newline) sits between items. Unlike `file`
 vars, items do *not* export their frontmatter outward (eight chapters would
 conflict on `title`); it stays local to each item. Each item also sees its
 file name: `{{file.name}}` (`01-intro.md`), `{{file.stem}}` (`01-intro`)
@@ -230,7 +263,7 @@ var:
   applications:
     dirs: candidatures           # candidatures/2026-01-acme/cv.md, ...
     order: desc                  # newest folder first
-    each: '<tr><td>{{folder.name}}</td><td>{{role}}</td><td>{{email}}</td></tr>'
+    each: '<tr><td>{{folder.name}}</td><td>{{cv.role}}</td><td>{{email}}</td></tr>'
     var:
       cv: { file: cv.md }
       lettre: { file: lettre.md }
@@ -238,9 +271,9 @@ var:
 ```
 
 Each item sees `{{folder.name}}`, also usable in its paths
-(`file: "{{folder.name}}.md"`). Its vars behave like a config's `var` block:
-the frontmatter of its `file` vars is available to `each` — two files of one
-folder exporting the same name fail loud — and stays local to the item.
+(`file: "{{folder.name}}.md"`). The frontmatter of its files reads under
+their names — `{{cv.role}}`, `{{lettre.company}}` — and stays local to the
+item.
 Folders list in name order; `order: desc` reverses it. `each` is required. A
 missing file in any folder fails loud (unless that var is `optional`); an
 empty or missing folder fails loud unless `optional: true`, which renders
@@ -358,16 +391,15 @@ Output path collision: dist/same.html is written by both build[0] (page cvs/a.md
 Runs update declared outputs in place and never clean old output first, so a
 live server keeps serving the previous files until replacements are written.
 
-### Paths — the one exception
+### Paths
 
 Declared paths (`base`, `output`, `file`, `dir`, `dirs`, `pages`, `copy`) are
-relative to the config file that declares them, anchored at parse time. The
-one nesting: the vars inside a `dirs` item are relative to that item's
-subfolder, itself anchored at the config. Paths may contain
-`{{refs}}`, but they resolve against plain string vars only — paths must
-resolve before content loads, so they can never depend on it. Refs can
-contribute path segments but never move the anchor; absolute paths (`/...`)
-pass through untouched.
+relative to the layer that declares them: a config's paths to that config's
+folder, a frontmatter's paths to its content file's folder, a `dirs` item's
+vars to that item's subfolder. Paths are templates like any other and may
+depend on anything — a var, a page's frontmatter, another file's frontmatter
+— but refs only contribute segments after the anchor: they never move it.
+Absolute paths (`/...`) written as such pass through untouched.
 
 ## Errors
 
@@ -546,6 +578,17 @@ stand in for. `pnpm check` runs everything.
 ## Changelog
 
 - Unreleased
+  - **Nested vars.** Var blocks and frontmatter nest (`layouts: { cv: … }`),
+    a dotted key being the same var spelled flat. Layers merge leaf by leaf,
+    so a page can override `layouts.cv` alone. A group's kind (`file`, `dir`,
+    …) is decided when it is read, after merging, so each field of a kind can
+    be overridden on its own.
+  - **Breaking:** a `file` var's frontmatter no longer merges into the
+    declaring context; read it under the var's name (`{{intro.title}}`).
+    Frontmatter conflicts between file vars are gone with it.
+  - Paths are ordinary templates, loaded on demand: they may depend on
+    frontmatter, anchored at the layer that declares them.
+  - `join` on `dir` and `dirs` vars (it was silently ignored).
   - `dirs` vars: one item per subfolder, each with its own `var` block whose
     paths are relative to that subfolder, and `{{folder.name}}`.
   - `optional: true` on `file` vars renders a missing file as `""`; a
