@@ -48,11 +48,17 @@ export declare function run(options: RunOptions): Promise<void>;
 /** In-memory FileSystem seeded from a name -> content mapping. Used by tests. */
 export declare function makeMemoryFileSystem(seed?: Record<string, string>): FileSystem;
 
+export type FsOptions = {
+  /** Folders outside the root that may be read and written too, relative to the root or absolute. */
+  allow?: string[];
+};
+
 /**
  * Node-backed FileSystem rooted at a path string or file:// URL (default: the
- * current working directory). Creates parent directories on write.
+ * current working directory). Creates parent directories on write. Every path
+ * must stay inside the root or an `allow` folder, or the call fails loud.
  */
-export declare function nodeFs(root?: string | URL): FileSystem;
+export declare function nodeFs(root?: string | URL, options?: FsOptions): FileSystem;
 
 export type WatchOptions = RunOptions & {
   /**

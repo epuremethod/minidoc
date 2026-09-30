@@ -7,7 +7,7 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
-import { dev, nodeFs, watch } from "../src/Minidoc.res.mjs";
+import { dev, nodeFs, run, watch } from "../src/Minidoc.res.mjs";
 
 const here = path.dirname(new URL(import.meta.url).pathname);
 
@@ -204,6 +204,11 @@ test("watches content that lives outside the project", async (t) => {
     path.join(root, "config.yaml"),
     config.replace("    file: content/home.md", `    file: ${note}`),
   );
+  // Content outside the root is read only when the build allows its folder.
+  await writeFile(
+    path.join(root, "src", "build.mjs"),
+    build.replace("new URL(\"../\", import.meta.url).pathname)", `new URL("../", import.meta.url).pathname, { allow: [${JSON.stringify(shared)}] })`),
+  );
 
   const server = await dev({ ...options(root), watch: [shared] });
   t.after(async () => {
@@ -238,4 +243,49 @@ test("copies reaching one directory by different paths do not race", async (t) =
   const outputs = ["content/a/../../dist/fonts", "content/b/../../dist/fonts", "./dist/fonts"];
   await Promise.all(outputs.map((output) => fs.copy("assets/fonts", output)));
   assert.equal(await readFile(path.join(root, "dist", "fonts", "f19.woff2"), "utf8"), "x");
+});
+
+test("the filesystem never reaches outside its root unless allowed", async (t) => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "minidoc-"));
+  const outside = await mkdtemp(path.join(os.tmpdir(), "minidoc-outside-"));
+  t.after(async () => {
+    await rm(root, { recursive: true, force: true });
+    await rm(outside, { recursive: true, force: true });
+  });
+  await writeFile(path.join(outside, "secret.txt"), "secret");
+  const escape = path.relative(root, path.join(outside, "secret.txt"));
+
+  const fs = nodeFs(root);
+  await assert.rejects(fs.readFile(escape), /Path outside the project root/);
+  await assert.rejects(fs.readFile(path.join(outside, "secret.txt")), /Path outside the project root/);
+  await assert.rejects(fs.exists("content/../../x"), /Path outside the project root/);
+  await assert.rejects(fs.writeFile("../evil.txt", "x"), /Path outside the project root/);
+  await assert.rejects(fs.copy(escape, "dist/secret.txt"), /Path outside the project root/);
+  await assert.rejects(fs.listFiles(outside), /Path outside the project root/);
+  await fs.writeFile(path.join(root, "dist", "ok.txt"), "ok");
+  assert.equal(await fs.readFile("content/../dist/ok.txt"), "ok");
+
+  const allowed = nodeFs(root, { allow: [outside] });
+  assert.equal(await allowed.readFile(escape), "secret");
+  await assert.rejects(allowed.readFile(path.join(outside, "..", "elsewhere.txt")), /Path outside the project root/);
+});
+
+test("frontmatter cannot pull a file from outside the root into the site", async (t) => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "minidoc-"));
+  const outside = await mkdtemp(path.join(os.tmpdir(), "minidoc-outside-"));
+  t.after(async () => {
+    await rm(root, { recursive: true, force: true });
+    await rm(outside, { recursive: true, force: true });
+  });
+  await writeFile(path.join(outside, "secret.txt"), "secret");
+  await mkdir(path.join(root, "pages"));
+  await writeFile(
+    path.join(root, "config.yaml"),
+    ["var:", "  aside: { file: aside.html }", "build:", "  - pages: { dir: pages }", '    output: "dist/{{file.stem}}.html"', '    input: "{{aside}}{{page}}"', ""].join("\n"),
+  );
+  await writeFile(path.join(root, "aside.html"), "<aside></aside>");
+  const steer = path.relative(path.join(root, "pages"), path.join(outside, "secret.txt"));
+  await writeFile(path.join(root, "pages", "a.md"), `---\naside:\n  file: ${steer}\n  transform: none\n---\nhi\n`);
+
+  await assert.rejects(run({ fs: nodeFs(root), glob: "config.yaml" }), /Path outside the project root/);
 });

@@ -399,7 +399,9 @@ folder, a frontmatter's paths to its content file's folder, a `dirs` item's
 vars to that item's subfolder. Paths are templates like any other and may
 depend on anything — a var, a page's frontmatter, another file's frontmatter
 — but refs only contribute segments after the anchor: they never move it.
-Absolute paths (`/...`) written as such pass through untouched.
+Absolute paths (`/...`) written as such pass through untouched. Wherever a
+path leads, the Node filesystem only reaches inside its root and the folders
+it [allows](#filesystems).
 
 ## Errors
 
@@ -474,6 +476,21 @@ await run({ fs: nodeFs(new URL("./content/", import.meta.url)), glob: "**/config
 A custom filesystem implements `readFile`, `writeFile`, `copy`, `exists`,
 `glob`, `listFiles` and `listDirs` — the last lists the subfolders a `dirs`
 var or a subfolder glob walks.
+
+The Node filesystem is fenced: every read, write, copy and listing must stay
+inside its root, or the call fails loud. Paths are templates that content can
+steer — a page's frontmatter may set `file:` — so the fence is what keeps a
+page from publishing `~/.ssh/id_rsa` or writing outside the project. Folders
+outside the root that the site really uses are allowed explicitly:
+
+```ts
+await run({ fs: nodeFs(root, { allow: ["../shared-content"] }), glob: "config.yaml" })
+```
+
+`allow` entries are relative to the root or absolute. The check is on the
+path as written (`..` collapsed); symlinks are not followed. `watch` and `dev`
+building in-process allow their `watch` folders; a `build` script passes its
+own `allow`.
 
 ## Development
 
@@ -589,6 +606,8 @@ stand in for. `pnpm check` runs everything.
   - Paths are ordinary templates, loaded on demand: they may depend on
     frontmatter, anchored at the layer that declares them.
   - `join` on `dir` and `dirs` vars (it was silently ignored).
+  - **Breaking:** `nodeFs` is fenced to its root: a path outside it fails
+    loud unless its folder is listed in `nodeFs(root, { allow })`.
   - `dirs` vars: one item per subfolder, each with its own `var` block whose
     paths are relative to that subfolder, and `{{folder.name}}`.
   - `optional: true` on `file` vars renders a missing file as `""`; a

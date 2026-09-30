@@ -233,3 +233,30 @@ examples:
       content/intro.md: |-
         {{missing}}
     error: "Undefined variable {{missing}} in file content/intro.md"
+
+  - scenario: it should name the file when a frontmatter list holds a map
+    source:
+      config.yaml:
+        build:
+          - output: "{{page}}.html"
+            pages:
+              dir: content
+            input: "{{page}}"
+      content/x.md: |-
+        ---
+        check:
+          - Russe et ukrainien : langue maternelle
+        ---
+        body
+    error: 'content/x.md: Failed at ["check"]["0"]: Expected string | number | boolean, received { Russe et ukrainien: "langue maternelle"; }'
+
+  - scenario: it should name the config when a var list holds a map
+    source:
+      config.yaml:
+        var:
+          check:
+            - Russe et ukrainien : langue maternelle
+        build:
+          - output: out.html
+            input: "{{check}}"
+    error: 'config.yaml: Failed at ["var"]["check"]["0"]'

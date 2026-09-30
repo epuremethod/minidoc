@@ -48,6 +48,21 @@ A custom filesystem implements `readFile`, `writeFile`, `copy`, `exists`,
 `glob`, `listFiles` and `listDirs` — the last lists the subfolders a `dirs`
 var or a subfolder glob walks.
 
+The Node filesystem is fenced: every read, write, copy and listing must stay
+inside its root, or the call fails loud. Paths are templates that content can
+steer — a page's frontmatter may set `file:` — so the fence is what keeps a
+page from publishing `~/.ssh/id_rsa` or writing outside the project. Folders
+outside the root that the site really uses are allowed explicitly:
+
+```ts
+await run({ fs: nodeFs(root, { allow: ["../shared-content"] }), glob: "config.yaml" })
+```
+
+`allow` entries are relative to the root or absolute. The check is on the
+path as written (`..` collapsed); symlinks are not followed. `watch` and `dev`
+building in-process allow their `watch` folders; a `build` script passes its
+own `allow`.
+
 ### Design
 
 Three source files, ReScript, plus the dev runner:

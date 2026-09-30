@@ -43,11 +43,17 @@ let run: runOptions => promise<unit>
 /** In-memory filesystem seeded from a name -> content mapping. Used by tests. */
 let makeMemoryFileSystem: option<dict<string>> => filesystem
 
+type fsOptions = {
+  /** Folders outside the root that may be read and written too, relative to the root or absolute. */
+  allow?: array<string>,
+}
+
 /**
  Node-backed filesystem rooted at a path string or file:// URL (default: the
- current working directory). Creates parent directories on write.
+ current working directory). Creates parent directories on write. Every path
+ must stay inside the root or an `allow` folder, or the call fails loud.
 */
-let nodeFs: option<string> => filesystem
+let nodeFs: (option<string>, option<fsOptions>) => filesystem
 
 // ---------------------------------------------------------------------------
 // Development — watch, rebuild, serve.

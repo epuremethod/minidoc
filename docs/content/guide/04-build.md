@@ -90,4 +90,6 @@ folder, a frontmatter's paths to its content file's folder, a `dirs` item's
 vars to that item's subfolder. Paths are templates like any other and may
 depend on anything — a var, a page's frontmatter, another file's frontmatter
 — but refs only contribute segments after the anchor: they never move it.
-Absolute paths (`/...`) written as such pass through untouched.
+Absolute paths (`/...`) written as such pass through untouched. Wherever a
+path leads, the Node filesystem only reaches inside its root and the folders
+it [allows](#api).

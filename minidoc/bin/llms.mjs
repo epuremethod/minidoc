@@ -5,4 +5,5 @@ import { nodeFs, run } from "../src/Minidoc.res.mjs";
 
 const root = fileURLToPath(new URL("../", import.meta.url)).replace(/\/$/, "");
 
-await run({ fs: nodeFs(root), glob: "llms.yaml" });
+// llms.yaml bases the docs site's templates, next door.
+await run({ fs: nodeFs(root, { allow: ["../docs/content"] }), glob: "llms.yaml" });

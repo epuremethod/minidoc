@@ -964,9 +964,17 @@ type urlmod = {fileURLToPath: unknown => string}
 @scope("process") @val external cwd: unit => string = "cwd"
 let import_: string => promise<'a> = %raw(`(name) => import(name)`)
 
+type fsOptions = {allow?: array<string>}
+
 // Node-backed FileSystem rooted at a path string or file:// URL (default: the
 // current working directory). Creates parent directories on write.
-let nodeFs = (root: option<string>): filesystem => {
+//
+// Every path stays inside the root, or inside a folder of `allow`: paths are
+// templates that content can steer, so this door is where a page's
+// frontmatter is kept from reading `~/.ssh` into the site or writing over
+// anything outside the project. The check is lexical: symlinks are not
+// followed.
+let nodeFs = (root: option<string>, options: option<fsOptions>): filesystem => {
   let cache: ref<option<promise<(fsmod, string)>>> = ref(None)
   let mods = () =>
     switch cache.contents {
@@ -1004,21 +1012,37 @@ let nodeFs = (root: option<string>): filesystem => {
       }
     )
     ->Array.join("/")
+  let inside = (dir, path) => path == dir || String.startsWith(path, dir == "/" ? "/" : `${dir}/`)
+  // The absolute, collapsed path — or a loud failure outside the fence.
+  let resolve = async path => {
+    let (_, base) = await mods()
+    let base = canonical(base)
+    let allowed = options->Option.flatMap(o => o.allow)->Option.getOr([])
+    let full = canonical(absolute(base, path))
+    if !inside(base, full) && !(allowed->Array.some(a => inside(canonical(absolute(base, a)), full))) {
+      fail(
+        `Path outside the project root: ${path} (resolves to ${full}; root ${base}) — ` ++
+        `add its folder to nodeFs(root, { allow: [...] }) to read or write it`,
+      )
+    }
+    full
+  }
   let copying: dict<promise<unit>> = Dict.make()
   {
     readFile: async path => {
-      let (fs, base) = await mods()
-      await fs.readFile(absolute(base, path), "utf8")
+      let (fs, _) = await mods()
+      await fs.readFile(await resolve(path), "utf8")
     },
     writeFile: async (path, content) => {
-      let (fs, base) = await mods()
-      let file = absolute(base, path)
+      let (fs, _) = await mods()
+      let file = await resolve(path)
       await fs.mkdir(dirname(file), {recursive: true})
       await fs.writeFile(file, content, "utf8")
     },
     copy: async (source, output) => {
-      let (fs, base) = await mods()
-      let target = canonical(absolute(base, output))
+      let (fs, _) = await mods()
+      let from = await resolve(source)
+      let target = await resolve(output)
       // fs.cp races on a shared target (EEXIST on mkdir), so serialize per target.
       let previous = copying->Dict.get(target)->Option.getOr(Promise.resolve())
       let current = (
@@ -1027,16 +1051,17 @@ let nodeFs = (root: option<string>): filesystem => {
           | _ => ()
           }
           await fs.mkdir(dirname(target), {recursive: true})
-          await fs.cp(absolute(base, source), target, {recursive: true})
+          await fs.cp(from, target, {recursive: true})
         }
       )()
       copying->Dict.set(target, current)
       await current
     },
     exists: async path => {
-      let (fs, base) = await mods()
+      let (fs, _) = await mods()
+      let full = await resolve(path)
       try {
-        await fs.access(absolute(base, path))
+        await fs.access(full)
         true
       } catch {
       | _ => false
@@ -1062,18 +1087,20 @@ let nodeFs = (root: option<string>): filesystem => {
       ->Array.toSorted(String.compare)
     },
     listFiles: async dir => {
-      let (fs, base) = await mods()
+      let (fs, _) = await mods()
+      let full = await resolve(dir)
       let entries = try {
-        await fs.readdir(absolute(base, dir), {withFileTypes: true, recursive: false})
+        await fs.readdir(full, {withFileTypes: true, recursive: false})
       } catch {
       | _ => []
       }
       entries->Array.filter(isFile(_))->Array.map(dname(_))->Array.toSorted(String.compare)
     },
     listDirs: async dir => {
-      let (fs, base) = await mods()
+      let (fs, _) = await mods()
+      let full = await resolve(dir)
       let entries = try {
-        await fs.readdir(absolute(base, dir), {withFileTypes: true, recursive: false})
+        await fs.readdir(full, {withFileTypes: true, recursive: false})
       } catch {
       | _ => []
       }
@@ -1096,7 +1123,7 @@ let run = async (options: runOptions) => {
   let inline = options.inlineErrors->Option.getOr(false)
   let fs = switch options.fs {
   | Some(fs) => fs
-  | None => nodeFs(None)
+  | None => nodeFs(None, None)
   }
   let configs = await fs.glob(options.glob)
   if Array.length(configs) == 0 {
@@ -1148,6 +1175,17 @@ let entry = async (fs: filesystem, glob) =>
   | None => fail(`No config files match "${glob}"`)
   }
 
+// The in-process build's filesystem: the one given, or Node's — which may
+// also reach the extra folders the runner watches, since those are declared
+// by the site's author, never by its content.
+let watched = (options: watchOptions, root) =>
+  switch options.fs {
+  | Some(fs) => fs
+  | None =>
+    let allow = options.watch->Option.getOr([])->Array.map(w => String.startsWith(w, "/") ? w : join(root, w))
+    nodeFs(None, Some({allow: allow}))
+  }
+
 let watch = async (options: watchOptions) => {
   let root = options.root->Option.getOr(Dev.cwd())
   let rebuild = switch options.build {
@@ -1156,7 +1194,7 @@ let watch = async (options: watchOptions) => {
     () =>
       run({
         glob: options.glob,
-        fs: ?options.fs,
+        fs: watched(options, root),
         transform: ?options.transform,
         inlineErrors: ?options.inlineErrors,
       })
@@ -1171,7 +1209,7 @@ let dev = async (options: devOptions) => {
   let root = options.root->Option.getOr(Dev.cwd())
   let fs = switch options.fs {
   | Some(fs) => fs
-  | None => nodeFs(None)
+  | None => nodeFs(None, None)
   }
   let rebuild = switch options.build {
   | Some(path) => () => Dev.script(path, root)
@@ -1179,7 +1217,7 @@ let dev = async (options: devOptions) => {
     () =>
       run({
         glob: options.glob,
-        fs: ?options.fs,
+        fs: watched((options :> watchOptions), root),
         transform: ?options.transform,
         inlineErrors: options.inlineErrors->Option.getOr(true),
       })

@@ -1156,7 +1156,7 @@ function makeMemoryFileSystem(seed) {
 
 let import_ = ((name) => import(name));
 
-function nodeFs(root) {
+function nodeFs(root, options) {
   let cache = {
     contents: undefined
   };
@@ -1207,16 +1207,33 @@ function nodeFs(root) {
         ]);
     }
   }).join("/");
+  let inside = (dir, path) => {
+    if (path === dir) {
+      return true;
+    } else {
+      return path.startsWith(dir === "/" ? "/" : dir + `/`);
+    }
+  };
+  let resolve = async path => {
+    let match = await mods();
+    let base = canonical(match[1]);
+    let allowed = Stdlib_Option.getOr(Stdlib_Option.flatMap(options, o => o.allow), []);
+    let full = canonical(absolute(base, path));
+    if (!inside(base, full) && !allowed.some(a => inside(canonical(absolute(base, a)), full))) {
+      Schema.fail(`Path outside the project root: ` + path + ` (resolves to ` + full + `; root ` + base + `) — add its folder to nodeFs(root, { allow: [...] }) to read or write it`);
+    }
+    return full;
+  };
   let copying = {};
   return {
     readFile: async path => {
       let match = await mods();
-      return await match[0].readFile(absolute(match[1], path), "utf8");
+      return await match[0].readFile(await resolve(path), "utf8");
     },
     writeFile: async (path, content) => {
       let match = await mods();
       let fs = match[0];
-      let file = absolute(match[1], path);
+      let file = await resolve(path);
       await fs.mkdir(Schema.dirname(file), {
         recursive: true
       });
@@ -1224,9 +1241,9 @@ function nodeFs(root) {
     },
     copy: async (source, output) => {
       let match = await mods();
-      let base = match[1];
       let fs = match[0];
-      let target = canonical(absolute(base, output));
+      let from = await resolve(source);
+      let target = await resolve(output);
       let previous = Stdlib_Option.getOr(copying[target], Promise.resolve());
       let current = (async () => {
         try {
@@ -1237,7 +1254,7 @@ function nodeFs(root) {
         await fs.mkdir(Schema.dirname(target), {
           recursive: true
         });
-        return await fs.cp(absolute(base, source), target, {
+        return await fs.cp(from, target, {
           recursive: true
         });
       })();
@@ -1246,8 +1263,9 @@ function nodeFs(root) {
     },
     exists: async path => {
       let match = await mods();
+      let full = await resolve(path);
       try {
-        await match[0].access(absolute(match[1], path));
+        await match[0].access(full);
         return true;
       } catch (exn) {
         return false;
@@ -1269,9 +1287,10 @@ function nodeFs(root) {
     },
     listFiles: async dir => {
       let match = await mods();
+      let full = await resolve(dir);
       let entries;
       try {
-        entries = await match[0].readdir(absolute(match[1], dir), {
+        entries = await match[0].readdir(full, {
           withFileTypes: true,
           recursive: false
         });
@@ -1282,9 +1301,10 @@ function nodeFs(root) {
     },
     listDirs: async dir => {
       let match = await mods();
+      let full = await resolve(dir);
       let entries;
       try {
-        entries = await match[0].readdir(absolute(match[1], dir), {
+        entries = await match[0].readdir(full, {
           withFileTypes: true,
           recursive: false
         });
@@ -1299,7 +1319,7 @@ function nodeFs(root) {
 async function run(options) {
   let inline = Stdlib_Option.getOr(options.inlineErrors, false);
   let fs = options.fs;
-  let fs$1 = fs !== undefined ? fs : nodeFs(undefined);
+  let fs$1 = fs !== undefined ? fs : nodeFs(undefined, undefined);
   let configs = await fs$1.glob(options.glob);
   if (configs.length === 0) {
     Schema.fail(`No config files match "` + options.glob + `"`);
@@ -1317,12 +1337,29 @@ async function entry(fs, glob) {
   }
 }
 
+function watched(options, root) {
+  let fs = options.fs;
+  if (fs !== undefined) {
+    return fs;
+  }
+  let allow = Stdlib_Option.getOr(options.watch, []).map(w => {
+    if (w.startsWith("/")) {
+      return w;
+    } else {
+      return Schema.join(root, w);
+    }
+  });
+  return nodeFs(undefined, {
+    allow: allow
+  });
+}
+
 async function watch(options) {
   let root = Stdlib_Option.getOr(options.root, process.cwd());
   let path = options.build;
   let rebuild = path !== undefined ? () => Dev.script(path, root) : () => run({
       glob: options.glob,
-      fs: options.fs,
+      fs: watched(options, root),
       transform: options.transform,
       inlineErrors: options.inlineErrors
     });
@@ -1337,11 +1374,11 @@ async function watch(options) {
 async function dev(options) {
   let root = Stdlib_Option.getOr(options.root, process.cwd());
   let fs = options.fs;
-  let fs$1 = fs !== undefined ? fs : nodeFs(undefined);
+  let fs$1 = fs !== undefined ? fs : nodeFs(undefined, undefined);
   let path = options.build;
   let rebuild = path !== undefined ? () => Dev.script(path, root) : () => run({
       glob: options.glob,
-      fs: options.fs,
+      fs: watched(options, root),
       transform: options.transform,
       inlineErrors: Stdlib_Option.getOr(options.inlineErrors, true)
     });
