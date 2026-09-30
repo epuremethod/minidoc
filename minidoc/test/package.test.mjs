@@ -71,6 +71,8 @@ test("packages typed ESM for Node, Bun, and file dependencies", async () => {
     const files = exec("tar", ["-tzf", path.join(temp, archive)], temp).trim().split("\n");
     assert(files.includes("package/dist/index.mjs"));
     assert(files.includes("package/dist/index.d.ts"));
+    assert(files.includes("package/dist/llms.txt"));
+    assert(files.includes("package/dist/llms-full.txt"));
     assert(files.includes("package/LICENSE"));
     assert(files.every((file) => !file.includes("/test/") && !file.includes("/lib/")));
   } finally {

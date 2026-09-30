@@ -39,7 +39,14 @@ let defaults: dict<transform> = Dict.fromArray([
 
 /** A loaded content file: frontmatter split off, transform resolved. `pad`
  counts the blank lines standing in for the frontmatter at the top of `body`. */
-type content = {body: string, transform: transform, front: dict<data>, at: string, pad: int}
+type content = {
+  body: string,
+  transform: transform,
+  front: dict<data>,
+  at: string,
+  pad: int,
+  path: string,
+}
 
 /** A loaded var, ready to evaluate in a context. */
 type lvar =
@@ -129,6 +136,15 @@ let data = front =>
     }
   )
 
+/** A content file's own name, for templates that would otherwise need a
+ `slug` in every frontmatter. Pre-rendered: a file name is never a template. */
+let naming = (c: content) => {
+  let name = String.slice(c.path, ~start=String.lastIndexOf(c.path, "/") + 1)
+  let dot = String.lastIndexOf(name, ".")
+  let stem = dot > 0 ? String.slice(name, ~start=0, ~end=dot) : name
+  Dict.fromArray([("file.name", V(One(name))), ("file.stem", V(One(stem)))])
+}
+
 let rec make = (inline, lvars: dict<lvar>): ctx =>
   carve(({derived}) => {
     inline,
@@ -157,7 +173,7 @@ and eval = (lv, self: ctx) =>
         ->Array.map(c =>
           boxed(self.inline, () =>
             site(at, () => {
-              let front = sub(self, data(c.front))
+              let front = sub(self, over(naming(c), data(c.front)))
               let body = unpad(c.transform(site(c.at, () => render(c.body, front.get))), c.pad)
               render(each, sub(front, Dict.fromArray([("body", V(One(body)))])).get)
             })
@@ -259,6 +275,21 @@ let matcher = glob => {
   name => re->RegExp.test(String.replaceRegExp(name, slashes, "/"))
 }
 
+// Collapse `.` and `..` so one output reached through two spellings shares a
+// key. Leading `..` that cannot collapse is kept.
+let normalize = path => {
+  let rooted = String.startsWith(path, "/")
+  let parts = String.split(path, "/")->Array.reduce([], (acc, s) =>
+    switch (s, Array.at(acc, -1)) {
+    | ("" | ".", _) => acc
+    | ("..", Some(prev)) if prev != ".." => Array.slice(acc, ~start=0, ~end=Array.length(acc) - 1)
+    | ("..", _) if rooted => acc
+    | (s, _) => [...acc, s]
+    }
+  )
+  (rooted ? "/" : "") ++ Array.join(parts, "/")
+}
+
 let matter = RegExp.fromString("^---\\n(?:([\\s\\S]*?)\\n)?---(?:\\n|$)")
 
 type page = {front: dict<data>, body: string, pad: int}
@@ -316,30 +347,44 @@ let strs = (vars: dict<varv>, parent) => {
   get
 }
 
+let named = (transforms, name, at) =>
+  switch Dict.get(transforms, name) {
+  | Some(t) => t
+  | None =>
+    fail(`${at}: unknown transform "${name}" (available: ${Dict.keysToArray(transforms)->Array.join(", ")})`)
+  }
+
+let content = async (fs: filesystem, transforms, path, explicit, at) => {
+  if !(await fs.exists(path)) {
+    fail(`Content file not found: ${path} (declared at ${at})`)
+  }
+  let {front, body, pad} = split(await fs.readFile(path), path)
+  let name = switch explicit->Option.orElse(infer(path)) {
+  | Some(name) => name
+  | None =>
+    fail(
+      `${at}: cannot infer a transform for ${path} — set "transform" (available: ${Dict.keysToArray(
+          transforms,
+        )->Array.join(", ")})`,
+    )
+  }
+  {body, transform: named(transforms, name, at), front, at: `file ${path}`, pad, path}
+}
+
+/** The files a `dir` var or a `pages` entry selects, in filename order. An
+ empty match fails loud unless the source is `optional`. */
+let listing = async (fs: filesystem, transforms, pget, src: source, at) => {
+  let dir = top(`${at} dir`, () => render(src.dir, pget))
+  let glob = src.glob->Option.getOr("*.md")
+  let names = (await fs.listFiles(dir))->Array.filter(matcher(glob))
+  if Array.length(names) == 0 && !(src.optional->Option.getOr(false)) {
+    fail(`No files matching "${glob}" in ${dir} (declared at ${at})`)
+  }
+  (dir, await Promise.all(names->Array.map(n => content(fs, transforms, join(dir, n), src.transform, at))))
+}
+
 /** Load one `var` block: its lvars plus the frontmatter its file vars export. */
 let load = async (fs: filesystem, transforms: dict<transform>, pget, label, vars: dict<varv>) => {
-  let named = (name, at) =>
-    switch Dict.get(transforms, name) {
-    | Some(t) => t
-    | None =>
-      fail(`${at}: unknown transform "${name}" (available: ${Dict.keysToArray(transforms)->Array.join(", ")})`)
-    }
-  let content = async (path, explicit, at) => {
-    if !(await fs.exists(path)) {
-      fail(`Content file not found: ${path} (declared at ${at})`)
-    }
-    let {front, body, pad} = split(await fs.readFile(path), path)
-    let name = switch explicit->Option.orElse(infer(path)) {
-    | Some(name) => name
-    | None =>
-      fail(
-        `${at}: cannot infer a transform for ${path} — set "transform" (available: ${Dict.keysToArray(
-            transforms,
-          )->Array.join(", ")})`,
-      )
-    }
-    {body, transform: named(name, at), front, at: `file ${path}`, pad}
-  }
   let out: dict<lvar> = Dict.make()
   let exports: dict<lvar> = Dict.make()
   let owners: dict<string> = Dict.make()
@@ -349,10 +394,10 @@ let load = async (fs: filesystem, transforms: dict<transform>, pget, label, vars
     | Scalar(s) => Dict.set(out, name, T(s))
     | Scalars(a) => Dict.set(out, name, L(a))
     | ListV(l) => Dict.set(out, name, R(l, at))
-    | PipeV(p) => Dict.set(out, name, P(p.value, named(p.transform, at), at))
+    | PipeV(p) => Dict.set(out, name, P(p.value, named(transforms, p.transform, at), at))
     | FileV(f) =>
       let path = top(`${at} file`, () => render(f.file, pget))
-      let c = await content(path, f.transform, at)
+      let c = await content(fs, transforms, path, f.transform, at)
       // Only file vars export their frontmatter — dir items would conflict
       // on names like `title`, so theirs stays local to each item.
       Dict.toArray(data(c.front))->Array.forEach(((fname, lv)) => {
@@ -366,13 +411,8 @@ let load = async (fs: filesystem, transforms: dict<transform>, pget, label, vars
       })
       Dict.set(out, name, F(c))
     | DirV(d) =>
-      let dir = top(`${at} dir`, () => render(d.dir, pget))
-      let glob = d.glob->Option.getOr("*.md")
-      let names = (await fs.listFiles(dir))->Array.filter(matcher(glob))
-      if Array.length(names) == 0 {
-        fail(`No files matching "${glob}" in ${dir} (declared at ${at})`)
-      }
-      let items = await Promise.all(names->Array.map(n => content(join(dir, n), d.transform, at)))
+      let src = {dir: d.dir, glob: d.glob, transform: d.transform, optional: d.optional}
+      let (dir, items) = await listing(fs, transforms, pget, src, at)
       Dict.set(out, name, D(items, d.each->Option.getOr("{{body}}"), `dir ${dir} (${at})`))
     }
   })
@@ -395,6 +435,9 @@ let rec chain = async (fs: filesystem, path, visited, from) => {
   }
 }
 
+/** One file a build entry writes; `by` names the entry (and page) for errors. */
+type job = {output: string, by: string, copy: bool, write: unit => promise<unit>}
+
 /** Read the config at `entry` and execute every build entry through `fs`. */
 let exec = async (fs: filesystem, transforms, inline, entry) => {
   let configs = await chain(fs, entry, [], "")
@@ -408,52 +451,90 @@ let exec = async (fs: filesystem, transforms, inline, entry) => {
     }
   let shared = await grow(Dict.make(), 0)
   let last = Array.getUnsafe(configs, Array.length(configs) - 1)
-  await Promise.all(
+  // Every output path resolves before anything is written, so a collision
+  // fails loud with nothing half-built.
+  let plans = await Promise.all(
     last.build->Array.mapWithIndex(async (b, i) => {
       let at = `build[${Int.toString(i)}]`
       let bpget = strs(b.vars, pget)
       let (own, exports) = await load(fs, transforms, bpget, `${at}.var`, b.vars)
-      let layer = front => make(inline, over(over(over(front, shared), exports), own))
-      switch b.input {
-      | Copy(path) =>
+      switch (b.input, b.pages) {
+      | (Copy(_), Some(_)) => fail(`${at}: "pages" cannot be combined with a copy input`)
+      | (Copy(path), None) =>
         let source = top(`${at} input copy`, () => render(path, bpget))
         if !(await fs.exists(source)) {
           fail(`Copy source not found: ${source} (declared at ${at} input)`)
         }
-        await fs.copy(source, top(`${at} output`, () => render(b.output, layer(Dict.make()).get)))
-      | input =>
+        let ctx = make(inline, over(over(shared, exports), own))
+        let output = top(`${at} output`, () => render(b.output, ctx.get))
+        [{output, by: at, copy: true, write: () => fs.copy(source, output)}]
+      | (input, pages) =>
         // A file input contributes its frontmatter as the least local
         // templates — usable even in the output path.
-        let (lv, bctx) = switch input {
-        | Text(t) => (T(t), layer(Dict.make()))
+        let (lv, front) = switch input {
         | FileI(f) =>
           let path = top(`${at} input file`, () => render(f.file, bpget))
-          let c = await load(fs, transforms, bpget, at, Dict.fromArray([("input", FileV({file: path, transform: f.transform}))]))
-          let (own, _) = c
+          let (own, _) = await load(fs, transforms, bpget, at, Dict.fromArray([("input", FileV({file: path, transform: f.transform}))]))
           switch Dict.get(own, "input") {
-          | Some(F(c)) => (F(c), layer(data(c.front)))
-          | _ => (T(""), layer(Dict.make()))
+          | Some(F(c)) => (F(c), data(c.front))
+          | _ => (T(""), Dict.make())
           }
         | DirI(d) =>
           let (own, _) = await load(fs, transforms, bpget, at, Dict.fromArray([("input", DirV(d))]))
           switch Dict.get(own, "input") {
-          | Some(D(items, each, site)) => (D(items, each, site), layer(Dict.make()))
-          | _ => (T(""), layer(Dict.make()))
+          | Some(D(items, each, site)) => (D(items, each, site), Dict.make())
+          | _ => (T(""), Dict.make())
           }
-        | Copy(_) => (T(""), layer(Dict.make()))
+        | Text(t) => (T(t), Dict.make())
+        | Copy(_) => (T(""), Dict.make())
         }
-        // Content errors can turn into boxes; output path errors never do —
-        // a file cannot be written without a path.
-        let out = boxed(inline, () =>
-          switch top(`${at} input`, () => eval(lv, bctx)) {
-          | One(s) => s
-          | Many(a) => a->Array.join("")
+        let base = over(over(front, shared), exports)
+        let job = (layer, page) => {
+          let ctx = make(inline, over(over(base, layer), own))
+          let output = top(`${at} output${page}`, () => render(b.output, ctx.get))
+          let write = async () => {
+            // Content errors can turn into boxes; output path errors never do —
+            // a file cannot be written without a path.
+            let out = boxed(inline, () =>
+              switch top(`${at} input${page}`, () => eval(lv, ctx)) {
+              | One(s) => s
+              | Many(a) => a->Array.join("")
+              }
+            )
+            await fs.writeFile(output, out)
           }
-        )
-        await fs.writeFile(top(`${at} output`, () => render(b.output, bctx.get)), out)
+          {output, by: `${at}${page}`, copy: false, write}
+        }
+        switch pages {
+        | None => [job(Dict.make(), "")]
+        | Some(src) =>
+          // One output per file. A page layers like a file var's frontmatter —
+          // over the shared templates, under the entry's own vars — and hands
+          // its rendered body over as `page`.
+          let (_, items) = await listing(fs, transforms, bpget, src, `${at}.pages`)
+          items->Array.map(c =>
+            job(
+              over(over(naming(c), data(c.front)), Dict.fromArray([("page", F(c))])),
+              ` (page ${c.path})`,
+            )
+          )
+        }
       }
     }),
   )
+  let jobs = Array.flat(plans)
+  // Copies may share a target directory (they merge); anything else sharing
+  // an output would silently overwrite.
+  let owners: dict<job> = Dict.make()
+  jobs->Array.forEach(j => {
+    let key = normalize(j.output)
+    switch Dict.get(owners, key) {
+    | Some(o) if !(o.copy && j.copy) =>
+      fail(`Output path collision: ${key} is written by both ${o.by} and ${j.by}`)
+    | _ => Dict.set(owners, key, j)
+    }
+  })
+  let _ = await Promise.all(jobs->Array.map(j => j.write()))
 }
 
 // ---------------------------------------------------------------------------

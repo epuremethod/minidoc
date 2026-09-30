@@ -1,11 +1,12 @@
 ---
-title: Build entries — inputs, outputs, copies
+title: Build entries — inputs, pages, copies
 slug: build
 no: M-04
 tag: Build entries
 nav: Build
-desc: Build entries — template or file/dir inputs, copy entries, and how
-  declared paths resolve against their config.
+desc: Build entries — template or file/dir inputs, one output per file with
+  pages, copy entries, output collisions, and how declared paths resolve
+  against their config.
 ---
 
 A build's `input` is a template string, or a `file`/`dir` mapping behaving
@@ -35,9 +36,42 @@ build:
     input: { copy: assets/fonts }
 ```
 
+### Pages — one output per file
+
+`pages` fans a build entry out over a folder: one output per matched file.
+
+```yaml
+var:
+  layout:
+    file: layout.html
+build:
+  - pages: { dir: cvs, glob: "*.md" }
+    output: "../dist/{{`file.stem`}}.html"
+    var:
+      content: "{{`page`}}"        # the page's rendered body
+    input: "{{`layout`}}"
+```
+
+Each page renders the entry's `input` in its own child context: the file's
+frontmatter layers in like a `file` var's — over the config's vars, under the
+entry's own `var` — plus ``{{`page`}}``, its rendered body, and
+``{{`file.name`}}`` / ``{{`file.stem`}}``. All of it is usable in the output
+path, so a `slug:` in every frontmatter is optional. A page's frontmatter stays local to that page.
+`dir`, `glob` (default `*.md`) and `transform` work as for a `dir` var; the
+`input` may be a template or a `file`, not a `copy`. An empty match fails
+loud; `optional: true` accepts it and writes nothing.
+
+Every output path resolves before anything is written. Two outputs resolving
+to the same path — two pages sharing a slug, two entries — fail loud, naming
+both; copies into one directory merge and are exempt:
+
+```
+Output path collision: dist/same.html is written by both build[0] (page cvs/a.md) and build[0] (page cvs/b.md)
+```
+
 ### Paths — the one exception
 
-Declared paths (`base`, `output`, `file`, `dir`, `copy`) are relative to the
+Declared paths (`base`, `output`, `file`, `dir`, `pages`, `copy`) are relative to the
 config file that declares them, anchored at parse time. Paths may contain
 ``{{`refs`}}``, but they resolve against plain string vars only — paths must
 resolve before content loads, so they can never depend on it. Refs can

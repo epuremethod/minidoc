@@ -1,6 +1,6 @@
 {
   "name": "@epure/minidoc",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "Small documentation website generator",
   "author": "Gaspard Anna Bucher <g.a.bucher@midasum.com>",
   "license": "MIT",
@@ -20,7 +20,7 @@
   },
   "scripts": {
     "beta": "./bin/publish.sh --beta",
-    "build": "rescript build && node esbuild.js",
+    "build": "rescript build && node esbuild.js && node bin/llms.mjs",
     "check": "pnpm test && pnpm test:dev && pnpm test:package",
     "prepack": "pnpm build",
     "pub": "./bin/publish.sh",
@@ -33,7 +33,7 @@
     "@rescript/runtime": "12.3.0",
     "marked": "^18.0.7",
     "sury": "11.0.0-alpha.11",
-    "tilia": "^5.2.0",
+    "tilia": "^6.0.0",
     "yaml": "^2.8.0"
   },
   "devDependencies": {

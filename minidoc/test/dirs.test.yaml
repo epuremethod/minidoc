@@ -209,3 +209,35 @@ examples:
       content/a.md: |-
         a
     error: "Variable cycle in dir content (var (config.yaml).entries): entries -> entries"
+
+  - scenario: it should expose each item's file name and stem
+    source:
+      config.yaml:
+        var:
+          entries:
+            dir: content
+            transform: none
+            each: '<a href="{{file.stem}}.html">{{file.name}}</a>'
+        build:
+          - output: out.html
+            input: "{{entries}}"
+      content/01-intro.md: one
+      content/02-api.v2.md: two
+    target:
+      out.html: |-
+        <a href="01-intro.html">01-intro.md</a>
+        <a href="02-api.v2.html">02-api.v2.md</a>
+
+  - scenario: it should render nothing for an optional empty dir
+    source:
+      config.yaml:
+        var:
+          entries:
+            dir: content
+            optional: true
+            each: "<li>{{body}}</li>"
+        build:
+          - output: out.txt
+            input: "[{{entries}}]"
+    target:
+      out.txt: "[]"

@@ -57,7 +57,10 @@ its rendered content as ``{{`body`}}``. Items join with newlines, in filename
 order (prefix files `01-intro.md` to control it). `glob` (default `*.md`)
 selects files; `transform` overrides the per-file inference. Unlike `file`
 vars, items do *not* export their frontmatter outward — eight chapters would
-conflict on `title`; it stays local to each item. An empty match fails loud.
+conflict on `title`; it stays local to each item. Each item also sees its
+file name: ``{{`file.name`}}`` (`01-intro.md`) and ``{{`file.stem`}}``
+(`01-intro`). An empty match fails loud; `optional: true` accepts it (or a
+missing folder) and renders nothing.
 
 ### list
 

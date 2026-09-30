@@ -34,7 +34,9 @@ let dirname = path => {
 let join = (dir, path) => dir == "" || String.startsWith(path, "/") ? path : `${dir}/${path}`
 
 type filev = {file: string, transform: option<string>}
-type dirv = {dir: string, glob: option<string>, each: option<string>, transform: option<string>}
+/** A folder of content files. `optional` accepts an empty match (or a missing folder). */
+type source = {dir: string, glob: option<string>, transform: option<string>, optional: option<bool>}
+type dirv = {...source, each: option<string>}
 type listv = {list: string, each: string, join: option<string>, template: option<string>}
 type pipev = {value: string, transform: string}
 
@@ -52,13 +54,13 @@ type inputv =
   | DirI(dirv)
   | Copy(string)
 
-type buildv = {vars: dict<varv>, output: string, input: inputv}
+type buildv = {vars: dict<varv>, pages: option<source>, output: string, input: inputv}
 type configv = {vars: dict<varv>, base: option<string>, build: array<buildv>}
 
 /** A frontmatter value: a scalar or a list of scalars. */
 type data = One(string) | Many(array<string>)
 
-type rawbuild = {vars: option<dict<varv>>, output: string, input: inputv}
+type rawbuild = {vars: option<dict<varv>>, pages: option<source>, output: string, input: inputv}
 type rawconfig = {vars: option<dict<varv>>, base: option<string>, build: option<array<rawbuild>>}
 
 // Missing and explicit-null keys both read as None.
@@ -72,11 +74,19 @@ let fileS = S.object((s): filev => {
   transform: s.field("transform", opt(S.string)),
 })
 
+let sourceS = S.object((s): source => {
+  dir: s.field("dir", S.string),
+  glob: s.field("glob", opt(S.string)),
+  transform: s.field("transform", opt(S.string)),
+  optional: s.field("optional", opt(S.bool)),
+})
+
 let dirS = S.object((s): dirv => {
   dir: s.field("dir", S.string),
   glob: s.field("glob", opt(S.string)),
   each: s.field("each", opt(S.string)),
   transform: s.field("transform", opt(S.string)),
+  optional: s.field("optional", opt(S.bool)),
 })
 
 let listS = S.object((s): listv => {
@@ -109,6 +119,7 @@ let inputS = S.union([
 
 let buildS = S.object((s): rawbuild => {
   vars: s.field("var", opt(S.dict(varS))),
+  pages: s.field("pages", opt(sourceS)),
   output: s.field("output", S.string),
   input: s.field("input", inputS),
 })
@@ -138,6 +149,7 @@ let convert = (path, raw: rawconfig): configv => {
     ->Option.getOr([])
     ->Array.map((b): buildv => {
       vars: b.vars->Option.getOr(Dict.make())->Dict.mapValues(anchor(dir, ...)),
+      pages: b.pages->Option.map(p => {...p, dir: join(dir, p.dir)}),
       output: join(dir, b.output),
       input: switch b.input {
       | Text(t) => Text(t)

@@ -1,0 +1,46 @@
+# The llms.txt index and llms-full.txt, rendered from the guide. Base of the
+# site config (docs/content/config.yaml) and of the package build
+# (minidoc/llms.yaml): each declares its own outputs.
+var:
+  blurb: >-
+    minidoc is a small documentation website generator from the épure toolset.
+    YAML configs declare variables and build outputs; contexts are dictionaries
+    of templates; you inherit formulas, not values. This site is built with it.
+  # The guide folder, two more views: the llms.txt index and the full-text
+  # concatenation, so they can never drift from the site.
+  llmsLinks:
+    dir: guide
+    transform: none              # only the frontmatter is used
+    each: "- [{{title}}](https://minidoc.dev/#{{slug}}): {{desc}}"
+  llmsChapters:
+    dir: guide
+    transform: none
+    each: |-
+      ## {{title}}
+
+      {{body}}
+    join: "\n\n"
+  llmsTxt: |-
+    # minidoc
+
+    > {{blurb}}
+
+    The site is a single page; the links below point at its sections. The
+    complete guide as one markdown file is in
+    [llms-full.txt](https://minidoc.dev/llms-full.txt).
+
+    ## Guide
+
+    {{llmsLinks}}
+
+    ## Optional
+
+    - [Example setup](https://github.com/epuremethod/minidoc/tree/main/docs): this site's source — base layout, config, build, dev
+    - [llms-full.txt](https://minidoc.dev/llms-full.txt): the full guide, one markdown file
+    - [GitHub](https://github.com/epuremethod/minidoc): source, issues, releases
+  llmsFullTxt: |-
+    # minidoc — full documentation
+
+    > {{blurb}}
+
+    {{llmsChapters}}

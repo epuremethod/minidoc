@@ -1,0 +1,8 @@
+# The package's llms.txt and llms-full.txt: the docs site's own templates
+# (../docs/content/llms.yaml), written into dist so they ship on publish.
+base: ../docs/content/llms.yaml
+build:
+  - output: dist/llms.txt
+    input: "{{llmsTxt}}"
+  - output: dist/llms-full.txt
+    input: "{{llmsFullTxt}}"

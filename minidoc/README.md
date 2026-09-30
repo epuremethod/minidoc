@@ -195,7 +195,10 @@ its rendered content as `{{body}}`. Items join with newlines, in filename
 order — prefix files `01-intro.md` to control it. `glob` (default `*.md`)
 selects files; `transform` overrides the per-file inference. Unlike `file`
 vars, items do *not* export their frontmatter outward (eight chapters would
-conflict on `title`); it stays local to each item. An empty match fails loud.
+conflict on `title`); it stays local to each item. Each item also sees its
+file name: `{{file.name}}` (`01-intro.md`) and `{{file.stem}}` (`01-intro`).
+An empty match fails loud; `optional: true` accepts it (or a missing folder)
+and renders nothing.
 
 ### `list`
 
@@ -258,12 +261,47 @@ build:
     input: { copy: assets/fonts }
 ```
 
+### Pages — one output per file
+
+`pages` fans a build entry out over a folder: one output per matched file.
+
+```yaml
+var:
+  layout:
+    file: layout.html
+build:
+  - pages: { dir: cvs, glob: "*.md" }
+    output: "../dist/{{file.stem}}.html"
+    var:
+      content: "{{page}}"          # the page's rendered body
+    input: "{{layout}}"
+```
+
+Each page renders the entry's `input` in its own child context: the file's
+frontmatter layers in like a `file` var's — over the config's vars, under the
+entry's own `var` — plus `{{page}}`, its rendered body, and `{{file.name}}` /
+`{{file.stem}}`. All of it is usable in the output path, so a `slug:` in
+every frontmatter is optional. A page's frontmatter stays local to that page.
+`dir`, `glob` (default `*.md`) and `transform` work as for a `dir` var; the
+`input` may be a template or a `file`, not a `copy`. An empty match fails
+loud; `optional: true` accepts it and writes nothing.
+
+Every output path resolves before anything is written. Two outputs resolving
+to the same path — two pages sharing a slug, two entries — fail loud, naming
+both; copies into one directory merge and are exempt:
+
+```
+Output path collision: dist/same.html is written by both build[0] (page cvs/a.md) and build[0] (page cvs/b.md)
+```
+
+### Output in place
+
 Runs update declared outputs in place and never clean old output first, so a
 live server keeps serving the previous files until replacements are written.
 
 ### Paths — the one exception
 
-Declared paths (`base`, `output`, `file`, `dir`, `copy`) are relative to the
+Declared paths (`base`, `output`, `file`, `dir`, `pages`, `copy`) are relative to the
 config file that declares them, anchored at parse time. Paths may contain
 `{{refs}}`, but they resolve against plain string vars only — paths must
 resolve before content loads, so they can never depend on it. Refs can
@@ -280,6 +318,7 @@ number:
 Undefined variable {{missing}} at line 3 in file content/intro.md
 Variable cycle in file content/intro.md: intro -> intro
 Undefined variable {{missing}} in build[0] output
+Undefined variable {{slug}} in build[0] output (page cvs/b.md)
 ```
 
 The innermost site wins: an error is labeled once, where it happened, and not
@@ -292,7 +331,7 @@ errors instead surface as an error box (thin red border, faint red
 background, class `minidoc-error`, message HTML-escaped) at their place in
 the output page, and each is also logged to the console. The blast radius is
 the nearest content boundary: a failing `dir` item boxes only that item, the
-rest of the page still renders. Meant for a dev server — the site keeps
+rest of the page still renders; a failing page boxes only in its own output. Meant for a dev server — the site keeps
 building and the error shows up where it happens. Output path errors still
 fail loud even in this mode: a file cannot be written without a path. Leave
 it off in CI.
@@ -439,6 +478,16 @@ socket (`test/dev.test.mjs`) — the two things the in-memory fixtures cannot
 stand in for. `pnpm check` runs everything.
 
 ## Changelog
+
+- Unreleased
+  - `pages` on a build entry: one output per file of a folder, the file's
+    rendered body as `{{page}}`, its frontmatter local to its page.
+  - `dir` items and pages expose `{{file.name}}` and `{{file.stem}}`.
+  - `optional: true` on `dir` vars, `dir` inputs and `pages` accepts an empty
+    match (renders or writes nothing) instead of failing loud.
+  - Two outputs of one config resolving to the same path now fail loud
+    before anything is written (it used to be last write wins). Copies into
+    one directory still merge.
 
 - 2026-09-27 **0.1.1**
   - Fix `EEXIST: file already exists, mkdir` when several configs copy into

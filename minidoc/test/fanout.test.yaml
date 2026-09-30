@@ -1,0 +1,245 @@
+feature: Per-file pages
+background:
+  given: a filesystem
+examples:
+  - scenario: it should write one output per matched file, paths anchored at the declaring config
+    options:
+      glob: site/config.yaml
+    source:
+      site/config.yaml:
+        var:
+          layout:
+            file: layout.html
+        build:
+          - pages: { dir: cvs, glob: "*.md" }
+            output: "out/{{slug}}.html"
+            var:
+              content: "{{page}}"
+            input: "{{layout}}"
+      site/layout.html: |-
+        <title>{{title}}</title>
+        <main>{{content}}</main>
+      site/cvs/alice.md: |-
+        ---
+        title: Alice
+        slug: alice
+        ---
+        Hello **{{title}}**
+      site/cvs/bob.md: |-
+        ---
+        title: Bob
+        slug: bob
+        ---
+        Hi {{title}}
+      site/cvs/notes.txt: ignored
+    target:
+      site/out/alice.html: |-
+        <title>Alice</title>
+        <main><p>Hello <strong>Alice</strong></p>
+        </main>
+      site/out/bob.html: |-
+        <title>Bob</title>
+        <main><p>Hi Bob</p>
+        </main>
+
+  - scenario: it should name each output after its file, no slug needed
+    source:
+      config.yaml:
+        build:
+          - pages: { dir: cvs, transform: none }
+            output: "dist/{{file.stem}}.html"
+            input: "{{file.name}}: {{page}}"
+      cvs/01-alice.md: one
+      cvs/02-bob.md: two
+    target:
+      dist/01-alice.html: "01-alice.md: one"
+      dist/02-bob.html: "02-bob.md: two"
+
+  - scenario: it should layer page frontmatter over config vars and under build vars
+    source:
+      config.yaml:
+        var:
+          title: Default
+          site: Marmot
+        build:
+          - pages: { dir: cvs, transform: none }
+            var:
+              site: Override
+            output: "{{file.stem}}.txt"
+            input: "{{site}} / {{title}} / {{page}}"
+      cvs/a.md: |-
+        ---
+        title: Alpha
+        site: Ignored
+        ---
+        a
+      cvs/b.md: b
+    target:
+      a.txt: |-
+        Override / Alpha / a
+      b.txt: "Override / Default / b"
+
+  - scenario: it should keep page frontmatter local to its page
+    source:
+      config.yaml:
+        build:
+          - pages: { dir: cvs, transform: none }
+            output: "{{file.stem}}.txt"
+            input: "{{title}}"
+      cvs/a.md: |-
+        ---
+        title: Alpha
+        ---
+        a
+      cvs/b.md: b
+    error: "Undefined variable {{title}} in build[0] input (page cvs/b.md)"
+
+  - scenario: it should accept a file input as the page template
+    source:
+      config.yaml:
+        build:
+          - pages: { dir: cvs, transform: none }
+            output: "{{lang}}/{{file.stem}}.html"
+            input:
+              file: layout.html
+      layout.html: |-
+        ---
+        lang: en
+        ---
+        <html lang="{{lang}}"><h1>{{title}}</h1>{{page}}</html>
+      cvs/a.md: |-
+        ---
+        title: Alpha
+        ---
+        a
+      cvs/b.md: |-
+        ---
+        title: Bravo
+        ---
+        b
+    target:
+      en/a.html: '<html lang="en"><h1>Alpha</h1>a</html>'
+      en/b.html: '<html lang="en"><h1>Bravo</h1>b</html>'
+
+  - scenario: it should fail loud when no files match
+    source:
+      config.yaml:
+        build:
+          - pages: { dir: cvs }
+            output: "{{file.stem}}.html"
+            input: "{{page}}"
+    error: 'No files matching "*.md" in cvs (declared at build[0].pages)'
+
+  - scenario: it should write nothing for an optional empty match and build the rest
+    source:
+      config.yaml:
+        build:
+          - pages: { dir: drafts, optional: true }
+            output: "{{file.stem}}.html"
+            input: "{{page}}"
+          - output: index.html
+            input: home
+    target:
+      index.html: home
+
+  - scenario: it should label a page body error with its file and line
+    source:
+      config.yaml:
+        build:
+          - pages: { dir: cvs }
+            output: "{{file.stem}}.html"
+            input: "{{page}}"
+      cvs/a.md: fine
+      cvs/b.md: |-
+        ---
+        title: Bob
+        ---
+        Hello
+
+        {{missing}}
+    error: "Undefined variable {{missing}} at line 6 in file cvs/b.md"
+
+  - scenario: it should label an output path error with its page
+    source:
+      config.yaml:
+        build:
+          - pages: { dir: cvs }
+            output: "{{slug}}.html"
+            input: "{{page}}"
+      cvs/a.md: |-
+        ---
+        slug: alpha
+        ---
+        a
+      cvs/b.md: b
+    error: "Undefined variable {{slug}} in build[0] output (page cvs/b.md)"
+
+  - scenario: it should box a failing page and still write the others
+    options:
+      inlineErrors: true
+    source:
+      config.yaml:
+        build:
+          - pages: { dir: cvs, transform: none }
+            output: "{{file.stem}}.html"
+            input: "<main>{{page}}</main>"
+      cvs/a.md: fine
+      cvs/b.md: "{{missing}}"
+    target:
+      a.html: "<main>fine</main>"
+      b.html: '<main><div class="minidoc-error" style="border:1px solid #c00;background:rgba(255,0,0,.04);padding:.5em .75em;font-family:monospace;white-space:pre-wrap;">Undefined variable {{missing}} in file cvs/b.md</div></main>'
+
+  - scenario: it should fail loud when two pages resolve to the same output
+    source:
+      config.yaml:
+        build:
+          - pages: { dir: cvs }
+            output: "dist/{{slug}}.html"
+            input: "{{page}}"
+      cvs/a.md: |-
+        ---
+        slug: same
+        ---
+        a
+      cvs/b.md: |-
+        ---
+        slug: same
+        ---
+        b
+    error: "Output path collision: dist/same.html is written by both build[0] (page cvs/a.md) and build[0] (page cvs/b.md)"
+
+  - scenario: it should fail loud when two build entries resolve to the same output
+    source:
+      config.yaml:
+        build:
+          - pages: { dir: cvs }
+            output: "{{file.stem}}.html"
+            input: "{{page}}"
+          - output: "site/../index.html"
+            input: home
+      cvs/index.md: a
+    error: "Output path collision: index.html is written by both build[0] (page cvs/index.md) and build[1]"
+
+  - scenario: it should let copies merge into a shared directory
+    source:
+      config.yaml:
+        build:
+          - output: public/assets
+            input: { copy: fonts }
+          - output: public/assets
+            input: { copy: images }
+      fonts/a.woff2: font
+      images/b.png: image
+    target:
+      public/assets/a.woff2: font
+      public/assets/b.png: image
+
+  - scenario: it should reject pages combined with a copy input
+    source:
+      config.yaml:
+        build:
+          - pages: { dir: cvs }
+            output: "{{file.stem}}"
+            input: { copy: assets }
+      cvs/a.md: a
+    error: 'build[0]: "pages" cannot be combined with a copy input'

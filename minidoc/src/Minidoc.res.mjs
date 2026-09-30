@@ -98,6 +98,34 @@ function data(front) {
   });
 }
 
+function naming(c) {
+  let name = c.path.slice(c.path.lastIndexOf("/") + 1 | 0);
+  let dot = name.lastIndexOf(".");
+  let stem = dot > 0 ? name.slice(0, dot) : name;
+  return Object.fromEntries([
+    [
+      "file.name",
+      {
+        TAG: "V",
+        _0: {
+          TAG: "One",
+          _0: name
+        }
+      }
+    ],
+    [
+      "file.stem",
+      {
+        TAG: "V",
+        _0: {
+          TAG: "One",
+          _0: stem
+        }
+      }
+    ]
+  ]);
+}
+
 function make(inline, lvars) {
   return Tilia.carve(param => {
     let derived = param.derived;
@@ -141,7 +169,9 @@ function $$eval(lv, self) {
       return {
         TAG: "One",
         _0: rawSite(at, () => items.map(c => rawBoxed(stack, self.inline, () => rawSite(at, () => {
-          let front = sub(self, data(c.front));
+          let own = data(c.front);
+          let parent = naming(c);
+          let front = sub(self, Object.assign(Object.assign({}, parent), own));
           let body = unpad(c.transform(rawSite(c.at, () => render(c.body, front.get))), c.pad);
           return render(each, sub(front, Object.fromEntries([[
               "body",
@@ -273,6 +303,38 @@ function matcher(glob) {
   return name => re.test(name.replace(slashes, "/"));
 }
 
+function normalize(path) {
+  let rooted = path.startsWith("/");
+  let parts = Stdlib_Array.reduce(path.split("/"), [], (acc, s) => {
+    let match = acc.at(-1);
+    switch (s) {
+      case "" :
+      case "." :
+        return acc;
+      case ".." :
+        if (match !== undefined && match !== "..") {
+          return acc.slice(0, acc.length - 1 | 0);
+        }
+        if (rooted) {
+          return acc;
+        } else {
+          return Belt_Array.concatMany([
+            acc,
+            [s]
+          ]);
+        }
+      default:
+        return Belt_Array.concatMany([
+          acc,
+          [s]
+        ]);
+    }
+  });
+  return (
+    rooted ? "/" : ""
+  ) + parts.join("/");
+}
+
 let matter = new RegExp("^---\\n(?:([\\s\\S]*?)\\n)?---(?:\\n|$)");
 
 function split(text, at) {
@@ -336,30 +398,46 @@ function strs(vars, parent) {
   return get;
 }
 
+function named(transforms, name, at) {
+  let t = transforms[name];
+  if (t !== undefined) {
+    return Primitive_option.valFromOption(t);
+  } else {
+    return Schema.fail(at + `: unknown transform "` + name + `" (available: ` + Object.keys(transforms).join(", ") + `)`);
+  }
+}
+
+async function content(fs, transforms, path, explicit, at) {
+  if (!await fs.exists(path)) {
+    Schema.fail(`Content file not found: ` + path + ` (declared at ` + at + `)`);
+  }
+  let match = split(await fs.readFile(path), path);
+  let name = Stdlib_Option.orElse(explicit, infer(path));
+  let name$1 = name !== undefined ? name : Schema.fail(at + `: cannot infer a transform for ` + path + ` — set "transform" (available: ` + Object.keys(transforms).join(", ") + `)`);
+  return {
+    body: match.body,
+    transform: named(transforms, name$1, at),
+    front: match.front,
+    at: `file ` + path,
+    pad: match.pad,
+    path: path
+  };
+}
+
+async function listing(fs, transforms, pget, src, at) {
+  let dir = top(at + ` dir`, () => render(src.dir, pget));
+  let glob = Stdlib_Option.getOr(src.glob, "*.md");
+  let names = (await fs.listFiles(dir)).filter(matcher(glob));
+  if (names.length === 0 && !Stdlib_Option.getOr(src.optional, false)) {
+    Schema.fail(`No files matching "` + glob + `" in ` + dir + ` (declared at ` + at + `)`);
+  }
+  return [
+    dir,
+    await Promise.all(names.map(n => content(fs, transforms, Schema.join(dir, n), src.transform, at)))
+  ];
+}
+
 async function load(fs, transforms, pget, label, vars) {
-  let named = (name, at) => {
-    let t = transforms[name];
-    if (t !== undefined) {
-      return t;
-    } else {
-      return Schema.fail(at + `: unknown transform "` + name + `" (available: ` + Object.keys(transforms).join(", ") + `)`);
-    }
-  };
-  let content = async (path, explicit, at) => {
-    if (!await fs.exists(path)) {
-      Schema.fail(`Content file not found: ` + path + ` (declared at ` + at + `)`);
-    }
-    let match = split(await fs.readFile(path), path);
-    let name = Stdlib_Option.orElse(explicit, infer(path));
-    let name$1 = name !== undefined ? name : Schema.fail(at + `: cannot infer a transform for ` + path + ` — set "transform" (available: ` + Object.keys(transforms).join(", ") + `)`);
-    return {
-      body: match.body,
-      transform: named(name$1, at),
-      front: match.front,
-      at: `file ` + path,
-      pad: match.pad
-    };
-  };
   let out = {};
   let $$exports = {};
   let owners = {};
@@ -383,7 +461,7 @@ async function load(fs, transforms, pget, label, vars) {
       case "FileV" :
         let f = v._0;
         let path = top(at + ` file`, () => render(f.file, pget));
-        let c = await content(path, f.transform, at);
+        let c = await content(fs, transforms, path, f.transform, at);
         Object.entries(data(c.front)).forEach(param => {
           let fname = param[0];
           let owner = owners[fname];
@@ -400,18 +478,22 @@ async function load(fs, transforms, pget, label, vars) {
         return;
       case "DirV" :
         let d = v._0;
-        let dir = top(at + ` dir`, () => render(d.dir, pget));
-        let glob = Stdlib_Option.getOr(d.glob, "*.md");
-        let names = (await fs.listFiles(dir)).filter(matcher(glob));
-        if (names.length === 0) {
-          Schema.fail(`No files matching "` + glob + `" in ` + dir + ` (declared at ` + at + `)`);
-        }
-        let items = await Promise.all(names.map(n => content(Schema.join(dir, n), d.transform, at)));
+        let src_dir = d.dir;
+        let src_glob = d.glob;
+        let src_transform = d.transform;
+        let src_optional = d.optional;
+        let src = {
+          dir: src_dir,
+          glob: src_glob,
+          transform: src_transform,
+          optional: src_optional
+        };
+        let match = await listing(fs, transforms, pget, src, at);
         out[name] = {
           TAG: "D",
-          _0: items,
+          _0: match[1],
           _1: Stdlib_Option.getOr(d.each, "{{body}}"),
-          _2: `dir ` + dir + ` (` + at + `)`
+          _2: `dir ` + match[0] + ` (` + at + `)`
         };
         return;
       case "ListV" :
@@ -426,7 +508,7 @@ async function load(fs, transforms, pget, label, vars) {
         out[name] = {
           TAG: "P",
           _0: p.value,
-          _1: named(p.transform, at),
+          _1: named(transforms, p.transform, at),
           _2: at
         };
         return;
@@ -475,135 +557,186 @@ async function exec(fs, transforms, inline, entry) {
   };
   let shared = await grow({}, 0);
   let last = configs[configs.length - 1 | 0];
-  return await Promise.all(last.build.map(async (b, i) => {
+  let plans = await Promise.all(last.build.map(async (b, i) => {
     let at = `build[` + i.toString() + `]`;
     let bpget = strs(b.vars, pget);
     let match = await load(fs, transforms, bpget, at + `.var`, b.vars);
     let $$exports = match[1];
     let own = match[0];
-    let layer = front => {
-      let parent = Object.assign(Object.assign({}, front), shared);
-      let parent$1 = Object.assign(Object.assign({}, parent), $$exports);
-      return make(inline, Object.assign(Object.assign({}, parent$1), own));
-    };
-    let path = b.input;
-    if (path.TAG === "Copy") {
-      let path$1 = path._0;
-      let source = top(at + ` input copy`, () => render(path$1, bpget));
+    let match$1 = b.input;
+    let match$2 = b.pages;
+    if (match$1.TAG === "Copy") {
+      let path = match$1._0;
+      if (match$2 !== undefined) {
+        return Schema.fail(at + `: "pages" cannot be combined with a copy input`);
+      }
+      let source = top(at + ` input copy`, () => render(path, bpget));
       if (!await fs.exists(source)) {
         Schema.fail(`Copy source not found: ` + source + ` (declared at ` + at + ` input)`);
       }
-      return await fs.copy(source, top(at + ` output`, () => render(b.output, layer({}).get)));
+      let parent = Object.assign(Object.assign({}, shared), $$exports);
+      let ctx = make(inline, Object.assign(Object.assign({}, parent), own));
+      let output = top(at + ` output`, () => render(b.output, ctx.get));
+      return [{
+          output: output,
+          by: at,
+          copy: true,
+          write: () => fs.copy(source, output)
+        }];
     }
-    let match$1;
-    switch (path.TAG) {
+    let match$3;
+    switch (match$1.TAG) {
       case "Text" :
-        match$1 = [
+        match$3 = [
           {
             TAG: "T",
-            _0: path._0
+            _0: match$1._0
           },
-          layer({})
+          {}
         ];
         break;
       case "FileI" :
-        let f = path._0;
-        let path$2 = top(at + ` input file`, () => render(f.file, bpget));
-        let c = await load(fs, transforms, bpget, at, Object.fromEntries([[
+        let f = match$1._0;
+        let path$1 = top(at + ` input file`, () => render(f.file, bpget));
+        let match$4 = await load(fs, transforms, bpget, at, Object.fromEntries([[
             "input",
             {
               TAG: "FileV",
               _0: {
-                file: path$2,
+                file: path$1,
                 transform: f.transform
               }
             }
           ]]));
-        let match$2 = c[0]["input"];
-        if (match$2 !== undefined) {
-          if (match$2.TAG === "F") {
-            let c$1 = match$2._0;
-            match$1 = [
+        let match$5 = match$4[0]["input"];
+        if (match$5 !== undefined) {
+          if (match$5.TAG === "F") {
+            let c = match$5._0;
+            match$3 = [
               {
                 TAG: "F",
-                _0: c$1
+                _0: c
               },
-              layer(data(c$1.front))
+              data(c.front)
             ];
           } else {
-            match$1 = [
+            match$3 = [
               {
                 TAG: "T",
                 _0: ""
               },
-              layer({})
+              {}
             ];
           }
         } else {
-          match$1 = [
+          match$3 = [
             {
               TAG: "T",
               _0: ""
             },
-            layer({})
+            {}
           ];
         }
         break;
       case "DirI" :
-        let match$3 = await load(fs, transforms, bpget, at, Object.fromEntries([[
+        let match$6 = await load(fs, transforms, bpget, at, Object.fromEntries([[
             "input",
             {
               TAG: "DirV",
-              _0: path._0
+              _0: match$1._0
             }
           ]]));
-        let match$4 = match$3[0]["input"];
-        match$1 = match$4 !== undefined ? (
-            match$4.TAG === "D" ? [
+        let match$7 = match$6[0]["input"];
+        match$3 = match$7 !== undefined ? (
+            match$7.TAG === "D" ? [
                 {
                   TAG: "D",
-                  _0: match$4._0,
-                  _1: match$4._1,
-                  _2: match$4._2
+                  _0: match$7._0,
+                  _1: match$7._1,
+                  _2: match$7._2
                 },
-                layer({})
+                {}
               ] : [
                 {
                   TAG: "T",
                   _0: ""
                 },
-                layer({})
+                {}
               ]
           ) : [
             {
               TAG: "T",
               _0: ""
             },
-            layer({})
+            {}
           ];
         break;
       case "Copy" :
-        match$1 = [
+        match$3 = [
           {
             TAG: "T",
             _0: ""
           },
-          layer({})
+          {}
         ];
         break;
     }
-    let bctx = match$1[1];
-    let lv = match$1[0];
-    let out = rawBoxed(stack, inline, () => {
-      let s = top(at + ` input`, () => $$eval(lv, bctx));
-      if (s.TAG === "One") {
-        return s._0;
-      } else {
-        return s._0.join("");
-      }
+    let lv = match$3[0];
+    let parent$1 = Object.assign(Object.assign({}, match$3[1]), shared);
+    let base = Object.assign(Object.assign({}, parent$1), $$exports);
+    let job = (layer, page) => {
+      let parent = Object.assign(Object.assign({}, base), layer);
+      let ctx = make(inline, Object.assign(Object.assign({}, parent), own));
+      let output = top(at + ` output` + page, () => render(b.output, ctx.get));
+      let write = async () => {
+        let out = rawBoxed(stack, inline, () => {
+          let s = top(at + ` input` + page, () => $$eval(lv, ctx));
+          if (s.TAG === "One") {
+            return s._0;
+          } else {
+            return s._0.join("");
+          }
+        });
+        return await fs.writeFile(output, out);
+      };
+      return {
+        output: output,
+        by: at + page,
+        copy: false,
+        write: write
+      };
+    };
+    if (match$2 === undefined) {
+      return [job({}, "")];
+    }
+    let match$8 = await listing(fs, transforms, bpget, match$2, at + `.pages`);
+    return match$8[1].map(c => {
+      let own = Object.fromEntries([[
+          "page",
+          {
+            TAG: "F",
+            _0: c
+          }
+        ]]);
+      let own$1 = data(c.front);
+      let parent = naming(c);
+      let parent$1 = Object.assign(Object.assign({}, parent), own$1);
+      return job(Object.assign(Object.assign({}, parent$1), own), ` (page ` + c.path + `)`);
     });
-    return await fs.writeFile(top(at + ` output`, () => render(b.output, bctx.get)), out);
   }));
+  let jobs = plans.flat();
+  let owners = {};
+  jobs.forEach(j => {
+    let key = normalize(j.output);
+    let o = owners[key];
+    if (o !== undefined && !(o.copy && j.copy)) {
+      return Schema.fail(`Output path collision: ` + key + ` is written by both ` + o.by + ` and ` + j.by);
+    } else {
+      owners[key] = j;
+      return;
+    }
+  });
+  await Promise.all(jobs.map(j => j.write()));
 }
 
 function makeMemoryFileSystem(seed) {

@@ -50,11 +50,19 @@ let fileS = Sury.object(s => ({
   transform: s.f("transform", Sury.$res_nullableAsOption(Sury.string))
 }));
 
+let sourceS = Sury.object(s => ({
+  dir: s.f("dir", Sury.string),
+  glob: s.f("glob", Sury.$res_nullableAsOption(Sury.string)),
+  transform: s.f("transform", Sury.$res_nullableAsOption(Sury.string)),
+  optional: s.f("optional", Sury.$res_nullableAsOption(Sury.bool))
+}));
+
 let dirS = Sury.object(s => ({
   dir: s.f("dir", Sury.string),
   glob: s.f("glob", Sury.$res_nullableAsOption(Sury.string)),
-  each: s.f("each", Sury.$res_nullableAsOption(Sury.string)),
-  transform: s.f("transform", Sury.$res_nullableAsOption(Sury.string))
+  transform: s.f("transform", Sury.$res_nullableAsOption(Sury.string)),
+  optional: s.f("optional", Sury.$res_nullableAsOption(Sury.bool)),
+  each: s.f("each", Sury.$res_nullableAsOption(Sury.string))
 }));
 
 let listS = Sury.object(s => ({
@@ -117,6 +125,7 @@ let inputS = Sury.union([
 
 let buildS = Sury.object(s => ({
   vars: s.f("var", Sury.$res_nullableAsOption(Sury.dict(varS))),
+  pages: s.f("pages", Sury.$res_nullableAsOption(sourceS)),
   output: s.f("output", Sury.string),
   input: s.f("input", inputS)
 }));
@@ -158,8 +167,9 @@ function anchor(dir, v) {
         _0: {
           dir: join(dir, d.dir),
           glob: d.glob,
-          each: d.each,
-          transform: d.transform
+          transform: d.transform,
+          optional: d.optional,
+          each: d.each
         }
       };
     default:
@@ -199,8 +209,9 @@ function convert(path, raw) {
             _0: {
               dir: join(dir, d.dir),
               glob: d.glob,
-              each: d.each,
-              transform: d.transform
+              transform: d.transform,
+              optional: d.optional,
+              each: d.each
             }
           };
           break;
@@ -213,6 +224,12 @@ function convert(path, raw) {
       }
       return {
         vars: Stdlib_Dict.mapValues(Stdlib_Option.getOr(b.vars, {}), extra => anchor(dir, extra)),
+        pages: Stdlib_Option.map(b.pages, p => ({
+          dir: join(dir, p.dir),
+          glob: p.glob,
+          transform: p.transform,
+          optional: p.optional
+        })),
         output: join(dir, b.output),
         input: tmp
       };
@@ -271,6 +288,7 @@ export {
   opt,
   scalarS,
   fileS,
+  sourceS,
   dirS,
   listS,
   pipeS,
