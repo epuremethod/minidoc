@@ -78,6 +78,7 @@ var:
 
 The site keeps that address for good: bookmarkable, and ``{{`port`}}`` is an
 ordinary var a template can print. The config is rewritten through yaml's
-document API, so comments and layout survive. The day that port is taken, a
-free one replaces it in the file. Passing `port` explicitly skips all of this
-and writes nothing.
+document API, so comments and layout survive. The port is never replaced:
+when a dev server already answers on it — the same site, launched twice —
+`dev` prints its link and returns; when anything else holds it, `dev` fails
+loud. Passing `port` explicitly skips the remembering and writes nothing.

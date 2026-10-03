@@ -1,0 +1,187 @@
+/* @epure/minidoc-blocks — the rules. They read variables only; a theme
+   (themes/soft.css, themes/graphic.css) sets them, under
+   [data-blocks-theme]. A block takes its colour from --tone, and mixes its
+   fill, its edge and its label from it by the amounts the theme sets. A
+   theme never names --tone itself: a var() resolves where it is declared,
+   and --tone only exists on the block. */
+
+.callout, .quote, .ui-dialog, .ui-flow, .sequence, .states { --tone: var(--blocks-ink); }
+.callout--note { --tone: var(--tone-note); }
+.callout--draft { --tone: var(--tone-draft); }
+.callout--settled { --tone: var(--tone-settled); }
+.callout--open { --tone: var(--tone-open); }
+.callout--technical { --tone: var(--tone-technical); }
+.callout--principle { --tone: var(--tone-principle); }
+.callout--rejected { --tone: var(--tone-rejected); }
+.callout--flow { --tone: var(--tone-flow); }
+.quote { --tone: var(--tone-quote); }
+
+/* Callouts */
+
+.callout {
+  --fill: color-mix(in srgb, var(--tone) var(--fill-amount), var(--blocks-surface));
+  --edge: color-mix(in srgb, var(--tone) var(--edge-amount), var(--blocks-surface));
+  min-width: 0;
+  margin: 1.25em 0;
+  padding: var(--callout-padding);
+  border: var(--callout-border) solid var(--edge);
+  border-left: var(--callout-rule) solid var(--tone);
+  border-radius: var(--callout-radius);
+  background: var(--fill);
+  color: var(--blocks-ink);
+  font-size: var(--callout-font-size);
+  print-color-adjust: exact;
+}
+.callout__label {
+  display: inline-block;
+  margin: 0 0 .7em;
+  padding: var(--label-padding);
+  border: 1px solid color-mix(in srgb, var(--tone) var(--label-edge-amount), var(--blocks-surface));
+  border-radius: var(--callout-radius);
+  background: color-mix(in srgb, var(--tone) var(--label-fill-amount), var(--label-base));
+  color: color-mix(in srgb, var(--tone) var(--label-ink-amount), var(--blocks-surface));
+  font-size: var(--callout-label-size);
+  font-weight: 750;
+  line-height: 1.5;
+  letter-spacing: var(--callout-label-tracking);
+  text-transform: var(--callout-label-case);
+}
+.callout--open .callout__label { border-color: var(--tone-mark); background: var(--tone-mark); color: var(--mark-ink); }
+.callout__body > :first-child { margin-top: 0; }
+.callout__body > :last-child { margin-bottom: 0; }
+.callout__body p { margin: .6em 0; }
+.callout__body ul, .callout__body ol { margin: .4em 0; padding-left: 1.3em; }
+.callout__body li + li { margin-top: .3em; }
+
+/* Quotes */
+
+.quote { min-width: 0; margin: 1.25em 0 1.25em 1.5em; padding: .1em 0 .1em 1em; border-left: var(--quote-rule) solid var(--tone); }
+.quote blockquote { margin: 0; color: var(--blocks-ink); font-size: var(--quote-font-size); font-style: var(--quote-style); line-height: 1.55; }
+.quote blockquote > :first-child { margin-top: 0; }
+.quote blockquote > :last-child { margin-bottom: 0; }
+.quote figcaption { margin-top: .7em; color: var(--blocks-muted); font-size: .85em; }
+.quote cite { color: var(--blocks-ink); font-style: normal; font-weight: 650; }
+
+/* Flows: columns of steps, an arrow between two steps. */
+
+/* Flows sit in a callout body, whose own list rules they override. */
+.callout .flow { display: grid; grid-template-columns: repeat(auto-fit, minmax(var(--flow-column-min), 1fr)); gap: var(--flow-gap); align-items: start; margin: 0; padding: .2em 0; list-style: none; }
+.callout .flow__column { min-width: 0; margin: 0; }
+.flow__title { margin: 0 0 .8em; color: var(--tone); font-size: var(--callout-label-size); font-weight: 750; letter-spacing: .08em; text-transform: uppercase; }
+.callout .flow__steps { display: grid; gap: var(--flow-gap); margin: 0; padding: 0; list-style: none; }
+.callout .flow__step { position: relative; margin: 0; padding: .55em .8em; border: var(--step-border) solid var(--edge); border-radius: var(--callout-radius); background: var(--blocks-surface); break-inside: avoid; }
+.flow__step:not(:last-child)::after { content: "↓"; position: absolute; left: 0; right: 0; bottom: calc(-1 * var(--flow-gap)); color: var(--tone); line-height: var(--flow-gap); text-align: center; }
+.flow__text { margin: 0; color: var(--blocks-ink); font-weight: 650; line-height: 1.35; }
+.callout .flow__details { margin: .25em 0 0; padding: 0; list-style: none; color: var(--blocks-muted); font-size: .9em; }
+.callout .flow__details li { margin: 0; }
+
+/* Screen mockups */
+
+.ui-dialog {
+  --bar: color-mix(in srgb, var(--tone) var(--fill-amount), var(--blocks-surface));
+  --edge: color-mix(in srgb, var(--tone) var(--edge-amount), var(--blocks-surface));
+  position: relative;
+  width: 100%;
+  max-width: var(--ui-dialog-width);
+  margin: 1.25em 0;
+  border: var(--ui-dialog-border) solid var(--edge);
+  border-radius: var(--ui-dialog-radius);
+  background: var(--blocks-surface);
+  box-shadow: var(--ui-dialog-shadow);
+  color: var(--blocks-ink);
+  font-size: .9em;
+  line-height: 1.45;
+  print-color-adjust: exact;
+}
+.ui-dialog__bar { display: flex; flex-direction: column; gap: 1px; padding: .6em 1em; border-bottom: var(--ui-dialog-border) solid var(--edge); border-radius: var(--ui-dialog-radius) var(--ui-dialog-radius) 0 0; background: var(--bar); }
+.ui-dialog__owner { color: var(--blocks-muted); font-size: .75em; font-weight: 750; letter-spacing: .06em; text-transform: uppercase; }
+.ui-dialog__title { font-weight: 650; }
+.ui-dialog__body { display: grid; gap: .7em; padding: 1em; }
+.ui-dialog__body p, .ui-dialog__body ul, .ui-dialog__body ol { margin: 0; }
+.ui-dialog__body ul, .ui-dialog__body ol { padding-left: 1.3em; }
+.ui-dialog__actions { display: flex; flex-wrap: wrap; gap: .5em; }
+.ui-dialog__button { flex: 1 1 auto; padding: .45em .8em; border: 1px solid var(--blocks-line); border-radius: var(--ui-control-radius); background: var(--blocks-surface); font-weight: 600; text-align: center; }
+.ui-dialog__button--primary { border-color: var(--tone-ui-primary); background: var(--tone-ui-primary); color: var(--blocks-surface); }
+.ui-dialog__button--clicked { outline: 2px solid var(--tone-ui-clicked); outline-offset: 2px; }
+.ui-dialog__options { display: grid; gap: .4em; }
+.ui-dialog__option { display: flex; align-items: baseline; gap: .5em; }
+.ui-dialog__option::before { content: ""; flex: none; width: .85em; height: .85em; border: 1px solid var(--blocks-muted); border-radius: 3px; background: var(--blocks-surface); translate: 0 .12em; }
+.ui-dialog__option--radio::before { border-radius: 50%; }
+.ui-dialog__option--on::before { border-color: var(--tone-ui-primary); background: var(--tone-ui-primary); box-shadow: inset 0 0 0 2px var(--blocks-surface); }
+.ui-dialog__field { display: grid; gap: .2em; }
+.ui-dialog__field-label { color: var(--blocks-muted); font-size: .9em; }
+.ui-dialog__input { height: 2.2em; border: 1px solid var(--blocks-line); border-radius: var(--ui-control-radius); background: var(--blocks-surface); }
+
+.ui-flow { min-width: 0; margin: 1.25em 0; padding: 0; border: var(--ui-dialog-border) solid var(--blocks-line); border-radius: var(--callout-radius); background: var(--blocks-canvas); print-color-adjust: exact; }
+.ui-flow__caption { padding: .6em 1em; border-bottom: var(--ui-dialog-border) solid var(--blocks-line); background: var(--blocks-band); color: var(--blocks-band-ink); font-size: .9em; font-weight: 650; }
+.ui-flow__steps { display: flex; align-items: center; gap: var(--ui-flow-gap); padding: 1.2em 1em 1.4em; overflow-x: auto; }
+.ui-flow__steps > .ui-dialog { flex: 1 1 0; min-width: 12em; margin: 0; }
+.ui-flow__steps > .ui-dialog + .ui-dialog::before { content: "→"; position: absolute; top: 50%; left: calc(-.5 * var(--ui-flow-gap)); translate: -50% -50%; color: var(--blocks-muted); font-size: 1.3em; line-height: 1; }
+@media (max-width: 640px) {
+  .ui-flow__steps { flex-direction: column; align-items: flex-start; }
+  .ui-flow__steps > .ui-dialog { flex: none; }
+  .ui-flow__steps > .ui-dialog + .ui-dialog::before { content: "↓"; top: calc(-.5 * var(--ui-flow-gap)); left: 1.4em; }
+}
+
+/* Drawn blocks: a sequence and a state machine. A kind of the project's
+   carries --tone in its style attribute. */
+
+.sequence, .states { min-width: 0; margin: 1.25em 0; padding: 0; overflow-x: auto; }
+.sequence__svg, .states__svg { display: block; max-width: 100%; height: auto; overflow: visible; font-family: inherit; }
+/* A plain box is neutral. A box of a kind is marked by the theme's drawing
+   amounts, which are stronger than a callout's: a small box needs them. */
+.sequence__head rect, .sequence__state rect, .states__box rect {
+  fill: var(--blocks-surface);
+  stroke: var(--drawing-line);
+  stroke-width: var(--drawing-edge);
+  rx: var(--drawing-radius);
+}
+.sequence__head[style] rect, .states__box[style] rect {
+  fill: color-mix(in srgb, var(--tone) var(--drawing-fill-amount), var(--blocks-surface));
+  stroke: color-mix(in srgb, var(--tone) var(--drawing-edge-amount), var(--blocks-surface));
+}
+.sequence__head text, .states__box text { fill: var(--blocks-ink); font-size: 13px; font-weight: 600; }
+.sequence__head[style] text, .states__box[style] text { fill: var(--drawing-kind-ink); }
+.sequence__state text { fill: var(--blocks-ink); font-size: 11px; font-weight: 600; }
+.sequence__life { stroke: var(--blocks-line); stroke-width: 1; stroke-dasharray: 3 4; }
+.sequence__message, .states__move { fill: none; stroke: var(--blocks-stroke); stroke-width: 1.8; }
+.sequence__tip, .states__tip { fill: var(--blocks-stroke); stroke: none; }
+.sequence__message--refused { stroke: var(--tone-refused); stroke-dasharray: 5 4; }
+/* A marked move, its arrowhead and its label take the tone of its kind. */
+.states__move[style], .states__label[style] { --mark: color-mix(in srgb, var(--tone) var(--drawing-edge-amount), var(--blocks-surface)); }
+.states__move[style] { stroke: var(--mark); }
+.states__label[style] { fill: var(--mark); }
+marker[style] .states__tip { fill: color-mix(in srgb, var(--tone) var(--drawing-edge-amount), var(--blocks-surface)); }
+.sequence__cross { fill: none; stroke: var(--tone-refused); stroke-width: 1.8; }
+.sequence__label, .states__label { fill: var(--blocks-muted); font-size: 11px; paint-order: stroke; stroke: var(--blocks-surface); stroke-width: 3px; stroke-linejoin: round; }
+.sequence__label--refused { fill: var(--tone-refused); }
+.sequence__caption, .states__caption { display: flex; flex-direction: column; gap: .4em; margin-top: .9em; }
+.sequence__title, .states__title { color: var(--blocks-muted); font-size: .85em; }
+.sequence__keys, .states__keys { display: flex; flex-wrap: wrap; gap: .4em 1.2em; }
+.sequence__key, .states__key { display: inline-flex; align-items: center; gap: .4em; color: var(--blocks-muted); font-size: .8em; }
+.sequence__key::before, .states__key::before {
+  content: "";
+  flex: none;
+  width: 13px;
+  height: 13px;
+  border: 1px solid var(--drawing-line);
+  border-radius: var(--drawing-radius);
+  background: var(--blocks-surface);
+  print-color-adjust: exact;
+}
+.sequence__key[style]::before, .states__key[style]::before {
+  border-color: color-mix(in srgb, var(--tone) var(--drawing-edge-amount), var(--blocks-surface));
+  background: color-mix(in srgb, var(--tone) var(--drawing-fill-amount), var(--blocks-surface));
+}
+.sequence__key--message::before, .sequence__key--refused::before { width: 18px; height: 0; border: none; border-top: 2px solid var(--blocks-stroke); border-radius: 0; background: none; }
+.sequence__key--refused::before { border-top-style: dashed; border-top-color: var(--tone-refused); }
+.states__key--move::before { width: 18px; height: 0; border: none; border-top: 2px solid color-mix(in srgb, var(--tone) var(--drawing-edge-amount), var(--blocks-surface)); border-radius: 0; background: none; }
+
+/* The page around the blocks */
+
+:not(pre) > code.code--mark { padding: .12em .35em; border-radius: 3px; background: var(--tone-mark); color: var(--mark-ink); font-weight: 600; box-decoration-break: clone; -webkit-box-decoration-break: clone; print-color-adjust: exact; }
+.table-wrap { overflow-x: auto; }
+
+@media print {
+  .callout, .quote, .ui-dialog, .ui-flow, .sequence, .states { break-inside: avoid; }
+}

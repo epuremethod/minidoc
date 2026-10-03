@@ -1,0 +1,100 @@
+feature: Screen mockups
+background:
+  given: a document
+examples:
+  - scenario: a screen has a title, text, and a row of buttons with the primary one in double brackets
+    before: |-
+      ::: ui-dialog Delete the page
+      The page and its history are removed.
+
+      [Cancel] [[Delete]]
+      :::
+    after: |-
+      ui-dialog title "Delete the page"
+        | The page and its history are removed.
+        actions
+          button "Cancel"
+          button "Delete" primary
+
+  - scenario: a star marks the button the person clicks
+    before: |-
+      ::: ui-dialog Sign in
+      [Cancel] [[Continue]]*
+      :::
+    after: |-
+      ui-dialog title "Sign in"
+        actions
+          button "Cancel"
+          button "Continue" primary clicked
+
+  - scenario: radio buttons, checkboxes and input fields are drawn
+    before: |-
+      ::: ui-dialog Export
+      Format
+
+      ( ) PDF
+      (x) HTML
+
+      [x] Include images
+      [ ] Include drafts
+
+      File name : ____
+      :::
+    after: |-
+      ui-dialog title "Export"
+        | Format
+        options
+          radio "PDF"
+          radio "HTML" on
+        options
+          check "Include images" on
+          check "Include drafts"
+        field "File name"
+
+  - scenario: a screen names who presents it, when the project declares owners
+    options:
+      ui-dialog:
+        owners:
+          provider: Identity provider
+          app: Application
+    before: |-
+      ::: ui-dialog provider Sign in with your account
+      Password : ____
+
+      [[Sign in]]*
+      :::
+    after: |-
+      ui-dialog owner provider "Identity provider" title "Sign in with your account"
+        field "Password"
+        actions
+          button "Sign in" primary clicked
+
+  - scenario: a word that is not an owner stays in the title
+    before: |-
+      ::: ui-dialog provider settings
+      :::
+    after: |-
+      ui-dialog title "provider settings"
+
+  - scenario: screens in a flow are shown in the order the person sees them
+    before: |-
+      :::: ui-flow Changing a password
+      ::: ui-dialog Settings
+      [[Change password]]*
+      :::
+      ::: ui-dialog New password
+      New password : ____
+
+      [Cancel] [[Save]]*
+      :::
+      ::::
+    after: |-
+      ui-flow caption "Changing a password"
+        ui-dialog title "Settings"
+          actions
+            button "Change password" primary clicked
+        ui-dialog title "New password"
+          field "New password"
+          actions
+            button "Cancel"
+            button "Save" primary clicked

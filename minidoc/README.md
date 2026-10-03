@@ -357,7 +357,7 @@ build:
 ```
 
 Each page renders the entry's `input` in its own child context: the file's
-frontmatter layers in like a `file` var's — over the config's vars, under the
+frontmatter layers in over the config's vars, under the
 entry's own `var` — plus `{{page}}`, its rendered body, and `{{file.name}}` /
 `{{file.stem}}` / `{{file.dir}}` (its parent folder's name). All of it is
 usable in the output path, so a `slug:` in every frontmatter is optional. A
@@ -370,7 +370,7 @@ A glob with a `/` reaches into subfolders — one page per folder:
 
 ```yaml
 var:
-  layouts.cv:                  # a dotted name, not a nested mapping
+  layouts.cv:                  # same leaf as layouts: { cv: … }
     file: layouts/cv.html
 build:
   - pages: { dir: candidatures, glob: "*/cv.md" }
@@ -554,9 +554,10 @@ var:
 
 The site keeps that address for good: bookmarkable, and `{{port}}` is an
 ordinary var a template can print. The config is rewritten through yaml's
-document API, so comments and layout survive. The day that port is taken, a
-free one replaces it in the file. Passing `port` explicitly skips all of this
-and writes nothing.
+document API, so comments and layout survive. The port is never replaced:
+when a dev server already answers on it — the same site, launched twice —
+`dev` prints its link and returns; when anything else holds it, `dev` fails
+loud. Passing `port` explicitly skips the remembering and writes nothing.
 
 ## Design
 
@@ -606,6 +607,9 @@ stand in for. `pnpm check` runs everything.
   - Paths are ordinary templates, loaded on demand: they may depend on
     frontmatter, anchored at the layer that declares them.
   - `join` on `dir` and `dirs` vars (it was silently ignored).
+  - **Breaking:** `dev` never replaces a taken port. When a dev server
+    already answers on it, `dev` prints its link and returns; otherwise it
+    fails loud (it used to draw a free port and write it to the config).
   - **Breaking:** `nodeFs` is fenced to its root: a path outside it fails
     loud unless its folder is listed in `nodeFs(root, { allow })`.
   - `dirs` vars: one item per subfolder, each with its own `var` block whose

@@ -1,0 +1,61 @@
+/* Soft: pastel fills, rounded corners, coloured labels. Variables only. */
+
+[data-blocks-theme="soft"] {
+  --blocks-ink: #202a38;
+  --blocks-muted: #626770;
+  --blocks-line: #c9ccd0;
+  --blocks-stroke: #8c9198;
+  --blocks-surface: #ffffff;
+  --blocks-canvas: #faf9f6;
+  --blocks-band: #eef0ec;
+  --blocks-band-ink: #202a38;
+
+  --tone-note: #5c625f;
+  --tone-draft: #27613d;
+  --tone-settled: #285866;
+  --tone-open: #a13b24;
+  --tone-technical: #654d86;
+  --tone-principle: #315f86;
+  --tone-rejected: #8a2f3c;
+  --tone-flow: #285866;
+  --tone-quote: #ad3d28;
+  --tone-mark: #ffe08a;
+  --mark-ink: #49300b;
+  --tone-refused: #ad3d28;
+  --tone-ui-primary: #202a38;
+  --tone-ui-clicked: #ad3d28;
+
+  --fill-amount: 7%;
+  --edge-amount: 26%;
+  --callout-border: 1px;
+  --callout-rule: 1px;
+  --callout-radius: 4px;
+  --callout-padding: 1.05em 1.25em;
+  --callout-font-size: .94em;
+  --callout-label-size: .68em;
+  --callout-label-case: uppercase;
+  --callout-label-tracking: .06em;
+  --label-padding: .2em .55em;
+  --label-fill-amount: 0%;
+  --label-base: #ffffffa8;
+  --label-ink-amount: 100%;
+  --label-edge-amount: 26%;
+  --quote-rule: 3px;
+  --quote-font-size: 1em;
+  --quote-style: normal;
+  --flow-column-min: 13em;
+  --flow-gap: 1.5em;
+  --step-border: 1px;
+  --ui-dialog-width: 340px;
+  --ui-dialog-border: 1px;
+  --ui-dialog-radius: 8px;
+  --ui-control-radius: 5px;
+  --ui-dialog-shadow: 0 6px 18px #202a3814;
+  --ui-flow-gap: 2.5em;
+  --drawing-radius: 7px;
+  --drawing-line: #b9bec5;
+  --drawing-fill-amount: 16%;
+  --drawing-edge-amount: 60%;
+  --drawing-kind-ink: var(--blocks-ink);
+  --drawing-edge: 1;
+}

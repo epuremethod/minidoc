@@ -1,0 +1,135 @@
+/* minidoc — the site layout: a contents column, a running head, one column
+   of prose. Rules and type carry the structure; one accent marks where you
+   are. The drawn pages of the plates take their look from a blocks theme,
+   never from this file. */
+
+@font-face { font-family: "IBM Plex Sans"; font-style: normal; font-weight: 400; font-display: swap; src: url("./fonts/ibm-plex-sans-400.woff2") format("woff2"); }
+@font-face { font-family: "IBM Plex Sans"; font-style: normal; font-weight: 500; font-display: swap; src: url("./fonts/ibm-plex-sans-500.woff2") format("woff2"); }
+@font-face { font-family: "IBM Plex Sans"; font-style: normal; font-weight: 600; font-display: swap; src: url("./fonts/ibm-plex-sans-600.woff2") format("woff2"); }
+@font-face { font-family: "IBM Plex Mono"; font-style: normal; font-weight: 400; font-display: swap; src: url("./fonts/ibm-plex-mono-400.woff2") format("woff2"); }
+@font-face { font-family: "IBM Plex Mono"; font-style: normal; font-weight: 500; font-display: swap; src: url("./fonts/ibm-plex-mono-500.woff2") format("woff2"); }
+
+:root {
+  --ink: #111111;
+  --muted: #5d5d5a;
+  --faint: #8d8d88;
+  --rule: #111111;
+  --hairline: #dcdcd7;
+  --paper: #ffffff;
+  --shade: #f4f4f1;
+  --accent: #0d7797;
+  --alarm: #d1301f;
+  --sans: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, "SF Mono", monospace;
+  --column: 272px;
+  --prose: 720px;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+html { background: var(--paper); color: var(--ink); font-family: var(--sans); font-size: 16px; line-height: 1.65; -webkit-text-size-adjust: 100%; }
+body { margin: 0; }
+a { color: inherit; text-decoration-thickness: 1px; text-underline-offset: 3px; }
+a:hover { color: var(--accent); }
+
+/* The contents column */
+
+.contents { position: fixed; inset: 0 auto 0 0; width: var(--column); display: flex; flex-direction: column; padding: 40px 30px 28px; border-right: 1px solid var(--rule); overflow-y: auto; background: var(--paper); }
+.brand { display: block; color: var(--ink); font-size: 30px; font-weight: 600; letter-spacing: -.03em; line-height: 1; text-decoration: none; }
+.brand::after { content: ""; display: block; width: 48px; height: 6px; margin-top: 16px; background: var(--accent); }
+.brand__family { color: var(--faint); font-size: 15px; font-weight: 400; letter-spacing: 0; }
+.contents__label { margin: 40px 0 10px; color: var(--muted); font-size: 11px; letter-spacing: .24em; text-transform: uppercase; }
+.contents__pages { margin: 0; padding: 0; list-style: none; border-top: 1px solid var(--hairline); }
+.contents__pages > li { border-bottom: 1px solid var(--hairline); }
+.contents__pages > li > a { display: block; padding: 10px 0; font-size: 18px; text-decoration: none; }
+.contents__pages > li > a[aria-current="page"] { color: var(--accent); font-weight: 600; }
+.contents__sections { margin: -2px 0 12px; padding: 0; list-style: none; counter-reset: toc; }
+.contents__sections li { counter-increment: toc; display: flex; gap: 12px; padding: 3px 0; font-size: 14px; line-height: 1.35; }
+.contents__sections li::before { content: counter(toc, decimal-leading-zero); flex: none; width: 20px; color: var(--accent); font-family: var(--mono); font-size: 11px; line-height: 1.7; }
+.contents__sections a { text-decoration: none; }
+.contents__colophon { display: grid; gap: 6px; margin-top: auto; padding-top: 32px; color: var(--muted); font-size: 12px; line-height: 1.5; }
+
+/* The page */
+
+.page { margin-left: var(--column); padding: 40px 64px 120px; max-width: calc(var(--column) + 1240px); counter-reset: chapter plate; }
+.running-head { display: flex; justify-content: space-between; margin: 0 0 56px; padding-bottom: 12px; border-bottom: 2px solid var(--rule); font-size: 11px; letter-spacing: .26em; text-transform: uppercase; }
+
+.page-head { position: sticky; top: 0; z-index: 2; display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; flex-wrap: wrap; margin: 0 -64px; padding: 14px 64px 18px; background: var(--paper); }
+.page-title { margin: 0; font-size: clamp(44px, 6vw, 72px); font-weight: 600; letter-spacing: -.045em; line-height: .95; }
+.page-title::after { content: ""; display: block; width: 96px; height: 8px; margin-top: 18px; background: var(--accent); }
+
+.theme-switch { display: flex; align-items: center; gap: 0; font-size: 13px; }
+.theme-switch__label { margin-right: 14px; color: var(--muted); font-size: 11px; letter-spacing: .22em; text-transform: uppercase; }
+.theme-switch button { margin: 0; padding: 8px 18px; border: 2px solid var(--rule); background: var(--paper); color: var(--ink); font: inherit; font-weight: 600; cursor: pointer; }
+.theme-switch button + button { border-left: 0; }
+.theme-switch button[aria-pressed="true"] { background: var(--ink); color: var(--paper); }
+.theme-switch button:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+
+/* Chapters */
+
+.chapter { counter-increment: chapter; margin-top: 72px; }
+.chapter__title { display: flex; align-items: baseline; gap: 18px; margin: 0 0 24px; padding: 14px 0 0; border-top: 6px solid var(--rule); font-size: 34px; font-weight: 600; letter-spacing: -.03em; line-height: 1.1; }
+.chapter__title::before { content: counter(chapter, decimal-leading-zero); color: var(--accent); font-family: var(--mono); font-size: 15px; font-weight: 500; letter-spacing: 0; }
+
+.prose { max-width: var(--prose); }
+.prose > :first-child { margin-top: 0; }
+.prose p, .prose ul, .prose ol { margin: 0 0 1em; }
+.prose code { padding: .1em .3em; background: var(--shade); font-family: var(--mono); font-size: .86em; }
+.prose pre { margin: 0 0 1.2em; padding: 16px 18px; border-left: 4px solid var(--rule); background: var(--shade); font-family: var(--mono); font-size: 13px; line-height: 1.6; overflow-x: auto; }
+.prose pre code { padding: 0; background: none; font-size: inherit; }
+.prose table { width: 100%; margin: 0 0 1.2em; border-collapse: collapse; font-size: 14px; }
+.prose th { padding: 8px 12px 8px 0; border-bottom: 2px solid var(--rule); color: var(--muted); font-size: 11px; font-weight: 500; letter-spacing: .2em; text-align: left; text-transform: uppercase; }
+.prose td { padding: 9px 12px 9px 0; border-bottom: 1px solid var(--hairline); vertical-align: top; }
+
+/* Plates: one scenario each, three columns. */
+
+.plates { margin-top: 36px; }
+.plate { counter-increment: plate; margin: 0 0 44px; border-top: 2px solid var(--rule); }
+.plate--differs { border-top-color: var(--alarm); }
+.plate__head { display: flex; align-items: baseline; gap: 16px; padding: 12px 0; border-bottom: 1px solid var(--hairline); }
+.plate__number::before { content: counter(plate, decimal-leading-zero); color: var(--accent); font-family: var(--mono); font-size: 20px; font-weight: 500; }
+.plate__title { flex: 1; font-size: 17px; }
+.plate__flag { padding: 2px 8px; background: var(--alarm); color: var(--paper); font-size: 11px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; }
+.plate__grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.75fr); border-bottom: 1px solid var(--rule); }
+.plate__side { min-width: 0; padding: 14px 18px 18px; }
+.plate__side--markdown { padding-left: 0; }
+.plate__side--nodes { background: var(--shade); border-left: 1px solid var(--hairline); border-right: 1px solid var(--hairline); }
+.plate__side--page { padding-right: 0; }
+.plate__label { margin: 0 0 10px; color: var(--muted); font-size: 10px; letter-spacing: .24em; text-transform: uppercase; }
+.plate__label--expected { margin-top: 18px; color: var(--alarm); }
+.plate__source { margin: 0; font-family: var(--mono); font-size: 12px; line-height: 1.6; white-space: pre-wrap; overflow-wrap: anywhere; }
+
+/* The drawn page: a frame that looks like a screenshot. Its look comes
+   from the blocks theme on the frame. */
+
+/* The kinds and owners the fixtures declare, coloured as a project would. */
+.shot[data-blocks-theme="soft"] { --tone-person: #315f86; --tone-app: #654d86; --tone-provider: #a15c24; --tone-decision: #a15c24; --tone-end: #27613d; --tone-fail: #a13b24; }
+.shot[data-blocks-theme="graphic"] { --tone-person: #000000; --tone-app: #e10600; --tone-provider: #e10600; --tone-decision: #000000; --tone-end: #e10600; --tone-fail: #e10600; }
+.shot { border: 1px solid var(--rule); background: var(--blocks-surface, #fff); color: var(--blocks-ink, #111); }
+.shot__bar { display: flex; align-items: center; gap: 6px; padding: 7px 10px; border-bottom: 1px solid var(--hairline); background: var(--shade); }
+.shot__bar i { width: 8px; height: 8px; border-radius: 50%; background: #c9c9c4; }
+.shot__address { margin-left: 10px; color: var(--faint); font-family: var(--mono); font-size: 10px; }
+.shot__page { padding: 18px 24px 22px; font-size: 14px; line-height: 1.6; overflow-x: auto; }
+.shot__page > p { margin: .7em 0; color: var(--blocks-ink, #111); }
+.shot__kicker { margin: 0 !important; color: var(--blocks-muted, #666) !important; font-size: 10px; letter-spacing: .2em; text-transform: uppercase; }
+.shot__title { margin: .15em 0 .4em; font-size: 19px; font-weight: 600; letter-spacing: -.01em; line-height: 1.25; }
+.shot__page .callout, .shot__page .quote, .shot__page .ui-dialog, .shot__page .ui-flow, .shot__page .sequence, .shot__page .states { margin: 1.1em 0; }
+.shot--failed { padding: 16px 18px; border: 2px dashed var(--alarm); }
+.shot__failure { margin: 0 0 8px; color: var(--alarm); font-weight: 600; }
+.shot__error { margin: 0; font-family: var(--mono); font-size: 12px; white-space: pre-wrap; }
+
+/* Narrow screens */
+
+@media (max-width: 1180px) {
+  .plate__grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .plate__side--page { grid-column: 1 / -1; padding: 16px 0 20px; border-top: 1px solid var(--hairline); }
+  .plate__side--nodes { border-right: 0; }
+}
+@media (max-width: 860px) {
+  .contents { position: static; width: auto; padding: 24px 16px; border-right: 0; border-bottom: 1px solid var(--rule); }
+  .contents__colophon { display: none; }
+  .page { margin-left: 0; padding: 24px 16px 80px; }
+  .page-head { margin: 0 -16px; padding: 12px 16px 14px; }
+  .plate__grid { grid-template-columns: minmax(0, 1fr); }
+  .plate__side { padding: 12px 0; }
+  .plate__side--nodes { padding: 12px; border: 0; }
+}

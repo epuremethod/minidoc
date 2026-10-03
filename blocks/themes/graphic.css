@@ -1,0 +1,62 @@
+/* Graphic: white and black, square corners, solid rules, one strong
+   accent. Variables only. */
+
+[data-blocks-theme="graphic"] {
+  --blocks-ink: #000000;
+  --blocks-muted: #555555;
+  --blocks-line: #000000;
+  --blocks-stroke: #000000;
+  --blocks-surface: #ffffff;
+  --blocks-canvas: #ffffff;
+  --blocks-band: #000000;
+  --blocks-band-ink: #ffffff;
+
+  --tone-note: #000000;
+  --tone-draft: #000000;
+  --tone-settled: #000000;
+  --tone-open: #e10600;
+  --tone-technical: #000000;
+  --tone-principle: #000000;
+  --tone-rejected: #e10600;
+  --tone-flow: #000000;
+  --tone-quote: #e10600;
+  --tone-mark: #e10600;
+  --mark-ink: #ffffff;
+  --tone-refused: #e10600;
+  --tone-ui-primary: #000000;
+  --tone-ui-clicked: #e10600;
+
+  --fill-amount: 0%;
+  --edge-amount: 100%;
+  --callout-border: 0px;
+  --callout-rule: 5px;
+  --callout-radius: 0;
+  --callout-padding: .3em 0 .3em 1.25em;
+  --callout-font-size: 1em;
+  --callout-label-size: .7em;
+  --callout-label-case: uppercase;
+  --callout-label-tracking: .18em;
+  --label-padding: .25em .6em;
+  --label-fill-amount: 100%;
+  --label-base: #ffffff;
+  --label-ink-amount: 0%;
+  --label-edge-amount: 100%;
+  --quote-rule: 5px;
+  --quote-font-size: 1.2em;
+  --quote-style: normal;
+  --flow-column-min: 13em;
+  --flow-gap: 1.6em;
+  --step-border: 2px;
+  --ui-dialog-width: 340px;
+  --ui-dialog-border: 2px;
+  --ui-dialog-radius: 0;
+  --ui-control-radius: 0;
+  --ui-dialog-shadow: 6px 6px 0 #000000;
+  --ui-flow-gap: 2.5em;
+  --drawing-radius: 0;
+  --drawing-line: #000000;
+  --drawing-fill-amount: 100%;
+  --drawing-edge-amount: 100%;
+  --drawing-kind-ink: #ffffff;
+  --drawing-edge: 2;
+}

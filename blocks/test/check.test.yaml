@@ -1,0 +1,43 @@
+feature: The strict check
+background:
+  given: a document
+examples:
+  - scenario: an unknown block fails and names its line
+    before: |-
+      Some text.
+
+      ::: warning
+      Careful.
+      :::
+    error: "Unknown block on line 3: warning"
+
+  - scenario: a block left open fails and names the line that opens it
+    before: |-
+      ::: note
+      Never closed.
+    error: "Unclosed block on line 1"
+
+  - scenario: a close with fewer colons than its opening fails
+    before: |-
+      :::: note
+      Text.
+      :::
+    error: "Mismatched block close on line 3"
+
+  - scenario: colons inside a code block are text, not a block
+    before: |-
+      Write a note like this:
+
+      ```markdown
+      ::: note
+      Keep it short.
+      :::
+      ```
+    after: |-
+      | Write a note like this:
+      |
+      | ```markdown
+      | ::: note
+      | Keep it short.
+      | :::
+      | ```

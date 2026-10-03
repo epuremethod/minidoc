@@ -1,0 +1,44 @@
+feature: Flows
+background:
+  given: a document
+examples:
+  - scenario: each top item is a column of steps, and a bullet under a step is a detail
+    before: |-
+      ::: flow
+      1. **Upload**
+         1. The file arrives
+            - the original file
+         2. Its hash is computed
+            - the reference hash
+      2. **Viewing**
+         1. A reader asks for a range
+         2. The parts are checked
+            - each hash against the index
+      :::
+    after: |-
+      flow "Flow"
+        column "Upload"
+          step "The file arrives"
+            detail "the original file"
+          step "Its hash is computed"
+            detail "the reference hash"
+        column "Viewing"
+          step "A reader asks for a range"
+          step "The parts are checked"
+            detail "each hash against the index"
+
+  - scenario: a flat list is one column with no title
+    before: |-
+      ::: flow
+      1. Write the page
+      2. Build the site
+         - `pnpm build`
+      3. Publish
+      :::
+    after: |-
+      flow "Flow"
+        column
+          step "Write the page"
+          step "Build the site"
+            detail "`pnpm build`"
+          step "Publish"

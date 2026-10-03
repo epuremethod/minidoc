@@ -1,0 +1,86 @@
+feature: The HTML of each block
+background:
+  given: a page
+examples:
+  - scenario: a callout is an aside with its label above its body
+    before: |-
+      ::: note
+      Keep each page **short**.
+      :::
+    after: |-
+      <aside class="callout callout--note" aria-label="Note"><p class="callout__label">Note</p><div class="callout__body">
+      <p>Keep each page <strong>short</strong>.</p>
+      </div></aside>
+
+  - scenario: a quote is a figure with its author and date under it
+    before: |-
+      ::: quote "Ada Lovelace" 1843
+      It weaves algebraic patterns.
+      :::
+    after: |-
+      <figure class="quote"><blockquote>
+      <p>It weaves algebraic patterns.</p>
+      </blockquote><figcaption>— <cite>Ada Lovelace</cite>, <span class="quote__date">1843</span></figcaption></figure>
+
+  - scenario: a flow is a callout holding columns of steps
+    before: |-
+      ::: flow
+      1. **Upload**
+         1. The file arrives
+            - the original file
+      :::
+    after: |-
+      <aside class="callout callout--flow" aria-label="Flow"><p class="callout__label">Flow</p><div class="callout__body">
+      <ol class="flow">
+      <li class="flow__column"><p class="flow__title">Upload</p>
+      <ol class="flow__steps">
+      <li class="flow__step"><p class="flow__text">The file arrives</p>
+      <ul class="flow__details">
+      <li>the original file</li>
+      </ul>
+      </li>
+      </ol>
+      </li>
+      </ol>
+      </div></aside>
+
+  - scenario: a screen draws its bar, its text and each kind of widget
+    options:
+      ui-dialog:
+        owners:
+          provider: Identity provider
+    before: |-
+      ::: ui-dialog provider Sign in
+      Choose an account.
+
+      ( ) Work
+      (x) Personal
+
+      [x] Remember me
+
+      Password : ____
+
+      [Cancel] [[Sign in]]*
+      :::
+    after: |-
+      <div class="ui-dialog ui-dialog--provider" style="--tone: var(--tone-provider, var(--blocks-ink))" role="group" aria-label="Screen mockup: Sign in"><div class="ui-dialog__bar"><span class="ui-dialog__owner">Identity provider</span><span class="ui-dialog__title">Sign in</span></div><div class="ui-dialog__body">
+      <p>Choose an account.</p>
+      <div class="ui-dialog__options"><div class="ui-dialog__option ui-dialog__option--radio">Work</div><div class="ui-dialog__option ui-dialog__option--radio ui-dialog__option--on">Personal</div></div>
+      <div class="ui-dialog__options"><div class="ui-dialog__option ui-dialog__option--check ui-dialog__option--on">Remember me</div></div>
+      <div class="ui-dialog__field"><span class="ui-dialog__field-label">Password</span><span class="ui-dialog__input"></span></div>
+      <div class="ui-dialog__actions"><span class="ui-dialog__button">Cancel</span><span class="ui-dialog__button ui-dialog__button--primary ui-dialog__button--clicked">Sign in</span></div>
+      </div></div>
+
+  - scenario: a flow of screens is a figure with its caption above the screens
+    before: |-
+      :::: ui-flow Changing a password
+      ::: ui-dialog Settings
+      [[Change password]]*
+      :::
+      ::::
+    after: |-
+      <figure class="ui-flow"><figcaption class="ui-flow__caption">Changing a password</figcaption><div class="ui-flow__steps">
+      <div class="ui-dialog" role="group" aria-label="Screen mockup: Settings"><div class="ui-dialog__bar"><span class="ui-dialog__title">Settings</span></div><div class="ui-dialog__body">
+      <div class="ui-dialog__actions"><span class="ui-dialog__button ui-dialog__button--primary ui-dialog__button--clicked">Change password</span></div>
+      </div></div>
+      </div></figure>

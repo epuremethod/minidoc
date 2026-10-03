@@ -15,6 +15,7 @@ var:
         </a>
         <nav class="idx" aria-label="Chapters">
           {{navLinks}}
+          <a href="./blocks.html">Blocks</a>
           <a href="#gallery">Built with</a>
           <a href="./llms.txt">llms.txt</a>
           <a href="https://github.com/epuremethod/minidoc">GitHub</a>
@@ -80,6 +81,85 @@ var:
     </div>
     </body>
     </html>
+  # The new layout: a contents column, a running head, one column of prose.
+  # The Blocks page uses it; the other pages move to it next.
+  pageShell: |
+    <!doctype html>
+    <html lang="en" data-blocks-theme="graphic">
+    <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="{{description}}">
+    <title>{{title}}</title>
+    <link rel="stylesheet" href="./site.css">
+    <link rel="stylesheet" href="./blocks.css">
+    <link rel="stylesheet" href="./themes/soft.css">
+    <link rel="stylesheet" href="./themes/graphic.css">
+    </head>
+    <body>
+    <aside class="contents" aria-label="Contents">
+      <a class="brand" href="./index.html">minidoc <span class="brand__family">épure</span></a>
+      <p class="contents__label">Contents</p>
+      <ol class="contents__pages">
+        <li><a href="./index.html">Guide</a></li>
+        <li><a href="./blocks.html" aria-current="page">Blocks</a>
+          <ol class="contents__sections">
+          {{blocksToc}}
+          </ol>
+        </li>
+      </ol>
+      <footer class="contents__colophon">
+        <a href="https://github.com/epuremethod/minidoc">github.com/epuremethod/minidoc</a>
+        <span>Part of <a href="https://epuremethod.com">épure</a>. Built with minidoc and
+        <a href="https://epurejs.dev">@epure/vitest</a>.</span>
+      </footer>
+    </aside>
+    <main class="page">
+      <p class="running-head"><span>minidoc</span><span>{{running}}</span></p>
+      {{pageBody}}
+    </main>
+    <script>
+    // The theme switch: it changes the drawn pages of the plates, not the site.
+    (() => {
+      const buttons = [...document.querySelectorAll("[data-theme-switch]")]
+      const pick = (theme) => {
+        for (const shot of document.querySelectorAll(".shot[data-blocks-theme]")) shot.dataset.blocksTheme = theme
+        for (const button of buttons) button.setAttribute("aria-pressed", String(button.dataset.themeSwitch === theme))
+        try { localStorage.setItem("minidoc-blocks-theme", theme) } catch {}
+      }
+      for (const button of buttons) button.addEventListener("click", () => pick(button.dataset.themeSwitch))
+      let saved = null
+      try { saved = localStorage.getItem("minidoc-blocks-theme") } catch {}
+      if (saved === "soft" || saved === "graphic") pick(saved)
+    })()
+    </script>
+    </body>
+    </html>
+  blocksToc:
+    dir: blocks
+    transform: none
+    each: '<li><a href="#{{slug}}">{{nav}}</a></li>'
+    join: "\n      "
+  blocksSections:
+    dir: blocks
+    transform: blocksMd
+    each: |-
+      <section class="chapter" id="{{slug}}">
+      <h2 class="chapter__title">{{title}}</h2>
+      <div class="prose">
+      {{body}}
+      </div>
+      {{sectionPlates}}
+      </section>
+  sectionPlates:
+    value: "{{fixture}}"
+    transform: plates
+  themeSwitch: |-
+    <div class="theme-switch" role="group" aria-label="Theme of the drawn pages">
+      <span class="theme-switch__label">Theme</span>
+      <button type="button" data-theme-switch="soft" aria-pressed="true">Soft</button>
+      <button type="button" data-theme-switch="graphic" aria-pressed="false">Graphic</button>
+    </div>
   hero:
     file: home.html
   gallery:
@@ -98,6 +178,27 @@ build:
         {{chapters}}
 
         {{gallery}}
+  - output: "{{output}}/blocks.html"
+    input: "{{pageShell}}"
+    var:
+      title: Blocks — minidoc
+      description: "Common ::: blocks for minidoc sites, drawn from the package's own scenarios."
+      running: Blocks
+      pageBody: |-
+        <header class="page-head">
+        <h1 class="page-title">Blocks</h1>
+        {{themeSwitch}}
+        </header>
+        {{blocksSections}}
+  - output: "{{output}}/site.css"
+    input:
+      copy: ../assets/site.css
+  - output: "{{output}}/blocks.css"
+    input:
+      copy: ../../blocks/blocks.css
+  - output: "{{output}}/themes"
+    input:
+      copy: ../../blocks/themes
   - output: "{{output}}/llms.txt"
     input: "{{llmsTxt}}"
   - output: "{{output}}/llms-full.txt"

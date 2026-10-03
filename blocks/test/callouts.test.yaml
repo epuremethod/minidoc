@@ -1,0 +1,87 @@
+feature: Callouts
+background:
+  given: a document
+examples:
+  - scenario: a note carries its label and keeps its text as markdown
+    before: |-
+      ::: note
+      Keep each page **short**.
+      :::
+    after: |-
+      callout note "Note"
+        | Keep each page **short**.
+
+  - scenario: an open question holds several paragraphs and a list
+    before: |-
+      ::: open
+      Who signs the export?
+
+      - the author
+      - a reviewer
+      :::
+    after: |-
+      callout open "Open question"
+        | Who signs the export?
+        |
+        | - the author
+        | - a reviewer
+
+  - scenario: each common callout has its English label
+    before: |-
+      ::: draft
+      A
+      :::
+
+      ::: settled
+      B
+      :::
+
+      ::: technical
+      C
+      :::
+
+      ::: principle
+      D
+      :::
+
+      ::: rejected
+      E
+      :::
+    after: |-
+      callout draft "Draft"
+        | A
+      callout settled "Settled"
+        | B
+      callout technical "Technical"
+        | C
+      callout principle "Principle"
+        | D
+      callout rejected "Rejected"
+        | E
+
+  - scenario: a callout holds another block when its colons are more
+    before: |-
+      :::: settled
+      We keep the format.
+
+      ::: quote "Ada Lovelace"
+      It weaves algebraic patterns.
+      :::
+      ::::
+    after: |-
+      callout settled "Settled"
+        | We keep the format.
+        quote author "Ada Lovelace"
+          | It weaves algebraic patterns.
+
+  - scenario: a project adds a callout of its own
+    options:
+      callouts:
+        risk: Accepted risk
+    before: |-
+      ::: risk
+      The cache may serve a stale page for a minute.
+      :::
+    after: |-
+      callout risk "Accepted risk"
+        | The cache may serve a stale page for a minute.

@@ -1,0 +1,42 @@
+feature: The page around the blocks
+background:
+  given: a page
+examples:
+  - scenario: inline code that starts with an exclamation mark is highlighted
+    before: |-
+      Run `! pnpm build` before you publish.
+    after: |-
+      <p>Run <code class="code--mark">pnpm build</code> before you publish.</p>
+
+  - scenario: second and third level headings get an anchor without accents
+    before: |-
+      ## Café crème
+
+      ### À la carte
+
+      #### Not anchored
+    after: |-
+      <h2 id="cafe-creme" tabindex="-1">Café crème</h2>
+      <h3 id="a-la-carte" tabindex="-1">À la carte</h3>
+      <h4>Not anchored</h4>
+
+  - scenario: a table is wrapped so that a wide one scrolls
+    before: |-
+      | Block | Use |
+      | --- | --- |
+      | note | an aside |
+    after: |-
+      <div class="table-wrap"><table>
+      <thead>
+      <tr>
+      <th>Block</th>
+      <th>Use</th>
+      </tr>
+      </thead>
+      <tbody>
+      <tr>
+      <td>note</td>
+      <td>an aside</td>
+      </tr>
+      </tbody>
+      </table></div>

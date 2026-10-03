@@ -13,6 +13,8 @@
   },
   "dependencies": {
     "@epure/minidoc": "workspace:*",
-    "marked": "^18.0.7"
+    "@epure/minidoc-blocks": "workspace:*",
+    "marked": "^18.0.7",
+    "yaml": "^2.8.0"
   }
 }

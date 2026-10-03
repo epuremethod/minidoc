@@ -53,7 +53,7 @@ build:
 ```
 
 Each page renders the entry's `input` in its own child context: the file's
-frontmatter layers in like a `file` var's — over the config's vars, under the
+frontmatter layers in over the config's vars, under the
 entry's own `var` — plus ``{{`page`}}``, its rendered body, and
 ``{{`file.name`}}`` / ``{{`file.stem`}}`` / ``{{`file.dir`}}`` (its parent
 folder's name). All of it is usable in the output path, so a `slug:` in every
@@ -66,7 +66,7 @@ A glob with a `/` reaches into subfolders — one page per folder:
 
 ```yaml
 var:
-  layouts.cv:                  # a dotted name, not a nested mapping
+  layouts.cv:                  # same leaf as layouts: { cv: … }
     file: layouts/cv.html
 build:
   - pages: { dir: candidatures, glob: "*/cv.md" }

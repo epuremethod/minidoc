@@ -1,0 +1,70 @@
+feature: Sequences
+background:
+  given: a document
+examples:
+  - scenario: the first line names the parties, and each line after it is a message down the page
+    before: |-
+      ```sequence
+      browser app
+      browser -> app  sign in
+      app -> browser  token
+      ```
+    after: |-
+      sequence
+        frame -10 -10 252 134
+        head party 0 0 84 26 "browser"
+        head party 148 0 84 26 "app"
+        life 42 26 114
+        life 190 26 114
+        message 42 190 50
+          label 116 45 "sign in"
+        message 190 42 82
+          label 116 77 "token"
+
+  - scenario: a refusal, a party's state, a caption and a legend of the project's kinds
+    options:
+      sequence:
+        kinds:
+          person: the person, in their browser
+          app: the application
+    before: |-
+      ```sequence Locked out
+      person:person app:app
+      {legend}
+      person -> app  password
+      app -x person  wrong password
+      person = locked
+      ```
+    after: |-
+      sequence
+        frame -10 -10 252 166
+        head person 0 0 84 26 "person"
+        head app 148 0 84 26 "app"
+        life 42 26 146
+        life 190 26 146
+        message 42 190 50
+          label 116 45 "password"
+        refused 190 42 82
+          label 116 77 "wrong password"
+        state 13 104 58 20 "locked"
+        caption "Locked out"
+        key person "the person, in their browser"
+        key app "the application"
+        key message "a message, and what it carries"
+        key refused "a refusal"
+        key state "the state of a party"
+
+  - scenario: a message to a party that the first line does not name is refused
+    before: |-
+      ```sequence
+      browser app
+      browser -> bank  pay
+      ```
+    error: "sequence: no party called bank"
+
+  - scenario: a sequence needs two parties
+    before: |-
+      ```sequence
+      browser
+      ```
+    error: "sequence: a sequence runs between two parties at least"

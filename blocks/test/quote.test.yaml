@@ -1,0 +1,30 @@
+feature: Quotes
+background:
+  given: a document
+examples:
+  - scenario: a quote names its author and its date
+    before: |-
+      ::: quote "Ada Lovelace" 1843
+      The Analytical Engine weaves algebraic patterns.
+      :::
+    after: |-
+      quote author "Ada Lovelace" date "1843"
+        | The Analytical Engine weaves algebraic patterns.
+
+  - scenario: a quote may name its author only
+    before: |-
+      ::: quote "Grace Hopper"
+      It is easier to ask forgiveness than permission.
+      :::
+    after: |-
+      quote author "Grace Hopper"
+        | It is easier to ask forgiveness than permission.
+
+  - scenario: a quote may name no one
+    before: |-
+      ::: quote
+      Less, but better.
+      :::
+    after: |-
+      quote
+        | Less, but better.

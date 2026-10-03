@@ -190,6 +190,7 @@ type httpmod = {createServer: ((req, res) => unit) => server}
 @send external push: (res, string) => bool = "write"
 @send external onClose: (res, string, unit => unit) => unit = "on"
 @send external shut: server => unit = "close"
+@send external drop: server => unit = "closeAllConnections"
 @val external decode: string => string = "decodeURIComponent"
 
 /** The file at `path`, or nothing when it is missing or is not a file. */
@@ -318,6 +319,22 @@ let rawListen: (server, int, string) => promise<int> = %raw(`(server, port, host
     server.listen(port, host)
   })`)
 
+// Whether a minidoc dev server answers at `port`: its reload channel opens an
+// event stream. The stream is dropped as soon as its headers arrive.
+let rawProbe: (string, int, string) => promise<bool> = %raw(`async (host, port, channel) => {
+  const abort = new AbortController()
+  const timer = setTimeout(() => abort.abort(), 1000)
+  try {
+    const res = await fetch("http://" + host + ":" + port + channel, {signal: abort.signal})
+    return (res.headers.get("content-type") || "").startsWith("text/event-stream")
+  } catch {
+    return false
+  } finally {
+    clearTimeout(timer)
+    abort.abort()
+  }
+}`)
+
 // ---------------------------------------------------------------------------
 
 type options = {
@@ -363,52 +380,51 @@ let dev = async (options: options, hooks: hooks) => {
   let server = http.createServer((req, res) => serve(dir, clients, req, res)->ignore)
 
   // A port the caller names is the caller's business. A port we remembered is
-  // ours to replace the day the machine says it is taken — and to write down
-  // the first time, so this site keeps the same address tomorrow.
+  // written down the first time, so this site keeps the same address
+  // tomorrow. Either way it is never replaced: when it is taken by a dev
+  // server, that server is this site's and we point at it; by anything else,
+  // we fail loud.
   let remembered = switch options.port {
   | Some(port) => Some(port)
   | None => await hooks.readPort()
   }
   let wanted = remembered->Option.getOr(0)
-  let port = switch await rawListen(server, wanted, host) {
-  | -1 =>
-    if wanted != 0 {
-      say(`port ${Int.toString(wanted)} is taken — drawing another`)
-    }
-    await rawListen(server, 0, host)
-  | port => port
-  }
+  let port = await rawListen(server, wanted, host)
   if port < 0 {
-    fail(`dev server could not listen on ${host}`)
-  }
-  switch options.port {
-  | Some(_) => ()
-  | None =>
-    switch remembered {
-    | Some(had) if had == port => ()
-    | _ => await hooks.writePort(port)
+    if wanted == 0 {
+      fail(`dev server could not listen on ${host}`)
+    } else if await rawProbe(host, wanted, channel) {
+      say(`already running at http://${host}:${Int.toString(wanted)}`)
+      {port: wanted, stop: () => ()}
+    } else {
+      fail(`port ${Int.toString(wanted)} is taken: free it, or pass another \`port\``)
     }
-  }
-
-  // The port is written before the first build, so the config a build reads
-  // already names it — and before the watcher, so writing it is not a change.
-  let trigger = looper(hooks.rebuild, _ =>
-    clients.contents->Array.forEach(r => push(r, "data: reload\n\n")->ignore)
-  )
-  await trigger()
-  let watchers = await watching(
-    [root, ...options.watch->Option.getOr([])],
-    options.ignore->Option.getOr(ignored),
-    options.extensions->Option.getOr(extensions),
-    trigger,
-  )
-  say(`http://${host}:${Int.toString(port)} — watching ${root}`)
-  {
-    port,
-    stop: () => {
-      watchers->Array.forEach(unwatch)
-      clients.contents->Array.forEach(r => finish(r, ""))
-      shut(server)
-    },
+  } else {
+    if options.port->Option.isNone && remembered != Some(port) {
+      await hooks.writePort(port)
+    }
+    // The port is written before the first build, so the config a build reads
+    // already names it — and before the watcher, so writing it is not a change.
+    let trigger = looper(hooks.rebuild, _ =>
+      clients.contents->Array.forEach(r => push(r, "data: reload\n\n")->ignore)
+    )
+    await trigger()
+    let watchers = await watching(
+      [root, ...options.watch->Option.getOr([])],
+      options.ignore->Option.getOr(ignored),
+      options.extensions->Option.getOr(extensions),
+      trigger,
+    )
+    say(`http://${host}:${Int.toString(port)} — watching ${root}`)
+    {
+      port,
+      stop: () => {
+        watchers->Array.forEach(unwatch)
+        clients.contents->Array.forEach(r => finish(r, ""))
+        // Kept-alive sockets would still answer on a port we gave up.
+        shut(server)
+        drop(server)
+      },
+    }
   }
 }

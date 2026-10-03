@@ -139,9 +139,10 @@ test("dev serves the output and rebuilds what changed", async (t) => {
   });
 });
 
-test("the port is remembered, and given up when the machine took it", async (t) => {
+test("the port is remembered, and never replaced", async (t) => {
   const root = await site();
   t.after(() => rm(root, { recursive: true, force: true }));
+  const config = () => readFile(path.join(root, "config.yaml"), "utf8");
 
   const first = await dev(options(root));
   const drawn = first.port;
@@ -149,17 +150,25 @@ test("the port is remembered, and given up when the machine took it", async (t) 
 
   const again = await dev(options(root));
   assert.equal(again.port, drawn, "the same site keeps the same address");
+
+  await t.test("points at a dev server already running on it", async () => {
+    const before = await config();
+    const twin = await dev(options(root));
+    assert.equal(twin.port, drawn);
+    assert.equal(await config(), before);
+    twin.stop();
+  });
   again.stop();
 
-  const squatter = net.createServer();
-  await new Promise((resolve) => squatter.listen(drawn, "127.0.0.1", resolve));
-  const moved = await dev(options(root));
-  t.after(() => {
-    moved.stop();
-    squatter.close();
+  await t.test("fails loud when something else took it", async (t) => {
+    const squatter = net.createServer();
+    await new Promise((resolve) => squatter.listen(drawn, "127.0.0.1", resolve));
+    t.after(() => squatter.close());
+    const before = await config();
+    await assert.rejects(dev(options(root)), new RegExp(`port ${drawn} is taken`));
+    assert.equal(port(await config()), drawn);
+    assert.equal(await config(), before);
   });
-  assert.notEqual(moved.port, drawn);
-  assert.equal(port(await readFile(path.join(root, "config.yaml"), "utf8")), moved.port);
 });
 
 test("an explicit port is the caller's, and is never written down", async (t) => {

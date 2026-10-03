@@ -1,5 +1,6 @@
 packages:
   - minidoc
+  - blocks
   - docs
 allowBuilds:
   esbuild: true

@@ -3,6 +3,7 @@
 import * as Schema from "./Schema.res.mjs";
 import * as Belt_Array from "@rescript/runtime/lib/es6/Belt_Array.js";
 import * as Stdlib_Option from "@rescript/runtime/lib/es6/Stdlib_Option.js";
+import * as Primitive_object from "@rescript/runtime/lib/es6/Primitive_object.js";
 import * as Primitive_option from "@rescript/runtime/lib/es6/Primitive_option.js";
 
 let import_ = ((name) => import(name));
@@ -385,6 +386,20 @@ let rawListen = ((server, port, host) =>
     server.listen(port, host)
   }));
 
+let rawProbe = (async (host, port, channel) => {
+  const abort = new AbortController()
+  const timer = setTimeout(() => abort.abort(), 1000)
+  try {
+    const res = await fetch("http://" + host + ":" + port + channel, {signal: abort.signal})
+    return (res.headers.get("content-type") || "").startsWith("text/event-stream")
+  } catch {
+    return false
+  } finally {
+    clearTimeout(timer)
+    abort.abort()
+  }
+});
+
 let host = "127.0.0.1";
 
 async function watch(options, rebuild) {
@@ -419,21 +434,21 @@ async function dev(options, hooks) {
   let remembered = port !== undefined ? port : await hooks.readPort();
   let wanted = Stdlib_Option.getOr(remembered, 0);
   let port$1 = await rawListen(server, wanted, host);
-  let port$2 = port$1 !== -1 ? port$1 : (wanted !== 0 ? say(`port ` + wanted.toString() + ` is taken — drawing another`) : undefined, await rawListen(server, 0, host));
-  if (port$2 < 0) {
-    Schema.fail(`dev server could not listen on ` + host);
-  }
-  let match = options.port;
-  if (match !== undefined) {
-    
-  } else if (remembered !== undefined) {
-    if (remembered === port$2) {
-      
+  if (port$1 < 0) {
+    if (wanted === 0) {
+      return Schema.fail(`dev server could not listen on ` + host);
+    } else if (await rawProbe(host, wanted, channel)) {
+      say(`already running at http://` + host + `:` + wanted.toString());
+      return {
+        port: wanted,
+        stop: () => {}
+      };
     } else {
-      await hooks.writePort(port$2);
+      return Schema.fail(`port ` + wanted.toString() + ` is taken: free it, or pass another \`port\``);
     }
-  } else {
-    await hooks.writePort(port$2);
+  }
+  if (Stdlib_Option.isNone(options.port) && Primitive_object.notequal(remembered, port$1)) {
+    await hooks.writePort(port$1);
   }
   let trigger = looper(hooks.rebuild, param => {
     clients.contents.forEach(r => {
@@ -445,9 +460,9 @@ async function dev(options, hooks) {
     [root],
     Stdlib_Option.getOr(options.watch, [])
   ]), Stdlib_Option.getOr(options.ignore, ignored), Stdlib_Option.getOr(options.extensions, extensions), trigger);
-  say(`http://` + host + `:` + port$2.toString() + ` — watching ` + root);
+  say(`http://` + host + `:` + port$1.toString() + ` — watching ` + root);
   return {
-    port: port$2,
+    port: port$1,
     stop: () => {
       watchers.forEach(prim => {
         prim.close();
@@ -456,6 +471,7 @@ async function dev(options, hooks) {
         r.end("");
       });
       server.close();
+      server.closeAllConnections();
     }
   };
 }
@@ -484,6 +500,7 @@ export {
   candidates,
   serve,
   rawListen,
+  rawProbe,
   host,
   watch,
   dev,
