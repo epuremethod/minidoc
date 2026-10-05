@@ -1,0 +1,72 @@
+feature: API calls
+background:
+  given: a document
+examples:
+  - scenario: a call names its method and path, and each part holds YAML indented under it
+    before: |-
+      ::: api GET /messages Read the messages
+      query
+        app: portal
+      response 200 Two messages
+        - id: 1
+          status: done
+        - id: 2
+          status: waiting
+      :::
+    after: |-
+      api GET "/messages" title "Read the messages"
+        query
+          {"app":"portal"}
+        response 200 caption "Two messages"
+          [{"id":1,"status":"done"},{"id":2,"status":"waiting"}]
+
+  - scenario: a request sends headers and a body, and a response may hold nothing
+    before: |-
+      ::: api POST /messages
+      headers
+        Authorization: Bearer a1b2
+      body
+        operation: domicile
+        code: "1950"
+      response 202 Accepted
+      :::
+    after: |-
+      api POST "/messages"
+        headers
+          {"Authorization":"Bearer a1b2"}
+        body
+          {"operation":"domicile","code":"1950"}
+        response 202 caption "Accepted"
+
+  - scenario: an empty list is a value of its own
+    before: |-
+      ::: api GET /messages
+      response 200 Nothing to read
+        []
+      :::
+    after: |-
+      api GET "/messages"
+        response 200 caption "Nothing to read"
+          []
+
+  - scenario: a call needs a method and a path
+    before: |-
+      ::: api GET
+      :::
+    error: 'api: an API call names a method and a path, like "GET /messages", line 1'
+
+  - scenario: a part is query, headers, body or response
+    before: |-
+      ::: api GET /messages
+      answer
+        id: 1
+      :::
+    error: 'api: unknown part "answer", line 2; a part is query, headers, body or response'
+
+  - scenario: a part holds YAML
+    before: |-
+      ::: api GET /messages
+      query
+        app: [portal
+      :::
+    error: "api: the query is not YAML"

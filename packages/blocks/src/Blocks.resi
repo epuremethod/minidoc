@@ -9,8 +9,13 @@ type kinds = {
   kinds?: dict<string>,
 }
 
+type api = {
+  /** The words an API call shows, by key: query, headers, body, response, empty. */
+  labels?: dict<string>,
+}
+
 type dialog = {
-  /** Who may present a screen, by the word that names them, with their label. */
+  /** Who may present a screen or a form, by the word that names them, with their label. */
   owners?: dict<string>,
 }
 
@@ -28,6 +33,7 @@ type options = {
   @as("ui-dialog") dialog?: dialog,
   sequence?: kinds,
   states?: kinds,
+  api?: api,
   extra?: array<extra>,
   /** Called with the markdown-it instance, to add the site's own plugins. */
   markdown?: Markdown.t => unit,

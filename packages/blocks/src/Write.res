@@ -55,7 +55,10 @@ let widget = (w, pad) =>
       `${pad}options`,
       ...choices->Array.map(c => `${pad}  ${c.radio ? "radio" : "check"} ${quote(c.text)}${flag("on", c.on)}`),
     ]
-  | Field(label) => [`${pad}field ${quote(label)}`]
+  | Field({label, value, select, buttons}) => [
+      `${pad}field ${quote(label)}${field("value", value)}${flag("select", select)}`,
+      ...buttons->Array.map(b => `${pad}  button ${quote(b.text)}${flag("primary", b.primary)}${flag("clicked", b.clicked)}`),
+    ]
   }
 
 let rec lines = (node, pad) => {
@@ -82,7 +85,21 @@ let rec lines = (node, pad) => {
         )}`,
       ...widgets->Array.flatMap(w => widget(w, inner)),
     ]
+  | Form({owner, title, widgets}) => [
+      `${pad}ui-form${owner->Option.mapOr("", ((key, label)) => ` owner ${key} ${quote(label)}`)}${field(
+          "title",
+          title,
+        )}`,
+      ...widgets->Array.flatMap(w => widget(w, inner)),
+    ]
   | Screens({caption, children: c}) => [`${pad}ui-flow${field("caption", caption)}`, ...children(c)]
+  | Api({method, path, title, parts}) => [
+      `${pad}api ${method} ${quote(path)}${field("title", title)}`,
+      ...parts->Array.flatMap(p => [
+        `${inner}${p.name}${p.status->Option.mapOr("", s => ` ${s}`)}${field("caption", p.caption)}`,
+        ...(p.value == JSON.Null ? [] : [`${inner}  ${JSON.stringify(p.value)}`]),
+      ]),
+    ]
   | Sequence(drawing) => [
       `${pad}sequence`,
       ...drawing.ops->Array.flatMap(op => sequenceOp(op, inner)),

@@ -1,7 +1,6 @@
 import { rm } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { nodeFs, run } from "@epure/minidoc";
-import { blocks } from "@epure/minidoc-blocks";
 import { plates } from "./plates.mjs";
 import { md } from "./transforms.mjs";
 
@@ -13,7 +12,7 @@ export async function build() {
   await run({
     fs: nodeFs(fileURLToPath(root).replace(/\/$/, ""), { allow: ["../blocks"] }),
     glob: "content/config.yaml",
-    transform: { md, blocksMd: blocks({}), plates },
+    transform: { md, plates },
   });
 }
 

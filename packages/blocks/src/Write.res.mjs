@@ -139,7 +139,11 @@ function widget(w, pad) {
         ) + ` ` + quote(c.text) + flag("on", c.on))
       ]);
     case "Field" :
-      return [pad + `field ` + quote(w._0)];
+      let match = w._0;
+      return Belt_Array.concatMany([
+        [pad + `field ` + quote(match.label) + field("value", match.value) + flag("select", match.select)],
+        match.buttons.map(b => pad + `  button ` + quote(b.text) + flag("primary", b.primary) + flag("clicked", b.clicked))
+      ]);
   }
 }
 
@@ -175,10 +179,23 @@ function lines(node, pad) {
         [pad + `ui-dialog` + Stdlib_Option.mapOr(node.owner, "", param => ` owner ` + param[0] + ` ` + quote(param[1])) + field("title", node.title)],
         node.widgets.flatMap(w => widget(w, inner))
       ]);
+    case "Form" :
+      return Belt_Array.concatMany([
+        [pad + `ui-form` + Stdlib_Option.mapOr(node.owner, "", param => ` owner ` + param[0] + ` ` + quote(param[1])) + field("title", node.title)],
+        node.widgets.flatMap(w => widget(w, inner))
+      ]);
     case "Screens" :
       return Belt_Array.concatMany([
         [pad + `ui-flow` + field("caption", node.caption)],
         children(node.children)
+      ]);
+    case "Api" :
+      return Belt_Array.concatMany([
+        [pad + `api ` + node.method + ` ` + quote(node.path) + field("title", node.title)],
+        node.parts.flatMap(p => Belt_Array.concatMany([
+          [inner + p.name + Stdlib_Option.mapOr(p.status, "", s => ` ` + s) + field("caption", p.caption)],
+          p.value === null ? [] : [inner + `  ` + JSON.stringify(p.value)]
+        ]))
       ]);
     case "Sequence" :
       let drawing = node._0;

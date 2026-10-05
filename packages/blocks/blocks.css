@@ -110,7 +110,17 @@
 .ui-dialog__option--on::before { border-color: var(--tone-ui-primary); background: var(--tone-ui-primary); box-shadow: inset 0 0 0 2px var(--blocks-surface); }
 .ui-dialog__field { display: grid; gap: .2em; }
 .ui-dialog__field-label { color: var(--blocks-muted); font-size: .9em; }
-.ui-dialog__input { height: 2.2em; border: 1px solid var(--blocks-line); border-radius: var(--ui-control-radius); background: var(--blocks-surface); }
+.ui-dialog__input { display: flex; align-items: center; min-width: 0; height: 2.2em; padding: 0 .6em; overflow: hidden; border: 1px solid var(--blocks-line); border-radius: var(--ui-control-radius); background: var(--blocks-surface); white-space: nowrap; }
+.ui-dialog__input--select::after { content: "▾"; margin-left: auto; padding-left: .6em; color: var(--blocks-muted); }
+.ui-dialog__control { display: flex; gap: .5em; min-width: 0; }
+.ui-dialog__control > .ui-dialog__input { flex: 1 1 auto; }
+.ui-dialog__control > .ui-dialog__button { flex: none; }
+/* A form is a wider screen: each label sits beside its input, and the
+   buttons at its foot keep to the right. */
+.ui-form { max-width: var(--ui-form-width); }
+.ui-form .ui-dialog__field { grid-template-columns: var(--ui-form-label) minmax(0, 1fr); align-items: center; gap: 1em; }
+.ui-form .ui-dialog__actions { justify-content: flex-end; }
+.ui-form .ui-dialog__actions > .ui-dialog__button { flex: none; }
 
 .ui-flow { min-width: 0; margin: 1.25em 0; padding: 0; border: var(--ui-dialog-border) solid var(--blocks-line); border-radius: var(--callout-radius); background: var(--blocks-canvas); print-color-adjust: exact; }
 .ui-flow__caption { padding: .6em 1em; border-bottom: var(--ui-dialog-border) solid var(--blocks-line); background: var(--blocks-band); color: var(--blocks-band-ink); font-size: .9em; font-weight: 650; }
@@ -120,8 +130,35 @@
 @media (max-width: 640px) {
   .ui-flow__steps { flex-direction: column; align-items: flex-start; }
   .ui-flow__steps > .ui-dialog { flex: none; }
+  .ui-form .ui-dialog__field { grid-template-columns: minmax(0, 1fr); gap: .2em; }
   .ui-flow__steps > .ui-dialog + .ui-dialog::before { content: "↓"; top: calc(-.5 * var(--ui-flow-gap)); left: 1.4em; }
 }
+
+/* API calls: the call in a band, then each part, its values drawn as a
+   column of keys and values, a list as one card per item. */
+
+.api { min-width: 0; margin: 1.25em 0; overflow: hidden; border: var(--ui-dialog-border) solid var(--blocks-line); border-radius: var(--callout-radius); background: var(--blocks-surface); color: var(--blocks-ink); font-size: .9em; line-height: 1.45; print-color-adjust: exact; }
+.api__call { display: flex; flex-wrap: wrap; align-items: baseline; gap: .3em .7em; padding: .6em 1em; border-bottom: var(--ui-dialog-border) solid var(--blocks-line); background: var(--blocks-band); color: var(--blocks-band-ink); }
+.api__method { padding: .1em .5em; border-radius: var(--ui-control-radius); background: var(--tone-ui-primary); color: var(--blocks-surface); font-size: .8em; font-weight: 750; letter-spacing: .04em; }
+.api__path { min-width: 0; font-family: ui-monospace, "SFMono-Regular", Consolas, monospace; font-weight: 600; overflow-wrap: anywhere; }
+.api__search { color: var(--blocks-muted); font-weight: 400; }
+.api__title { margin-left: auto; color: var(--blocks-muted); }
+.api__part { padding: .8em 1em; }
+.api__part + .api__part { border-top: 1px dashed var(--blocks-line); }
+.api__label { display: flex; flex-wrap: wrap; align-items: baseline; gap: .5em; margin: 0 0 .6em; color: var(--blocks-muted); font-size: .75em; font-weight: 750; letter-spacing: .06em; text-transform: uppercase; }
+.api__status { padding: 0 .4em; border-radius: 3px; background: color-mix(in srgb, var(--tone-settled) var(--fill-amount), var(--blocks-surface)); color: var(--tone-settled); letter-spacing: 0; }
+.api__status--error { background: color-mix(in srgb, var(--tone-refused) var(--fill-amount), var(--blocks-surface)); color: var(--tone-refused); }
+.api__caption { color: var(--blocks-ink); font-weight: 600; letter-spacing: 0; text-transform: none; font-size: 1.25em; }
+.api__fields { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: .2em 1.2em; margin: 0; font-family: ui-monospace, "SFMono-Regular", Consolas, monospace; font-size: .85em; }
+.api__fields .api__fields { font-size: 1em; }
+.api__field { display: contents; }
+.api__fields dt { color: var(--blocks-muted); }
+.api__fields dd { min-width: 0; margin: 0; overflow-wrap: anywhere; }
+.api__string::before, .api__string::after { content: '"'; color: var(--blocks-muted); }
+.api__items { display: grid; gap: .6em; margin: 0 0 0 1.5em; padding: 0; list-style: none; }
+.api__item { width: fit-content; max-width: 100%; padding: .6em .8em; border: 1px solid var(--blocks-line); border-radius: var(--ui-control-radius); background: var(--blocks-canvas); }
+.api__empty { margin: 0; color: var(--blocks-muted); font-style: italic; }
+.api__empty code { font-style: normal; }
 
 /* Drawn blocks: a sequence and a state machine. A kind of the project's
    carries --tone in its style attribute. */
@@ -153,7 +190,7 @@
 .states__label[style] { fill: var(--mark); }
 marker[style] .states__tip { fill: color-mix(in srgb, var(--tone) var(--drawing-edge-amount), var(--blocks-surface)); }
 .sequence__cross { fill: none; stroke: var(--tone-refused); stroke-width: 1.8; }
-.sequence__label, .states__label { fill: var(--blocks-muted); font-size: 11px; paint-order: stroke; stroke: var(--blocks-surface); stroke-width: 3px; stroke-linejoin: round; }
+.sequence__label, .states__label { fill: var(--blocks-muted); font-size: 11px; }
 .sequence__label--refused { fill: var(--tone-refused); }
 .sequence__caption, .states__caption { display: flex; flex-direction: column; gap: .4em; margin-top: .9em; }
 .sequence__title, .states__title { color: var(--blocks-muted); font-size: .85em; }
@@ -183,5 +220,5 @@ marker[style] .states__tip { fill: color-mix(in srgb, var(--tone) var(--drawing-
 .table-wrap { overflow-x: auto; }
 
 @media print {
-  .callout, .quote, .ui-dialog, .ui-flow, .sequence, .states { break-inside: avoid; }
+  .callout, .quote, .ui-dialog, .ui-flow, .sequence, .states, .api { break-inside: avoid; }
 }

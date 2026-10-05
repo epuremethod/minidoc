@@ -1,6 +1,8 @@
 // A screen mockup. `::: ui-dialog owner Title` opens a screen: the owner,
-// optional, says who presents it. `:::: ui-flow Caption` holds screens in
-// the order the person sees them. Ported from SWISSID's scripts/ui-dialog.mjs.
+// optional, says who presents it. `::: ui-form owner Title` is a wider
+// screen whose fields line up, label beside input. `:::: ui-flow Caption`
+// holds screens in the order the person sees them. Ported from SWISSID's
+// scripts/ui-dialog.mjs.
 //
 // A screen's body is markdown. Some lines are drawn:
 //
@@ -9,12 +11,17 @@
 //   ( ) No   (x) Yes        radio buttons
 //   [ ] No   [x] Yes        checkboxes
 //   Password : ____         an input field
+//   Name : "Sion"           a field showing a value
+//   Format : "JSON" ▾       a list to pick from
+//   Token : "a1b2" [Copy]   buttons beside a field
 
 open Node
 
 let buttonLine = RegExp.fromString("^(?:(?:\\[\\[[^\\[\\]]+\\]\\]|\\[[^\\[\\]]+\\])\\*?\\s*)+$")
 let optionLine = RegExp.fromString("^(\\( \\)|\\(x\\)|\\[ \\]|\\[x\\])\\s+(\\S.*)$", ~flags="i")
-let fieldLine = RegExp.fromString("^(\\S.*?)\\s*:\\s*_{3,}$")
+let fieldLine = RegExp.fromString(
+  "^(\\S.*?)\\s*:\\s*(?:_{3,}|\"([^\"]*)\"(\\s*▾)?)((?:\\s*\\[[^\\[\\]]+\\]\\*?)*)$",
+)
 let blankLine = RegExp.fromString("\\n[ \\t]*\\n")
 
 let buttons: string => array<button> = %raw(`(line) =>
@@ -68,7 +75,14 @@ let paragraph = source => {
           })
         | (None, Some(m)) =>
           flush()
-          parts->Array.push(Field(capture(m, 0)->Option.getOr("")))
+          parts->Array.push(
+            Field({
+              label: capture(m, 0)->Option.getOr(""),
+              value: capture(m, 1),
+              select: capture(m, 2)->Option.isSome,
+              buttons: buttons(capture(m, 3)->Option.getOr("")),
+            }),
+          )
         | (None, None) =>
           if options != [] {
             flush()
@@ -94,22 +108,22 @@ let read = (info, body, owners: dict<string>) => {
     ->Array.filterMap(p => p)
     ->Array.filter(p => String.trim(p) != "")
     ->Array.flatMap(p => paragraph(String.trim(p)))
-  Dialog({owner, title: title == "" ? None : Some(title), widgets})
+  (owner, title == "" ? None : Some(title), widgets)
 }
 
-let render = (md, owner, title, widgets) => {
+// A form is a screen too: it shares the dialog's parts and adds `ui-form`.
+let render = (~form=false, md, owner, title, widgets) => {
   let escape = Html.escape
   let inline = text => Markdown.renderInline(md, text, Markdown.env())
+  let button = (b: button) =>
+    `<span class="ui-dialog__button${b.primary ? " ui-dialog__button--primary" : ""}${b.clicked
+        ? " ui-dialog__button--clicked"
+        : ""}">${escape(b.text)}</span>`
   let part = w =>
     switch w {
     | Text(text) => Markdown.render(md, text, Markdown.env())
     | Actions(buttons) =>
-      let row = buttons->Array.map(b =>
-        `<span class="ui-dialog__button${b.primary ? " ui-dialog__button--primary" : ""}${b.clicked
-            ? " ui-dialog__button--clicked"
-            : ""}">${escape(b.text)}</span>`
-      )
-      `<div class="ui-dialog__actions">${row->Array.join("")}</div>\n`
+      `<div class="ui-dialog__actions">${buttons->Array.map(button)->Array.join("")}</div>\n`
     | Options(choices) =>
       let row = choices->Array.map(c =>
         `<div class="ui-dialog__option ui-dialog__option--${c.radio ? "radio" : "check"}${c.on
@@ -117,15 +131,20 @@ let render = (md, owner, title, widgets) => {
             : ""}">${inline(c.text)}</div>`
       )
       `<div class="ui-dialog__options">${row->Array.join("")}</div>\n`
-    | Field(label) =>
-      `<div class="ui-dialog__field"><span class="ui-dialog__field-label">${inline(label)}</span><span class="ui-dialog__input"></span></div>\n`
+    | Field({label, value, select, buttons}) =>
+      let input = `<span class="ui-dialog__input${select ? " ui-dialog__input--select" : ""}">${value->Option.mapOr("", escape)}</span>`
+      let control = buttons == []
+        ? input
+        : `<span class="ui-dialog__control">${input}${buttons->Array.map(button)->Array.join("")}</span>`
+      `<div class="ui-dialog__field"><span class="ui-dialog__field-label">${inline(label)}</span>${control}</div>\n`
     }
-  let label = title->Option.mapOr("Screen mockup", t => `Screen mockup: ${t}`)
+  let kind = form ? "Form mockup" : "Screen mockup"
+  let label = title->Option.mapOr(kind, t => `${kind}: ${t}`)
   let bar = [
     owner->Option.map(((_, label)) => `<span class="ui-dialog__owner">${escape(label)}</span>`),
     title->Option.map(t => `<span class="ui-dialog__title">${escape(t)}</span>`),
   ]->Array.keepSome->Array.join("")
-  `<div class="ui-dialog${owner->Option.mapOr("", ((key, _)) =>
+  `<div class="ui-dialog${form ? " ui-form" : ""}${owner->Option.mapOr("", ((key, _)) =>
       ` ui-dialog--${key}" style="--tone: var(--tone-${key}, var(--blocks-ink))`
     )}" role="group" aria-label="${escape(label)}">${bar == ""
       ? ""

@@ -71,6 +71,20 @@ examples:
       <div class="ui-dialog__actions"><span class="ui-dialog__button">Cancel</span><span class="ui-dialog__button ui-dialog__button--primary ui-dialog__button--clicked">Sign in</span></div>
       </div></div>
 
+  - scenario: a form draws its fields with their values, lists and buttons
+    before: |-
+      ::: ui-form Application
+      Name : "Portal"
+      Format : "JSON" ▾
+      Token : "a1b2c3" [Copy]
+      :::
+    after: |-
+      <div class="ui-dialog ui-form" role="group" aria-label="Form mockup: Application"><div class="ui-dialog__bar"><span class="ui-dialog__title">Application</span></div><div class="ui-dialog__body">
+      <div class="ui-dialog__field"><span class="ui-dialog__field-label">Name</span><span class="ui-dialog__input">Portal</span></div>
+      <div class="ui-dialog__field"><span class="ui-dialog__field-label">Format</span><span class="ui-dialog__input ui-dialog__input--select">JSON</span></div>
+      <div class="ui-dialog__field"><span class="ui-dialog__field-label">Token</span><span class="ui-dialog__control"><span class="ui-dialog__input">a1b2c3</span><span class="ui-dialog__button">Copy</span></span></div>
+      </div></div>
+
   - scenario: a flow of screens is a figure with its caption above the screens
     before: |-
       :::: ui-flow Changing a password
@@ -84,3 +98,39 @@ examples:
       <div class="ui-dialog__actions"><span class="ui-dialog__button ui-dialog__button--primary ui-dialog__button--clicked">Change password</span></div>
       </div></div>
       </div></figure>
+
+  - scenario: an API call draws its call, its query after the path, and a list as cards
+    options:
+      api:
+        labels:
+          empty: Nothing
+    before: |-
+      ::: api GET /messages
+      query
+        app: portal
+      response 200
+        []
+      response 200
+        - id: 1
+          code: "1950"
+      :::
+    after: |-
+      <figure class="api" role="group" aria-label="GET /messages?app=portal"><div class="api__call"><span class="api__method">GET</span><code class="api__path">/messages<span class="api__search">?app=portal</span></code></div>
+      <div class="api__part api__part--query"><p class="api__label">Query</p><dl class="api__fields"><div class="api__field"><dt>app</dt><dd><span class="api__string">portal</span></dd></div></dl></div>
+      <div class="api__part api__part--response"><p class="api__label">Response <span class="api__status api__status--ok">200</span></p><p class="api__empty">Nothing <code>[]</code></p></div>
+      <div class="api__part api__part--response"><p class="api__label">Response <span class="api__status api__status--ok">200</span></p><ol class="api__items"><li class="api__item"><dl class="api__fields"><div class="api__field"><dt>id</dt><dd><span class="api__number">1</span></dd></div><div class="api__field"><dt>code</dt><dd><span class="api__string">1950</span></dd></div></dl></li></ol></div>
+      </figure>
+
+  - scenario: a list of plain values is written on one line
+    before: |-
+      ::: api POST /apps
+      body
+        queries:
+          - certificate
+          - status
+      :::
+    after: |-
+      <figure class="api" role="group" aria-label="POST /apps"><div class="api__call"><span class="api__method">POST</span><code class="api__path">/apps</code></div>
+      <div class="api__part api__part--body"><p class="api__label">Body</p><dl class="api__fields"><div class="api__field"><dt>queries</dt><dd><span class="api__inline"><span class="api__string">certificate</span>, <span class="api__string">status</span></span></dd></div></dl></div>
+      </figure>
+

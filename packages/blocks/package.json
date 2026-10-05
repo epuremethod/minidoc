@@ -1,7 +1,7 @@
 {
   "name": "@epure/minidoc-blocks",
   "version": "0.1.0",
-  "description": "Common ::: blocks for minidoc sites: callouts, quotes, flows, screens, sequences and state machines",
+  "description": "Common ::: blocks for minidoc sites: callouts, quotes, flows, screens, sequences, state machines and API calls",
   "author": "Gaspard Anna Bucher <g.a.bucher@midasum.com>",
   "license": "MIT",
   "type": "module",
@@ -27,7 +27,8 @@
   "dependencies": {
     "@rescript/runtime": "12.3.0",
     "markdown-it": "14.3.0",
-    "markdown-it-anchor": "9.2.0"
+    "markdown-it-anchor": "9.2.0",
+    "yaml": "^2.8.0"
   },
   "devDependencies": {
     "@epure/vitest": "^1.1.0",

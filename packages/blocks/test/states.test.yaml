@@ -12,14 +12,14 @@ examples:
       ```
     after: |-
       states
-        frame -10 -19 320 59
+        frame -10 -25 320 65
         box step 0 0 55 30 "draft"
         box step 101 0 69 30 "review"
         box step 216 0 84 30 "published"
         move 55 15 89 15 67 15 101 15
-          label 78 3 middle "submit"
+          label 78 -3 middle "submit"
         move 170 15 204 15 182 15 216 15
-          label 193 3 middle "approve"
+          label 193 -3 middle "approve"
 
   - scenario: a move between rows curves, and a dot leaves a cell empty
     before: |-
@@ -33,12 +33,12 @@ examples:
       ```
     after: |-
       states
-        frame -10 -19 206.82 173
+        frame -10 -25 206.82 179
         box step 0 0 55 30 "draft"
         box step 101 0 75 30 "review"
         box step 101 114 75 30 "rejected"
         move 55 15 89 15 67 15 101 15
-          label 78 3 middle "submit"
+          label 78 -3 middle "submit"
         move 138.5 30 138.5 68.22 151 75.78 151 114
           label 155 73 start "refuse"
         move 126 114 126 55.75 27.5 88.25 27.5 30
@@ -72,15 +72,15 @@ examples:
       ```
     after: |-
       states
-        frame -10 -19 326 173
+        frame -10 -25 326 179
         box step 0 0 55 30 "draft"
         box decision 101 0 75 30 "review"
         box end 222 0 84 30 "published"
         box end 101 114 75 30 "rejected"
         move 55 15 89 15 67 15 101 15
-          label 78 3 middle "submit"
+          label 78 -3 middle "submit"
         move 176 15 210 15 188 15 222 15
-          label 199 3 middle "approve"
+          label 199 -3 middle "approve"
         move 138.5 30 138.5 67.8 138.5 76.2 138.5 114
           label 150 76 start "refuse"
         caption "Review"
@@ -105,12 +105,12 @@ examples:
       ```
     after: |-
       states
-        frame -10 -19 206.82 173
+        frame -10 -25 206.82 179
         box step 0 0 55 30 "draft"
         box step 101 0 75 30 "review"
         box step 101 114 75 30 "rejected"
         move 55 15 89 15 67 15 101 15
-          label 78 3 middle "submit"
+          label 78 -3 middle "submit"
         move fail 138.5 30 138.5 68.22 151 75.78 151 114
           label 155 73 start "refuse"
         move fail 126 114 126 55.75 27.5 88.25 27.5 30

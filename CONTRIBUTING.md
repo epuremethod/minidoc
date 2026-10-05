@@ -88,9 +88,11 @@ and clear `SESSION.md`. The scenarios remain.
 
 ## Documentation
 
-The reference lives twice: in `packages/minidoc/README.md` and in the site's guide,
-`packages/docs/content/guide/`. A change to behavior changes both. The build writes
-`llms.txt` and `llms-full.txt` from the guide.
+The reference lives twice: in `packages/minidoc/README.md` and in the site's API,
+`packages/docs/content/api/`, one file per entry. The site's guide,
+`packages/docs/content/guide/`, tells the same features as one story, one file
+per chapter. A change to behavior changes all three where it shows. The build
+writes `llms.txt` and `llms-full.txt` from the guide and the API.
 
 Every change a user can see gets a line under "Unreleased" in the changelog
 of `packages/minidoc/README.md`. A change that breaks an existing config, a custom

@@ -314,7 +314,7 @@ let draw = (line, paired) => {
   let flipped = line.move.right || (paired && !outward)
   let side = flipped ? {x: -.left.x, y: -.left.y} : left
   let x = middle.x +. side.x *. labelOff
-  let y = middle.y +. side.y *. labelOff +. (side.y < -0.5 ? -1. : side.y > 0.5 ? 9. : 4.)
+  let y = middle.y +. side.y *. labelOff +. (side.y < -0.5 ? -7. : side.y > 0.5 ? 9. : 4.)
   {
     move: line.move,
     points: [tail.x, tail.y, one.x, one.y, other.x, other.y, head.x, head.y],

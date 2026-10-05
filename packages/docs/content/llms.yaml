@@ -1,22 +1,42 @@
-# The llms.txt index and llms-full.txt, rendered from the guide. Base of the
-# site config (docs/content/config.yaml) and of the package build
-# (minidoc/llms.yaml): each declares its own outputs.
+# The llms.txt index and llms-full.txt, rendered from the guide and the API
+# folders. Base of the site config (docs/content/config.yaml) and of the
+# package build (minidoc/llms.yaml): each declares its own outputs.
 var:
   blurb: >-
     minidoc is a small documentation website generator from the épure toolset.
     YAML configs declare variables and build outputs; contexts are dictionaries
     of templates; you inherit formulas, not values. This site is built with it.
-  # The guide folder, two more views: the llms.txt index and the full-text
-  # concatenation, so they can never drift from the site.
-  llmsLinks:
+  # The same folders as the site, two more views each: the llms.txt index and
+  # the full-text concatenation, so they can never drift from the site.
+  llmsGuideLinks:
     dir: guide
     transform: none              # only the frontmatter is used
     each: "- [{{title}}](https://minidoc.dev/#{{slug}}): {{desc}}"
-  llmsChapters:
+  llmsApiLinks:
+    dir: api
+    glob: "*/*.md"
+    transform: none
+    each: "- [{{name}}](https://minidoc.dev/api.html#{{slug}}): {{summary}}"
+  llmsGuide:
     dir: guide
     transform: none
     each: |-
       ## {{title}}
+
+      {{body}}
+    join: "\n\n"
+  llmsApi:
+    dir: api
+    glob: "*/*.md"
+    transform: none
+    each: |-
+      ## {{name}}
+
+      {{summary}}
+
+      ```{{lang}}
+      {{signature}}
+      ```
 
       {{body}}
     join: "\n\n"
@@ -25,22 +45,33 @@ var:
 
     > {{blurb}}
 
-    The site is a single page; the links below point at its sections. The
-    complete guide as one markdown file is in
+    The guide tells minidoc as one story, in order; the API reference has one
+    entry for each function, config key, var kind, build entry, rule and type.
+    The complete documentation as one markdown file is in
     [llms-full.txt](https://minidoc.dev/llms-full.txt).
 
     ## Guide
 
-    {{llmsLinks}}
+    {{llmsGuideLinks}}
+
+    ## API
+
+    {{llmsApiLinks}}
 
     ## Optional
 
-    - [Example setup](https://github.com/epuremethod/minidoc/tree/main/packages/docs): this site's source — base layout, config, build, dev
-    - [llms-full.txt](https://minidoc.dev/llms-full.txt): the full guide, one markdown file
+    - [Example setup](https://github.com/epuremethod/minidoc/tree/main/packages/docs): this site's source — layout, config, build, dev
+    - [llms-full.txt](https://minidoc.dev/llms-full.txt): the full guide and API, one markdown file
     - [GitHub](https://github.com/epuremethod/minidoc): source, issues, releases
   llmsFullTxt: |-
     # minidoc — full documentation
 
     > {{blurb}}
 
-    {{llmsChapters}}
+    # Guide
+
+    {{llmsGuide}}
+
+    # API
+
+    {{llmsApi}}

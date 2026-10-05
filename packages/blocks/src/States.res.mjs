@@ -372,7 +372,7 @@ function draw(line, paired) {
     }) : left;
   let x = middle.x + side.x * 11;
   let y = middle.y + side.y * 11 + (
-    side.y < -0.5 ? -1 : (
+    side.y < -0.5 ? -7 : (
         side.y > 0.5 ? 9 : 4
       )
   );

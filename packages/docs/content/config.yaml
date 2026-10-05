@@ -4,85 +4,17 @@
 base: llms.yaml
 var:
   output: ../dist
-  header: |-
-    <header class="top">
-        <a class="wordmark" href="#top" aria-label="minidoc — home">
-          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true">
-            <rect x="3" y="1.5" width="14" height="17" stroke="currentColor" stroke-width="1.5"/>
-            <path d="M6 6h8M6 10h8M6 14h5" stroke="var(--accent)" stroke-width="1.5"/>
-          </svg>
-          minidoc <span class="fam">· épure</span>
-        </a>
-        <nav class="idx" aria-label="Chapters">
-          {{navLinks}}
-          <a href="./blocks.html">Blocks</a>
-          <a href="#gallery">Built with</a>
-          <a href="./llms.txt">llms.txt</a>
-          <a href="https://github.com/epuremethod/minidoc">GitHub</a>
-        </nav>
-      </header>
-  # The nav and the chapters below are two views of the same guide folder.
-  navLinks:
-    dir: guide
-    each: '<a href="#{{slug}}">{{nav}}</a>'
-    join: "\n        "
-  chapters:
-    dir: guide
-    each: |-
-      <section id="{{slug}}">
-          <div class="sec-head">
-            <div class="sec-kicker"><span class="no">{{no}}</span><span class="rule"></span><span class="tag">{{tag}}</span></div>
-            <h2>{{title}}</h2>
-          </div>
-          <article class="doc">
-      {{body}}
-          </article>
-        </section>
-  footer: |-
-    <footer class="titleblock">
-        <div class="tb-row">
-          <div class="tb-cell"><span class="lbl">Project</span><span class="val">MINIDOC — documentation, generated</span></div>
-          <div class="tb-cell"><span class="lbl">Sheet</span><span class="val">{{sheet}}</span></div>
-          <div class="tb-cell"><span class="lbl">Scale</span><span class="val">1 : 1</span></div>
-          <div class="tb-cell"><span class="lbl">Date</span><span class="val">2026-09-23</span></div>
-          <div class="tb-cell"><span class="lbl">Rev</span><span class="val">1</span></div>
-        </div>
-        <div class="tb-row crew">
-          <div class="tb-cell"><span class="lbl">Drawn by</span><span class="val">Humans</span></div>
-          <div class="tb-cell"><span class="lbl">Built by</span><span class="val">Itself</span></div>
-          <div class="tb-cell"><span class="lbl">Reactive core</span><span class="val"><a href="https://tiliajs.dev">tilia</a></span></div>
-          <div class="tb-cell"><span class="lbl">Notes</span><span class="val">Part of <a href="https://epuremethod.com">épure — drawn software</a></span></div>
-        </div>
-      </footer>
-  shell: |
-    <!doctype html>
-    <html lang="en">
-    <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="description" content="{{description}}">
-    <title>{{title}}</title>
-    <link rel="stylesheet" href="./styles.css">
-    <link rel="alternate" type="text/markdown" href="./llms.txt" title="llms.txt — documentation index for LLMs">
-    <link rel="alternate" type="text/markdown" href="./llms-full.txt" title="llms-full.txt — full documentation for LLMs">
-    </head>
-    <body>
+  port: 54714
 
-    <div class="sheet" id="top">
-      <i class="reg tl"></i><i class="reg tr"></i><i class="reg bl"></i><i class="reg br"></i>
-
-    {{header}}
-
-      <main>
-    {{main}}
-      </main>
-
-    {{footer}}
-    </div>
-    </body>
-    </html>
-  # The new layout: a contents column, a running head, one column of prose.
-  # The Blocks page uses it; the other pages move to it next.
+  # One layout for every page: a contents column, a running head, one column
+  # of prose. Each page marks itself current and lists its own sections.
+  current: ' aria-current="page"'
+  guideCurrent: ""
+  apiCurrent: ""
+  blocksCurrent: ""
+  guideNav: ""
+  apiNav: ""
+  blocksNav: ""
   pageShell: |
     <!doctype html>
     <html lang="en" data-blocks-theme="graphic">
@@ -95,21 +27,21 @@ var:
     <link rel="stylesheet" href="./blocks.css">
     <link rel="stylesheet" href="./themes/soft.css">
     <link rel="stylesheet" href="./themes/graphic.css">
+    <link rel="alternate" type="text/markdown" href="./llms.txt" title="llms.txt — documentation index for LLMs">
+    <link rel="alternate" type="text/markdown" href="./llms-full.txt" title="llms-full.txt — full documentation for LLMs">
     </head>
     <body>
     <aside class="contents" aria-label="Contents">
       <a class="brand" href="./index.html">minidoc <span class="brand__family">épure</span></a>
       <p class="contents__label">Contents</p>
       <ol class="contents__pages">
-        <li><a href="./index.html">Guide</a></li>
-        <li><a href="./blocks.html" aria-current="page">Blocks</a>
-          <ol class="contents__sections">
-          {{blocksToc}}
-          </ol>
-        </li>
+        <li><a href="./index.html"{{guideCurrent}}>Guide</a>{{guideNav}}</li>
+        <li><a href="./api.html"{{apiCurrent}}>API</a>{{apiNav}}</li>
+        <li><a href="./blocks.html"{{blocksCurrent}}>Blocks</a>{{blocksNav}}</li>
       </ol>
       <footer class="contents__colophon">
         <a href="https://github.com/epuremethod/minidoc">github.com/epuremethod/minidoc</a>
+        <a href="./llms.txt">llms.txt</a>
         <span>Part of <a href="https://epuremethod.com">épure</a>. Built with minidoc and
         <a href="https://epurejs.dev">@epure/vitest</a>.</span>
       </footer>
@@ -135,6 +67,72 @@ var:
     </script>
     </body>
     </html>
+
+  # The guide: one story, one file per chapter, read in order.
+  guideToc:
+    dir: guide
+    transform: none
+    each: '<li><a href="#{{slug}}">{{title}}</a></li>'
+    join: "\n      "
+  # A chapter names its figure in its frontmatter; most have none.
+  figure: ""
+  figureHtml:
+    file: "figures/{{figure}}.html"
+    optional: true
+  refsBlock:
+    list: refs
+    each: '<a href="./api.html#{{item}}"><code>{{item}}</code></a>'
+    join: ", "
+    template: '<p class="chapter__refs"><span>Reference</span> {{body}}</p>'
+  chapters:
+    dir: guide
+    each: |-
+      <section class="chapter" id="{{slug}}">
+      <h2 class="chapter__title">{{title}}</h2>
+      {{figureHtml}}
+      <div class="prose">
+      {{body}}
+      {{refsBlock}}
+      </div>
+      </section>
+  gallery:
+    file: gallery.html
+
+  # The API: one file per entry, grouped by folder, flat to look things up.
+  # Each group is two views of its folder: contents links and entries.
+  apiLink: '<li><a href="#{{slug}}">{{name}}</a></li>'
+  apiEntry: |-
+      <article class="entry" id="{{slug}}">
+      <header class="entry__head">
+      <h3 class="entry__name"><a href="#{{slug}}">{{name}}</a></h3>
+      <span class="entry__kind">{{kind}}</span>
+      </header>
+      <p class="entry__summary">{{summary}}</p>
+      <div class="prose">
+      <div class="entry__signature">{{signatureHtml}}</div>
+      {{body}}
+      </div>
+      </article>
+  signatureHtml:
+    value: |-
+      ```{{lang}}
+      {{signature}}
+      ```
+    transform: md
+  functionsToc: { dir: api/1-functions, transform: none, each: "{{apiLink}}" }
+  functionsEntries: { dir: api/1-functions, each: "{{apiEntry}}" }
+  configToc: { dir: api/2-config, transform: none, each: "{{apiLink}}" }
+  configEntries: { dir: api/2-config, each: "{{apiEntry}}" }
+  varsToc: { dir: api/3-vars, transform: none, each: "{{apiLink}}" }
+  varsEntries: { dir: api/3-vars, each: "{{apiEntry}}" }
+  buildToc: { dir: api/4-build, transform: none, each: "{{apiLink}}" }
+  buildEntries: { dir: api/4-build, each: "{{apiEntry}}" }
+  rulesToc: { dir: api/5-rules, transform: none, each: "{{apiLink}}" }
+  rulesEntries: { dir: api/5-rules, each: "{{apiEntry}}" }
+  typesToc: { dir: api/6-types, transform: none, each: "{{apiLink}}" }
+  typesEntries: { dir: api/6-types, each: "{{apiEntry}}" }
+
+  # The blocks: one file per kind, each with its plates.
   blocksToc:
     dir: blocks
     transform: none
@@ -142,7 +140,6 @@ var:
     join: "\n      "
   blocksSections:
     dir: blocks
-    transform: blocksMd
     each: |-
       <section class="chapter" id="{{slug}}">
       <h2 class="chapter__title">{{title}}</h2>
@@ -160,30 +157,89 @@ var:
       <button type="button" data-theme-switch="soft" aria-pressed="true">Soft</button>
       <button type="button" data-theme-switch="graphic" aria-pressed="false">Graphic</button>
     </div>
-  hero:
-    file: home.html
-  gallery:
-    file: gallery.html
-  port: 54714
 build:
   - output: "{{output}}/index.html"
-    input: "{{shell}}"
+    input: "{{pageShell}}"
     var:
-      title: minidoc — a small documentation website generator
+      title: Guide — minidoc
       description: "{{blurb}}"
-      sheet: M-00 · Docs
-      main: |-
-        {{hero}}
-
+      running: Guide
+      guideCurrent: "{{current}}"
+      guideNav: |-
+        <ol class="contents__sections">
+              {{guideToc}}
+              <li><a href="#built-with">Built with minidoc</a></li>
+              </ol>
+      pageBody: |-
+        <header class="page-head page-head--static">
+        <h1 class="page-title">Guide</h1>
+        </header>
+        <p class="page-lead">minidoc, told as one story: a small library outgrows its README, and its
+        maintainer builds a site. Each chapter adds one idea. Read it in order once; to look something
+        up later, use the <a href="./api.html">API reference</a>.</p>
         {{chapters}}
-
         {{gallery}}
+  - output: "{{output}}/api.html"
+    input: "{{pageShell}}"
+    var:
+      title: API — minidoc
+      description: "The minidoc reference: functions, config keys, var kinds, build entries, rules and types."
+      running: API
+      apiCurrent: "{{current}}"
+      apiNav: |-
+        <p class="contents__group">Functions</p>
+              <ol class="contents__sections contents__sections--plain">{{functionsToc}}</ol>
+              <p class="contents__group">Config</p>
+              <ol class="contents__sections contents__sections--plain">{{configToc}}</ol>
+              <p class="contents__group">Var kinds</p>
+              <ol class="contents__sections contents__sections--plain">{{varsToc}}</ol>
+              <p class="contents__group">Build</p>
+              <ol class="contents__sections contents__sections--plain">{{buildToc}}</ol>
+              <p class="contents__group">Rules</p>
+              <ol class="contents__sections contents__sections--plain">{{rulesToc}}</ol>
+              <p class="contents__group">Types</p>
+              <ol class="contents__sections contents__sections--plain">{{typesToc}}</ol>
+      pageBody: |-
+        <header class="page-head page-head--static">
+        <h1 class="page-title">API</h1>
+        </header>
+        <p class="page-lead">Everything minidoc exposes, one entry each: the signature, every field,
+        the behavior, one example. For the ideas behind them, read the <a href="./index.html">guide</a>.</p>
+        <section class="api-group" id="functions">
+        <h2 class="chapter__title">Functions</h2>
+        {{functionsEntries}}
+        </section>
+        <section class="api-group" id="config">
+        <h2 class="chapter__title">Config</h2>
+        {{configEntries}}
+        </section>
+        <section class="api-group" id="var-kinds">
+        <h2 class="chapter__title">Var kinds</h2>
+        {{varsEntries}}
+        </section>
+        <section class="api-group" id="build-entries">
+        <h2 class="chapter__title">Build</h2>
+        {{buildEntries}}
+        </section>
+        <section class="api-group" id="rules">
+        <h2 class="chapter__title">Rules</h2>
+        {{rulesEntries}}
+        </section>
+        <section class="api-group" id="types">
+        <h2 class="chapter__title">Types</h2>
+        {{typesEntries}}
+        </section>
   - output: "{{output}}/blocks.html"
     input: "{{pageShell}}"
     var:
       title: Blocks — minidoc
       description: "Common ::: blocks for minidoc sites, drawn from the package's own scenarios."
       running: Blocks
+      blocksCurrent: "{{current}}"
+      blocksNav: |-
+        <ol class="contents__sections">
+              {{blocksToc}}
+              </ol>
       pageBody: |-
         <header class="page-head">
         <h1 class="page-title">Blocks</h1>
@@ -203,9 +259,6 @@ build:
     input: "{{llmsTxt}}"
   - output: "{{output}}/llms-full.txt"
     input: "{{llmsFullTxt}}"
-  - output: "{{output}}/styles.css"
-    input:
-      copy: ../assets/styles.css
   - output: "{{output}}/fonts"
     input:
       copy: ../assets/fonts

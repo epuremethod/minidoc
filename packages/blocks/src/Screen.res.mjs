@@ -12,7 +12,7 @@ let buttonLine = new RegExp("^(?:(?:\\[\\[[^\\[\\]]+\\]\\]|\\[[^\\[\\]]+\\])\\*?
 
 let optionLine = new RegExp("^(\\( \\)|\\(x\\)|\\[ \\]|\\[x\\])\\s+(\\S.*)$", "i");
 
-let fieldLine = new RegExp("^(\\S.*?)\\s*:\\s*_{3,}$");
+let fieldLine = new RegExp("^(\\S.*?)\\s*:\\s*(?:_{3,}|\"([^\"]*)\"(\\s*▾)?)((?:\\s*\\[[^\\[\\]]+\\]\\*?)*)$");
 
 let blankLine = new RegExp("\\n[ \\t]*\\n");
 
@@ -81,7 +81,12 @@ function paragraph(source) {
         flush();
         parts.push({
           TAG: "Field",
-          _0: Stdlib_Option.getOr(Sequence.capture(match$1, 0), "")
+          _0: {
+            label: Stdlib_Option.getOr(Sequence.capture(match$1, 0), ""),
+            value: Sequence.capture(match$1, 1),
+            select: Stdlib_Option.isSome(Sequence.capture(match$1, 2)),
+            buttons: buttons(Stdlib_Option.getOr(Sequence.capture(match$1, 3), ""))
+          }
         });
       }
       return;
@@ -116,44 +121,53 @@ function read(info, body, owners) {
     ];
   let title = match$1[1];
   let widgets = Stdlib_Array.filterMap(body.split(blankLine), p => p).filter(p => p.trim() !== "").flatMap(p => paragraph(p.trim()));
-  return {
-    TAG: "Dialog",
-    owner: match$1[0],
-    title: title === "" ? undefined : title,
-    widgets: widgets
-  };
+  return [
+    match$1[0],
+    title === "" ? undefined : title,
+    widgets
+  ];
 }
 
-function render(md, owner, title, widgets) {
+function render(formOpt, md, owner, title, widgets) {
+  let form = formOpt !== undefined ? formOpt : false;
   let inline = text => md.renderInline(text, Markdown.env());
+  let button = b => `<span class="ui-dialog__button` + (
+    b.primary ? " ui-dialog__button--primary" : ""
+  ) + (
+    b.clicked ? " ui-dialog__button--clicked" : ""
+  ) + `">` + Html.escape(b.text) + `</span>`;
   let part = w => {
     switch (w.TAG) {
       case "Text" :
         return md.render(w._0, Markdown.env());
       case "Actions" :
-        let row = w._0.map(b => `<span class="ui-dialog__button` + (
-          b.primary ? " ui-dialog__button--primary" : ""
-        ) + (
-          b.clicked ? " ui-dialog__button--clicked" : ""
-        ) + `">` + Html.escape(b.text) + `</span>`);
-        return `<div class="ui-dialog__actions">` + row.join("") + `</div>\n`;
+        return `<div class="ui-dialog__actions">` + w._0.map(button).join("") + `</div>\n`;
       case "Options" :
-        let row$1 = w._0.map(c => `<div class="ui-dialog__option ui-dialog__option--` + (
+        let row = w._0.map(c => `<div class="ui-dialog__option ui-dialog__option--` + (
           c.radio ? "radio" : "check"
         ) + (
           c.on ? " ui-dialog__option--on" : ""
         ) + `">` + inline(c.text) + `</div>`);
-        return `<div class="ui-dialog__options">` + row$1.join("") + `</div>\n`;
+        return `<div class="ui-dialog__options">` + row.join("") + `</div>\n`;
       case "Field" :
-        return `<div class="ui-dialog__field"><span class="ui-dialog__field-label">` + inline(w._0) + `</span><span class="ui-dialog__input"></span></div>\n`;
+        let match = w._0;
+        let buttons = match.buttons;
+        let input = `<span class="ui-dialog__input` + (
+          match.select ? " ui-dialog__input--select" : ""
+        ) + `">` + Stdlib_Option.mapOr(match.value, "", Html.escape) + `</span>`;
+        let control = Primitive_object.equal(buttons, []) ? input : `<span class="ui-dialog__control">` + input + buttons.map(button).join("") + `</span>`;
+        return `<div class="ui-dialog__field"><span class="ui-dialog__field-label">` + inline(match.label) + `</span>` + control + `</div>\n`;
     }
   };
-  let label = Stdlib_Option.mapOr(title, "Screen mockup", t => `Screen mockup: ` + t);
+  let kind = form ? "Form mockup" : "Screen mockup";
+  let label = Stdlib_Option.mapOr(title, kind, t => kind + `: ` + t);
   let bar = Stdlib_Array.keepSome([
     Stdlib_Option.map(owner, param => `<span class="ui-dialog__owner">` + Html.escape(param[1]) + `</span>`),
     Stdlib_Option.map(title, t => `<span class="ui-dialog__title">` + Html.escape(t) + `</span>`)
   ]).join("");
-  return `<div class="ui-dialog` + Stdlib_Option.mapOr(owner, "", param => {
+  return `<div class="ui-dialog` + (
+    form ? " ui-form" : ""
+  ) + Stdlib_Option.mapOr(owner, "", param => {
     let key = param[0];
     return ` ui-dialog--` + key + `" style="--tone: var(--tone-` + key + `, var(--blocks-ink))`;
   }) + `" role="group" aria-label="` + Html.escape(label) + `">` + (

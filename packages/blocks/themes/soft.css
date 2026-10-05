@@ -47,6 +47,8 @@
   --flow-gap: 1.5em;
   --step-border: 1px;
   --ui-dialog-width: 340px;
+  --ui-form-width: 560px;
+  --ui-form-label: 9em;
   --ui-dialog-border: 1px;
   --ui-dialog-radius: 8px;
   --ui-control-radius: 5px;

@@ -98,3 +98,45 @@ examples:
           actions
             button "Cancel"
             button "Save" primary clicked
+
+  - scenario: a field shows a value in quotes, a list to pick from ends with ▾, and buttons may sit beside it
+    before: |-
+      ::: ui-dialog Application
+      Name : "Portal"
+
+      Format : "JSON" ▾
+
+      Token : "a1b2c3" [Copy] [Renew]
+      :::
+    after: |-
+      ui-dialog title "Application"
+        field "Name" value "Portal"
+        field "Format" value "JSON" select
+        field "Token" value "a1b2c3"
+          button "Copy"
+          button "Renew"
+
+  - scenario: a form is a wider screen, with the same widgets and owners
+    options:
+      ui-dialog:
+        owners:
+          admin: Administration
+    before: |-
+      ::: ui-form admin New application
+      Name : ____
+      Format : "JSON" ▾
+
+      [x] Can send
+
+      [Cancel] [[Save]]
+      :::
+    after: |-
+      ui-form owner admin "Administration" title "New application"
+        field "Name"
+        field "Format" value "JSON" select
+        options
+          check "Can send" on
+        actions
+          button "Cancel"
+          button "Save" primary
+

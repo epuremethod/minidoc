@@ -18,12 +18,14 @@ export type Extra = {
 export type Options = {
   /** Callouts added to the common ones, by name, with their label. */
   callouts?: Record<string, string>;
-  /** Who may present a screen, by the word that names them, with their label. */
+  /** Who may present a screen or a form (`ui-dialog`, `ui-form`), by the word that names them, with their label. */
   "ui-dialog"?: { owners?: Record<string, string> };
   /** Kinds of party, by name, with the text their legend shows. */
   sequence?: { kinds?: Record<string, string> };
   /** Kinds of box, by name, with the text their legend shows. */
   states?: { kinds?: Record<string, string> };
+  /** The words an API call shows, by key: query, headers, body, response, empty. */
+  api?: { labels?: Record<string, string> };
   extra?: Extra[];
   /** Called with the markdown-it instance, to add the site's own plugins. */
   markdown?: (md: MarkdownIt) => void;

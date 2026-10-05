@@ -34,15 +34,19 @@ type drawing<'op> = {ops: array<'op>, caption: option<string>, keys: array<key>}
 
 type button = {text: string, primary: bool, clicked: bool}
 type choice = {text: string, radio: bool, on: bool}
+/** An input: empty, or showing a value, or a list to pick from, with buttons beside it. */
+type field = {label: string, value: option<string>, select: bool, buttons: array<button>}
 
 /** What a screen holds, top to bottom. */
 type widget =
   | Text(string)
   | Actions(array<button>)
   | Options(array<choice>)
-  | Field(string)
+  | Field(field)
 
 type step = {text: string, details: array<string>}
+/** A part of an API call: its name, a response's status and caption, and its value. */
+type apiPart = {name: string, status: option<string>, caption: option<string>, value: JSON.t}
 type column = {title: option<string>, steps: array<step>}
 
 type rec t =
@@ -51,7 +55,9 @@ type rec t =
   | Quote({author: option<string>, date: option<string>, children: array<t>})
   | Flow({label: string, columns: array<column>})
   | Dialog({owner: option<(string, string)>, title: option<string>, widgets: array<widget>})
+  | Form({owner: option<(string, string)>, title: option<string>, widgets: array<widget>})
   | Screens({caption: option<string>, children: array<t>})
+  | Api({method: string, path: string, title: option<string>, parts: array<apiPart>})
   | Sequence(drawing<SequenceOp.t>)
   | States(drawing<StatesOp.t>)
   | Extra({name: string, info: string, body: string})

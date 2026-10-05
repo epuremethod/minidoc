@@ -8,6 +8,7 @@ type node = Node.t
 
 type kinds = {kinds?: dict<string>}
 type dialog = {owners?: dict<string>}
+type api = {labels?: dict<string>}
 
 /** A project's own block: its HTML from the rest of its opening line and its body. */
 type extra = {name: string, fence?: bool, render: (string, string) => string}
@@ -17,6 +18,7 @@ type options = {
   @as("ui-dialog") dialog?: dialog,
   sequence?: kinds,
   states?: kinds,
+  api?: api,
   extra?: array<extra>,
   markdown?: Markdown.t => unit,
 }
@@ -31,6 +33,15 @@ let common = [
   ("rejected", "Rejected"),
 ]
 
+// The words an API call shows, which a site may translate.
+let apiLabels = [
+  ("query", "Query"),
+  ("headers", "Headers"),
+  ("body", "Body"),
+  ("response", "Response"),
+  ("empty", "Empty list"),
+]
+
 let quoteInfo = RegExp.fromString("^quote(?:\\s+\"([^\"]*)\")?(?:\\s+(\\S.*?))?\\s*$")
 
 /** What a set of options resolves to, once per transform. */
@@ -40,6 +51,7 @@ type context = {
   owners: dict<string>,
   sequenceKinds: dict<string>,
   statesKinds: dict<string>,
+  apiLabels: dict<string>,
   extras: array<extra>,
   names: Scan.names,
 }
@@ -54,6 +66,10 @@ let context = (options: options) => {
     owners: options.dialog->Option.flatMap(d => d.owners)->Option.getOr(Dict.make()),
     sequenceKinds: options.sequence->Option.flatMap(k => k.kinds)->Option.getOr(Dict.make()),
     statesKinds: options.states->Option.flatMap(k => k.kinds)->Option.getOr(Dict.make()),
+    apiLabels: Dict.fromArray([
+      ...apiLabels,
+      ...options.api->Option.flatMap(a => a.labels)->Option.mapOr([], Dict.toArray),
+    ]),
     extras,
     names: {
       containers: [
@@ -61,7 +77,9 @@ let context = (options: options) => {
         "quote",
         "flow",
         "ui-dialog",
+        "ui-form",
         "ui-flow",
+        "api",
         ...extras->Array.filter(e => !isFence(e))->Array.map(e => e.name),
       ],
       fences: ["sequence", "states", ...extras->Array.filter(isFence)->Array.map(e => e.name)],
@@ -85,8 +103,14 @@ let rec readIn = (ctx, source, offset) =>
           Quote({author: Sequence.capture(m, 0), date: Sequence.capture(m, 1), children: inner()})
         }
       | "flow" => Flow.read(ctx.md, body, "Flow")
-      | "ui-dialog" => Screen.read(info, body, ctx.owners)
+      | "ui-dialog" =>
+        let (owner, title, widgets) = Screen.read(info, body, ctx.owners)
+        Dialog({owner, title, widgets})
+      | "ui-form" =>
+        let (owner, title, widgets) = Screen.read(info, body, ctx.owners)
+        Form({owner, title, widgets})
       | "ui-flow" => Screens({caption: caption(info), children: inner()})
+      | "api" => Api.read(info, body, line)
       | "sequence" => Sequence(Sequence.read(body, caption(info), ctx.sequenceKinds))
       | "states" => States(States.read(body, caption(info), ctx.statesKinds))
       | _ =>
@@ -119,7 +143,9 @@ let rec renderIn = (ctx, nodes, env) =>
       `<figure class="quote"><blockquote>\n${renderIn(ctx, children, env)}</blockquote>${under}</figure>\n`
     | Flow({label, columns}) => Flow.render(ctx.md, label, columns)
     | Dialog({owner, title, widgets}) => Screen.render(ctx.md, owner, title, widgets)
+    | Form({owner, title, widgets}) => Screen.render(~form=true, ctx.md, owner, title, widgets)
     | Screens({caption, children}) => Screen.renderFlow(caption, renderIn(ctx, children, env))
+    | Api({method, path, title, parts}) => Api.render(method, path, title, parts, ctx.apiLabels)
     | Sequence(drawing) => Sequence.render(drawing) ++ "\n"
     | States(drawing) => States.render(drawing) ++ "\n"
     | Extra({name, info, body}) =>
