@@ -71,7 +71,7 @@ await run({ glob: "content/**/config.yaml" })
 
 This site is the worked example — layout, pages, config, `run`, and dev
 server in
-[the docs source](https://github.com/epuremethod/minidoc/tree/main/docs).
+[the docs source](https://github.com/epuremethod/minidoc/tree/main/packages/docs).
 
 minidoc discovers YAML configs by glob. Each config declares variables and
 build outputs; every ``{{`var`}}`` reference is rendered and each resolved

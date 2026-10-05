@@ -1,7 +1,5 @@
 packages:
-  - minidoc
-  - blocks
-  - docs
+  - packages/*
 allowBuilds:
   esbuild: true
 # First-party packages get locked the day they are published, so they cannot

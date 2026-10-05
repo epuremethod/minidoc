@@ -82,7 +82,7 @@ await run({ glob: "content/**/config.yaml" })
 
 For a complete worked example — layout, pages, config, `run`, and dev
 server — see
-[the docs source](https://github.com/epuremethod/minidoc/tree/main/docs)
+[the docs source](https://github.com/epuremethod/minidoc/tree/main/packages/docs)
 (this documentation site, built with minidoc).
 
 ## The model
