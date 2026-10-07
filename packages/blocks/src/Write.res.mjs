@@ -110,7 +110,7 @@ function statesOp(op, pad) {
         ]) + ` ` + quote(op.name)];
     case "Move" :
       return Belt_Array.concatMany([
-        [pad + `move` + Stdlib_Option.mapOr(op.kind, "", k => ` ` + k) + ` ` + nums(op.points)],
+        [pad + `move` + Stdlib_Option.mapOr(op.kind, "", k => ` ` + k) + flag("both", op.both) + ` ` + nums(op.points)],
         Stdlib_Option.mapOr(op.label, [], param => {
           let l = param[0];
           return [pad + `  label ` + nums([

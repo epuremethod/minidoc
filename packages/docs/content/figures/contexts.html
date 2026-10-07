@@ -1,0 +1,44 @@
+<figure class="figure">
+  <svg viewBox="0 0 460 372" role="img" aria-label="A render drawn in section: a base config on hatched ground, then the config's var, a build's var and a file's frontmatter stacked above it. A reference to title is flagged on top, and a dimension line reads: resolves in the nearest context.">
+    <defs>
+      <pattern id="hatch" width="7" height="7" patternTransform="rotate(45)" patternUnits="userSpaceOnUse">
+        <line x1="0" y1="0" x2="0" y2="7" stroke="currentColor" stroke-width="1" opacity="0.45"/>
+      </pattern>
+    </defs>
+    <g font-family="IBM Plex Mono, monospace" text-anchor="middle">
+      <line x1="24" y1="318" x2="436" y2="318" stroke="currentColor" stroke-width="2.5"/>
+      <rect x="40" y="320" width="380" height="26" fill="url(#hatch)"/>
+
+      <rect x="84" y="261" width="292" height="57" fill="none" stroke="currentColor" stroke-width="2"/>
+      <text x="230" y="285" fill="currentColor" font-size="12" font-weight="500" letter-spacing="2">BASE CONFIG</text>
+      <text x="230" y="302" fill="var(--faint)" font-size="9.5" letter-spacing="1">INHERITED FORMULAS</text>
+
+      <rect x="84" y="204" width="292" height="57" fill="none" stroke="currentColor" stroke-width="2"/>
+      <text x="230" y="228" fill="currentColor" font-size="12" font-weight="500" letter-spacing="2">CONFIG VAR</text>
+      <text x="230" y="245" fill="var(--faint)" font-size="9.5" letter-spacing="1">THE SITE'S CONTEXT</text>
+
+      <rect x="84" y="147" width="292" height="57" fill="none" stroke="currentColor" stroke-width="2"/>
+      <text x="230" y="171" fill="currentColor" font-size="12" font-weight="500" letter-spacing="2">BUILD VAR</text>
+      <text x="230" y="188" fill="var(--faint)" font-size="9.5" letter-spacing="1">ONE PAGE'S CONTEXT</text>
+
+      <rect x="84" y="90" width="292" height="57" fill="none" stroke="currentColor" stroke-width="2"/>
+      <text x="230" y="114" fill="currentColor" font-size="12" font-weight="500" letter-spacing="2">FRONTMATTER</text>
+      <text x="230" y="131" fill="var(--faint)" font-size="9.5" letter-spacing="1">MOST LOCAL · OWN WINS</text>
+
+      <g stroke="var(--accent)" stroke-width="1">
+        <line x1="404" y1="90" x2="404" y2="318"/>
+        <line x1="398" y1="90" x2="410" y2="90"/>
+        <line x1="398" y1="147" x2="410" y2="147"/>
+        <line x1="398" y1="204" x2="410" y2="204"/>
+        <line x1="398" y1="261" x2="410" y2="261"/>
+        <line x1="398" y1="318" x2="410" y2="318"/>
+        <line x1="148" y1="52" x2="148" y2="90"/>
+      </g>
+      <text x="422" y="204" fill="var(--accent)" font-size="8.5" letter-spacing="1.5" transform="rotate(90 422 204)">RESOLVES IN THE NEAREST CONTEXT</text>
+
+      <rect x="84" y="18" width="128" height="34" fill="var(--accent-soft)" stroke="var(--accent)" stroke-width="1.2"/>
+      <text x="148" y="39" fill="var(--accent)" font-size="10.5" font-weight="500">{{`title`}}</text>
+    </g>
+  </svg>
+  <figcaption>A render, in section: four layers, and a reference resolved in the nearest one.</figcaption>
+</figure>

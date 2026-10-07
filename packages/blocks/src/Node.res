@@ -23,7 +23,7 @@ module StatesOp = {
   type t =
     | Frame(frame)
     | Box({kind: string, x: float, y: float, width: float, height: float, name: string})
-    | Move({kind: option<string>, points: array<float>, label: option<(label, string)>})
+    | Move({kind: option<string>, both: bool, points: array<float>, label: option<(label, string)>})
 }
 
 /** One entry of a legend: a kind and its text. A `move` entry is drawn as a line. */

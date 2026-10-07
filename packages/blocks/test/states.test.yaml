@@ -126,3 +126,22 @@ examples:
       draft -> review  submit {oops}
       ```
     error: "states: no kind called oops, line 3"
+
+  - scenario: a move both ways is one line with a tip at each end
+    before: |-
+      ```states
+      app gate msg
+
+      app -> gate  ask
+      gate <-> msg  messages
+      ```
+    after: |-
+      states
+        frame -10 -25 263 65
+        box step 0 0 47 30 "app"
+        box step 93 0 52 30 "gate"
+        box step 191 0 52 30 "msg"
+        move 47 15 81 15 59 15 93 15
+          label 70 -3 middle "ask"
+        move both 145 15 179 15 157 15 191 15
+          label 168 -3 middle "messages"

@@ -39,7 +39,7 @@ let defaultKind = "step";
 
 let cellLine = new RegExp("^[\\p{L}\\p{N}_.\\-]+(?::[\\p{L}]+)?$", "u");
 
-let moveLine = new RegExp("^ *(\\S+) +-> +(\\S+)(?: +(.*))?$");
+let moveLine = new RegExp("^ *(\\S+) +(<?->) +(\\S+)(?: +(.*))?$");
 
 let placedLabel = new RegExp("^(.*?)\\s*\\{(?:([01](?:\\.\\d+)?))?\\s*(right)?\\s*([\\p{L}]+)?\\}$", "u");
 
@@ -75,7 +75,7 @@ function readText(text, keys) {
         if (m == null) {
           return Html.fail(`states: cannot read the move at ` + at);
         }
-        let said = Stdlib_Option.getOr(Sequence.capture(m, 2), "").trim();
+        let said = Stdlib_Option.getOr(Sequence.capture(m, 3), "").trim();
         let placed = placedLabel.exec(said);
         let placed$1 = (placed == null) ? undefined : Primitive_option.some(placed);
         let kind = Stdlib_Option.flatMap(placed$1, p => Sequence.capture(p, 3));
@@ -86,11 +86,12 @@ function readText(text, keys) {
         });
         moves.push({
           from: Stdlib_Option.getOr(Sequence.capture(m, 0), ""),
-          to: Stdlib_Option.getOr(Sequence.capture(m, 1), ""),
+          to: Stdlib_Option.getOr(Sequence.capture(m, 2), ""),
           label: Stdlib_Option.getOr(Stdlib_Option.flatMap(placed$1, p => Sequence.capture(p, 0)), said),
           at: Stdlib_Option.getOr(Stdlib_Option.flatMap(Stdlib_Option.flatMap(placed$1, p => Sequence.capture(p, 1)), Stdlib_Float.fromString), 0.5),
           right: Stdlib_Option.isSome(Stdlib_Option.flatMap(placed$1, p => Sequence.capture(p, 2))),
-          kind: kind
+          kind: kind,
+          both: Primitive_object.equal(Sequence.capture(m, 1), "<->")
         });
         return;
       }
@@ -491,6 +492,7 @@ function read(text, caption, kinds) {
       drawn.map(d => ({
         TAG: "Move",
         kind: d.move.kind,
+        both: d.move.both,
         points: d.points,
         label: d.move.label === "" ? undefined : [
             {
@@ -523,7 +525,7 @@ function tone(kind) {
 }
 
 function marker(kind) {
-  return `<marker id="states-tip` + Stdlib_Option.mapOr(kind, "", k => `-` + k) + `"` + Stdlib_Option.mapOr(kind, "", tone) + ` viewBox="0 0 14 10" refX="13" refY="5" markerWidth="14" markerHeight="10" markerUnits="userSpaceOnUse" orient="auto"><path class="states__tip" d="M 0 0 L 14 5 L 0 10 L 3.8 5 z" /></marker>`;
+  return `<marker id="states-tip` + Stdlib_Option.mapOr(kind, "", k => `-` + k) + `"` + Stdlib_Option.mapOr(kind, "", tone) + ` viewBox="0 0 14 10" refX="13" refY="5" markerWidth="14" markerHeight="10" markerUnits="userSpaceOnUse" orient="auto-start-reverse"><path class="states__tip" d="M 0 0 L 14 5 L 0 10 L 3.8 5 z" /></marker>`;
 }
 
 function render(drawing) {
@@ -560,7 +562,8 @@ function render(drawing) {
         let modifier = Stdlib_Option.mapOr(kind, "", k => ` states__move--` + k);
         let colour = Stdlib_Option.mapOr(kind, "", tone);
         let tip = Stdlib_Option.mapOr(kind, "states-tip", k => `states-tip-` + k);
-        return `<path class="states__move` + modifier + `"` + colour + ` marker-end="url(#` + tip + `)" d="M ` + x0.toString() + ` ` + y0.toString() + ` C ` + x1.toString() + ` ` + y1.toString() + `, ` + x2.toString() + ` ` + y2.toString() + `, ` + x3.toString() + ` ` + y3.toString() + `" data-move="` + Html.escape(text) + `" />`;
+        let start = op.both ? ` marker-start="url(#` + tip + `)"` : "";
+        return `<path class="states__move` + modifier + `"` + colour + start + ` marker-end="url(#` + tip + `)" d="M ` + x0.toString() + ` ` + y0.toString() + ` C ` + x1.toString() + ` ` + y1.toString() + `, ` + x2.toString() + ` ` + y2.toString() + `, ` + x3.toString() + ` ` + y3.toString() + `" data-move="` + Html.escape(text) + `" />`;
     }
   });
   let shapes = pick(op => {

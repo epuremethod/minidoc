@@ -7,6 +7,7 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
+import vm from "node:vm";
 import { dev, nodeFs, run, watch } from "../src/Minidoc.res.mjs";
 
 const here = path.dirname(new URL(import.meta.url).pathname);
@@ -81,6 +82,63 @@ const raw = (at, target) =>
     socket.on("end", () => resolve(said));
   });
 
+/**
+ * A window and `EventSource` for the injected script. Hiding and showing fire
+ * what a browser fires when a tab goes to the back or the page enters the
+ * back and forward cache, and the reverse.
+ */
+function standIn() {
+  const streams = [];
+  const listeners = {};
+  const on = (target) => (type, listener) => (target[type] ??= []).push(listener);
+  const fire = (target, type, event = { type }) => (target[type] ?? []).forEach((l) => l(event));
+
+  class EventSource {
+    constructor(url) {
+      this.url = url;
+      this.closed = false;
+      this.listeners = {};
+      this.addEventListener = on(this.listeners);
+      streams.push(this);
+    }
+    close() {
+      this.closed = true;
+    }
+    say(data) {
+      if (this.closed) return;
+      const event = { type: "message", data };
+      this.onmessage?.(event);
+      fire(this.listeners, "message", event);
+    }
+  }
+
+  const document = { visibilityState: "visible", hidden: false, listeners: {} };
+  document.addEventListener = on(document.listeners);
+  const browser = {
+    streams,
+    reloads: 0,
+    hide() {
+      Object.assign(document, { visibilityState: "hidden", hidden: true });
+      fire(document.listeners, "visibilitychange");
+      fire(listeners, "pagehide", { type: "pagehide", persisted: true });
+    },
+    show() {
+      fire(listeners, "pageshow", { type: "pageshow", persisted: true });
+      Object.assign(document, { visibilityState: "visible", hidden: false });
+      fire(document.listeners, "visibilitychange");
+    },
+  };
+  const window = {
+    EventSource,
+    document,
+    location: { reload: () => browser.reloads++ },
+    addEventListener: on(listeners),
+  };
+  window.window = window;
+  browser.window = window;
+  return browser;
+}
+
 test("dev serves the output and rebuilds what changed", async (t) => {
   const root = await site();
   const server = await dev(options(root));
@@ -103,6 +161,25 @@ test("dev serves the output and rebuilds what changed", async (t) => {
     assert.match(page, /EventSource\("\/__minidoc"\)/);
     // injected where the page ends, not appended past it
     assert.ok(page.endsWith("</script></body></html>"));
+  });
+
+  await t.test("closes the reload stream while the page is hidden", async () => {
+    const page = await (await fetch(`http://127.0.0.1:${server.port}/`)).text();
+    const browser = standIn();
+    vm.runInNewContext(/<script>(.*)<\/script><\/body>/s.exec(page)[1], browser.window);
+    assert.equal(browser.streams.length, 1);
+    assert.equal(browser.streams[0].url, "/__minidoc");
+
+    browser.hide();
+    assert.ok(browser.streams[0].closed);
+
+    browser.show();
+    assert.equal(browser.streams.length, 2);
+    assert.equal(browser.streams[1].url, "/__minidoc");
+    assert.ok(!browser.streams[1].closed);
+
+    browser.streams[1].say("reload");
+    assert.equal(browser.reloads, 1);
   });
 
   await t.test("tells the page to reload when a build lands", async () => {

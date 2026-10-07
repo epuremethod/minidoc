@@ -40,10 +40,19 @@ let normal = side =>
 let defaultKind = "step"
 
 type cell = {name: string, kind: string}
-type move = {from: string, to: string, label: string, at: float, right: bool, kind: option<string>}
+type move = {
+  from: string,
+  to: string,
+  label: string,
+  at: float,
+  right: bool,
+  kind: option<string>,
+  both: bool,
+}
 
 let cellLine = RegExp.fromString("^[\\p{L}\\p{N}_.\\-]+(?::[\\p{L}]+)?$", ~flags="u")
-let moveLine = RegExp.fromString("^ *(\\S+) +-> +(\\S+)(?: +(.*))?$")
+// `a -> b` goes one way, `a <-> b` goes both: one line, a tip at each end.
+let moveLine = RegExp.fromString("^ *(\\S+) +(<?->) +(\\S+)(?: +(.*))?$")
 let placedLabel = RegExp.fromString(
   "^(.*?)\\s*\\{(?:([01](?:\\.\\d+)?))?\\s*(right)?\\s*([\\p{L}]+)?\\}$",
   ~flags="u",
@@ -101,7 +110,7 @@ let readText = (text, keys: dict<string>) => {
           // where: `{0.2}` for a fifth of the way. `{0.2 right}` also puts it
           // on the right of the way. A kind in the braces marks the move:
           // `{fail}`, `{0.2 fail}`.
-          let said = String.trim(capture(m, 2)->Option.getOr(""))
+          let said = String.trim(capture(m, 3)->Option.getOr(""))
           let placed = RegExp.exec(placedLabel, said)
           let kind = placed->Option.flatMap(p => capture(p, 3))
           kind->Option.forEach(kind =>
@@ -111,7 +120,7 @@ let readText = (text, keys: dict<string>) => {
           )
           moves->Array.push({
             from: capture(m, 0)->Option.getOr(""),
-            to: capture(m, 1)->Option.getOr(""),
+            to: capture(m, 2)->Option.getOr(""),
             label: placed->Option.flatMap(p => capture(p, 0))->Option.getOr(said),
             at: placed
             ->Option.flatMap(p => capture(p, 1))
@@ -119,6 +128,7 @@ let readText = (text, keys: dict<string>) => {
             ->Option.getOr(0.5),
             right: placed->Option.flatMap(p => capture(p, 2))->Option.isSome,
             kind,
+            both: capture(m, 1) == Some("<->"),
           })
         }
       }
@@ -383,6 +393,7 @@ let read = (text, caption, kinds: dict<string>): drawing<StatesOp.t> => {
       ...boxes->Array.map(b => Box({kind: b.kind, x: b.x, y: b.y, width: b.w, height: boxHeight, name: b.name})),
       ...drawn->Array.map(d => Move({
         kind: d.move.kind,
+        both: d.move.both,
         points: d.points,
         label: d.move.label == ""
           ? None
@@ -403,9 +414,10 @@ let tone = kind => kind == defaultKind ? "" : ` style="--tone: var(--tone-${kind
 let escape = Html.escape
 
 // An arrowhead takes no colour from the line that uses it, so a marked move
-// gets an arrowhead of its own kind.
+// gets an arrowhead of its own kind. At the start of a two-way move, the same
+// tip turns round.
 let marker = kind =>
-  `<marker id="states-tip${kind->Option.mapOr("", k => `-${k}`)}"${kind->Option.mapOr("", tone)} viewBox="0 0 14 10" refX="13" refY="5" markerWidth="14" markerHeight="10" markerUnits="userSpaceOnUse" orient="auto"><path class="states__tip" d="M 0 0 L 14 5 L 0 10 L 3.8 5 z" /></marker>`
+  `<marker id="states-tip${kind->Option.mapOr("", k => `-${k}`)}"${kind->Option.mapOr("", tone)} viewBox="0 0 14 10" refX="13" refY="5" markerWidth="14" markerHeight="10" markerUnits="userSpaceOnUse" orient="auto-start-reverse"><path class="states__tip" d="M 0 0 L 14 5 L 0 10 L 3.8 5 z" /></marker>`
 
 /** The SVG of a state machine, painted from its operations. */
 let render = (drawing: drawing<StatesOp.t>) => {
@@ -418,13 +430,14 @@ let render = (drawing: drawing<StatesOp.t>) => {
   )->Option.getOrThrow
   let paths = pick(op =>
     switch op {
-    | Move({kind, points: [x0, y0, x1, y1, x2, y2, x3, y3], label}) =>
+    | Move({kind, both, points: [x0, y0, x1, y1, x2, y2, x3, y3], label}) =>
       let text = label->Option.mapOr("", ((l, _)) => l.text)
       let modifier = kind->Option.mapOr("", k => ` states__move--${k}`)
       let colour = kind->Option.mapOr("", tone)
       let tip = kind->Option.mapOr("states-tip", k => `states-tip-${k}`)
+      let start = both ? ` marker-start="url(#${tip})"` : ""
       Some(
-        `<path class="states__move${modifier}"${colour} marker-end="url(#${tip})" d="M ${n(x0)} ${n(y0)} C ${n(x1)} ${n(y1)}, ${n(x2)} ${n(y2)}, ${n(x3)} ${n(y3)}" data-move="${escape(text)}" />`,
+        `<path class="states__move${modifier}"${colour}${start} marker-end="url(#${tip})" d="M ${n(x0)} ${n(y0)} C ${n(x1)} ${n(y1)}, ${n(x2)} ${n(y2)}, ${n(x3)} ${n(y3)}" data-move="${escape(text)}" />`,
       )
     | _ => None
     }

@@ -36,8 +36,8 @@ let statesOp = (op: StatesOp.t, pad) =>
   switch op {
   | Frame({left, top, width, height}) => [`${pad}frame ${nums([left, top, width, height])}`]
   | Box({kind, x, y, width, height, name}) => [`${pad}box ${kind} ${nums([x, y, width, height])} ${quote(name)}`]
-  | Move({kind, points, label}) => [
-      `${pad}move${kind->Option.mapOr("", k => ` ${k}`)} ${nums(points)}`,
+  | Move({kind, both, points, label}) => [
+      `${pad}move${kind->Option.mapOr("", k => ` ${k}`)}${flag("both", both)} ${nums(points)}`,
       ...label->Option.mapOr([], ((l, anchor)) => [
         `${pad}  label ${nums([l.x, l.y])} ${anchor} ${quote(l.text)}`,
       ]),
