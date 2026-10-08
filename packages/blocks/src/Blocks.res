@@ -82,7 +82,7 @@ let context = (options: options) => {
         "api",
         ...extras->Array.filter(e => !isFence(e))->Array.map(e => e.name),
       ],
-      fences: ["sequence", "states", ...extras->Array.filter(isFence)->Array.map(e => e.name)],
+      fences: ["sequence", "states", "model", ...extras->Array.filter(isFence)->Array.map(e => e.name)],
     },
   }
 }
@@ -113,6 +113,7 @@ let rec readIn = (ctx, source, offset) =>
       | "api" => Api.read(info, body, line)
       | "sequence" => Sequence(Sequence.read(body, caption(info), ctx.sequenceKinds))
       | "states" => States(States.read(body, caption(info), ctx.statesKinds))
+      | "model" => Model(Model.read(body, caption(info)))
       | _ =>
         switch ctx.callouts->Dict.get(name) {
         | Some(label) => Callout({name, label, children: inner()})
@@ -148,6 +149,7 @@ let rec renderIn = (ctx, nodes, env) =>
     | Api({method, path, title, parts}) => Api.render(method, path, title, parts, ctx.apiLabels)
     | Sequence(drawing) => Sequence.render(drawing) ++ "\n"
     | States(drawing) => States.render(drawing) ++ "\n"
+    | Model(drawing) => Model.render(drawing) ++ "\n"
     | Extra({name, info, body}) =>
       switch ctx.extras->Array.find(e => e.name == name) {
       | Some(e) => e.render(info, body)

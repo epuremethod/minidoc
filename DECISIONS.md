@@ -217,3 +217,73 @@ second place where a move takes options.
 
 Costs: one kind name cannot mean one thing for a box and another for a
 move.
+
+## 2026-10-07: `states` and `model` place their boxes on one grid
+
+`Grid.res` holds the placing and the lines: the grid of cells, the sides a
+line leaves and reaches, the spreading of lines along a side, the curve,
+the label and the frame. A box brings its own size, so a table as tall as
+its columns sits on the same grid as a state. `states` kept every number of
+its fixture through the move.
+
+Refused: `model` as a copy of `states` with tables in its boxes. Two copies
+of the routing would drift, and a fix to one would miss the other.
+
+Costs: the entry "`sequence` and `states` are SWISSID's copies, taken whole"
+no longer holds for `states`. A fix taken from SWISSID now lands in `Grid`.
+
+## 2026-10-07: An end of a relation is written as it is drawn
+
+`Project ||--o< Site` reads from each table toward the line, so the marks
+on the page are the marks in the source. Mermaid's `}` and `{` read too, as
+the crow's foot, so a schema copied from mermaid draws unchanged.
+
+Refused: words for the ends (`one-to-many`). A relation would no longer fit
+on one line beside its tables.
+
+Zero or one puts the bar at the table and the ring toward the line, as
+crow's foot notation does, and as zero or many puts its ring.
+
+## 2026-10-07: The full-screen viewer belongs to the blocks, not to minidoc
+
+`viewer.js` ships with `@epure/minidoc-blocks`. It knows which elements are
+drawings, `.sequence`, `.states` and `.model`, and that is the blocks' HTML
+contract. A site loads it once in its layout, as it loads `blocks.css`.
+`data-select` on the script tag names other blocks to open.
+
+Refused: a helper in minidoc core. Minidoc renders templates and knows no
+block, so it would have to learn the blocks' class names.
+
+Refused: every block. A callout or a quote is read at the width of the page.
+A drawing is the block the page shrinks.
+
+The viewer inserts its own styles first in the head, so one script tag is
+the whole install, and a site's stylesheet still overrides them.
+
+Costs: no scenario runs it. The fixtures read markdown into nodes and
+nodes into HTML. The viewer was checked in a browser, which no standing
+check drives.
+
+## 2026-10-07: A relation leaves its table straight, for seven tenths of its mark
+
+A crow's foot mark is drawn along the line where it meets its table, so the
+line runs straight under it before it curves. The straight piece is 0.7 of
+the mark's own reach, chosen by eye on the radif schema.
+
+Refused: the curve starting at the table. It bends under the mark, and the
+mark stands beside the line. Refused: a piece as long as the mark, and one
+of 20, the marker's box. A curve leaves a straight line so gently that both
+looked to start too late. 0.6 and 0.75 were tried too.
+
+## 2026-10-07: An end of a relation has four forms, and no bar
+
+Supersedes the seven ends of "An end of a relation is written as it is
+drawn". An end answers two questions with one mark each: a ring, it may
+count no row; a crow's foot, it may count more than one. A plain end counts
+exactly one. So `--`, `o`, `<` and `o<`, mirrored on the left.
+
+Refused: the bars of crow's foot notation. `||` for exactly one reads as
+two, and a bar for one forces a third mark, `o|<`, for zero, one or more.
+
+Costs: a reader of standard crow's foot takes a plain end for "not said".
+The docs table states it. Mermaid's tokens still read, drawn as the four.

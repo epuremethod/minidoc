@@ -331,6 +331,18 @@ test("copies reaching one directory by different paths do not race", async (t) =
   assert.equal(await readFile(path.join(root, "dist", "fonts", "f19.woff2"), "utf8"), "x");
 });
 
+test("two builds copying into one output do not race", async (t) => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "minidoc-"));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  await mkdir(path.join(root, "assets", "fonts"), { recursive: true });
+  for (let i = 0; i < 20; i++) await writeFile(path.join(root, "assets", "fonts", `f${i}.woff2`), "x");
+
+  // One filesystem each, as a check run beside the dev server has.
+  const builds = [1, 2, 3].map(() => nodeFs(root));
+  await Promise.all(builds.map((fs) => fs.copy("assets/fonts", "dist/fonts")));
+  assert.equal(await readFile(path.join(root, "dist", "fonts", "f19.woff2"), "utf8"), "x");
+});
+
 test("the filesystem never reaches outside its root unless allowed", async (t) => {
   const root = await mkdtemp(path.join(os.tmpdir(), "minidoc-"));
   const outside = await mkdtemp(path.join(os.tmpdir(), "minidoc-outside-"));

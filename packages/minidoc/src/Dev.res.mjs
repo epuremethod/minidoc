@@ -274,7 +274,7 @@ function extension(path) {
 
 let channel = "/__minidoc";
 
-let live = `<script>new EventSource("` + channel + `").addEventListener("message",()=>location.reload())</script>`;
+let live = `<script>(()=>{let s=null;const open=()=>{if(s)return;s=new EventSource("` + channel + `");s.addEventListener("message",()=>location.reload())};const close=()=>{if(s){s.close();s=null}};open();addEventListener("pagehide",close);addEventListener("pageshow",open);document.addEventListener("visibilitychange",()=>document.hidden?close():open())})()</script>`;
 
 function inject(html) {
   let at = html.lastIndexOf("</body>");

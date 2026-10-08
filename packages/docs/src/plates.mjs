@@ -5,6 +5,10 @@
 // fixed text above and below the block. The package does every step; this
 // file only lays the three out.
 //
+// A scenario that expects an error is drawn after the others, under its own
+// subtitle, so a reader sees a refusal as part of the contract and not as a
+// broken page.
+//
 // The fixture's `after` is the nodes a scenario expects. When the reader
 // gives other nodes, the plate says so and shows the expected ones under
 // them.
@@ -75,5 +79,14 @@ export function plates(name) {
   if (data.background?.given !== "a document") {
     throw new Error(`plates: ${fixture} is not a reader fixture (its given is "${data.background?.given}")`);
   }
-  return `<div class="plates">\n${data.examples.map((example) => plate(data.feature, example)).join("\n")}\n</div>`;
+  const draw = (examples) => examples.map((example) => plate(data.feature, example)).join("\n");
+  const drawn = data.examples.filter((example) => example.error === undefined);
+  const refused = data.examples.filter((example) => example.error !== undefined);
+  const errors =
+    refused.length === 0
+      ? ""
+      : `\n<h3 class="plates__subtitle">Errors</h3>
+<p class="plates__lead">Each of these stops the build, and the message names the line in the page.</p>
+${draw(refused)}`;
+  return `<div class="plates">\n${draw(drawn)}${errors}\n</div>`;
 }

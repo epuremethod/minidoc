@@ -1156,6 +1156,13 @@ function makeMemoryFileSystem(seed) {
 
 let import_ = ((name) => import(name));
 
+let copyTree = (async function copyTree(fs, from, to) {
+  if (!(await fs.stat(from)).isDirectory()) return fs.copyFile(from, to)
+  await fs.mkdir(to, {recursive: true})
+  const entries = await fs.readdir(from)
+  await Promise.all(entries.map((name) => copyTree(fs, from + "/" + name, to + "/" + name)))
+});
+
 function nodeFs(root, options) {
   let cache = {
     contents: undefined
@@ -1224,7 +1231,6 @@ function nodeFs(root, options) {
     }
     return full;
   };
-  let copying = {};
   return {
     readFile: async path => {
       let match = await mods();
@@ -1244,22 +1250,10 @@ function nodeFs(root, options) {
       let fs = match[0];
       let from = await resolve(source);
       let target = await resolve(output);
-      let previous = Stdlib_Option.getOr(copying[target], Promise.resolve());
-      let current = (async () => {
-        try {
-          await previous;
-        } catch (exn) {
-          
-        }
-        await fs.mkdir(Schema.dirname(target), {
-          recursive: true
-        });
-        return await fs.cp(from, target, {
-          recursive: true
-        });
-      })();
-      copying[target] = current;
-      return await current;
+      await fs.mkdir(Schema.dirname(target), {
+        recursive: true
+      });
+      return await copyTree(fs, from, target);
     },
     exists: async path => {
       let match = await mods();

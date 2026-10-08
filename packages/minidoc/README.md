@@ -630,6 +630,12 @@ stand in for. `pnpm check` runs everything.
   - Two outputs of one config resolving to the same path now fail loud
     before anything is written (it used to be last write wins). Copies into
     one directory still merge.
+  - Fix `EEXIST` and `ENOENT` when two builds copy into the same output at
+    once, such as a check run beside the dev server. `nodeFs` copies no
+    longer go through `fs.cp`, and symlinks in a copied folder are followed.
+  - A dev page closes its reload stream while hidden and reopens it when
+    shown, so tabs left open no longer take up the browser's connections to
+    the dev server.
 
 - 2026-09-27 **0.1.1**
   - Fix `EEXIST: file already exists, mkdir` when several configs copy into

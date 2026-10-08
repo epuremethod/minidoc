@@ -955,7 +955,6 @@ type fsmod = {
   readFile: (string, string) => promise<string>,
   writeFile: (string, string, string) => promise<unit>,
   mkdir: (string, ropts) => promise<unit>,
-  cp: (string, string, ropts) => promise<unit>,
   access: string => promise<unit>,
   readdir: (string, lopts) => promise<array<dirent>>,
 }
@@ -965,6 +964,18 @@ type urlmod = {fileURLToPath: unknown => string}
 let import_: string => promise<'a> = %raw(`(name) => import(name)`)
 
 type fsOptions = {allow?: array<string>}
+
+// A copy any number of builds can run into one output at once (a check run
+// beside the dev server, three copies merging into one folder). fs.cp cannot:
+// it tests a folder before making it and unlinks a file before replacing it,
+// so a second writer in between fails it with EEXIST or ENOENT. Here folders
+// are made with -p and files are overwritten in place. Symlinks are followed.
+let copyTree: (fsmod, string, string) => promise<unit> = %raw(`async function copyTree(fs, from, to) {
+  if (!(await fs.stat(from)).isDirectory()) return fs.copyFile(from, to)
+  await fs.mkdir(to, {recursive: true})
+  const entries = await fs.readdir(from)
+  await Promise.all(entries.map((name) => copyTree(fs, from + "/" + name, to + "/" + name)))
+}`)
 
 // Node-backed FileSystem rooted at a path string or file:// URL (default: the
 // current working directory). Creates parent directories on write.
@@ -1027,7 +1038,6 @@ let nodeFs = (root: option<string>, options: option<fsOptions>): filesystem => {
     }
     full
   }
-  let copying: dict<promise<unit>> = Dict.make()
   {
     readFile: async path => {
       let (fs, _) = await mods()
@@ -1043,19 +1053,8 @@ let nodeFs = (root: option<string>, options: option<fsOptions>): filesystem => {
       let (fs, _) = await mods()
       let from = await resolve(source)
       let target = await resolve(output)
-      // fs.cp races on a shared target (EEXIST on mkdir), so serialize per target.
-      let previous = copying->Dict.get(target)->Option.getOr(Promise.resolve())
-      let current = (
-        async () => {
-          try await previous catch {
-          | _ => ()
-          }
-          await fs.mkdir(dirname(target), {recursive: true})
-          await fs.cp(from, target, {recursive: true})
-        }
-      )()
-      copying->Dict.set(target, current)
-      await current
+      await fs.mkdir(dirname(target), {recursive: true})
+      await copyTree(fs, from, target)
     },
     exists: async path => {
       let (fs, _) = await mods()

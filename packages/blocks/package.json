@@ -1,13 +1,14 @@
 {
   "name": "@epure/minidoc-blocks",
   "version": "0.1.0",
-  "description": "Common ::: blocks for minidoc sites: callouts, quotes, flows, screens, sequences, state machines and API calls",
+  "description": "Common ::: blocks for minidoc sites: callouts, quotes, flows, screens, sequences, state machines, database models and API calls",
   "author": "Gaspard Anna Bucher <g.a.bucher@midasum.com>",
   "license": "MIT",
   "type": "module",
   "files": [
     "src",
     "blocks.css",
+    "viewer.js",
     "themes",
     "rescript.json",
     "LICENSE"

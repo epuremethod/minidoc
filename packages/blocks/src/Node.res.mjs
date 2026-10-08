@@ -5,8 +5,11 @@ let SequenceOp = {};
 
 let StatesOp = {};
 
+let ModelOp = {};
+
 export {
   SequenceOp,
   StatesOp,
+  ModelOp,
 }
 /* No side effect */

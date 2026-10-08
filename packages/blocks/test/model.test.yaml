@@ -1,0 +1,168 @@
+feature: Database models
+background:
+  given: a document
+examples:
+  - scenario: the grid places the tables, each with its columns, their types and a value they may hold
+    before: |-
+      ```model
+      Project Site
+
+      Project
+        id     uuid  p-0412
+        title  text  School A
+
+      Site
+        id       uuid
+        project  ref   p-0412
+
+      Project --o< Site  sites
+      ```
+    after: |-
+      model
+        frame -10 -10 418 100
+        link one any 149 40 192.2 40 201.8 40 245 40
+          label 197 22 middle "sites"
+        table 0 0 149 80 50.12 87.64 "Project"
+          column 45 "id" type "uuid" value "p-0412"
+          column 67 "title" type "text" value "School A"
+        table 245 0 153 80 309.76 347.28 "Site"
+          column 45 "id" type "uuid"
+          column 67 "project" type "ref" value "p-0412"
+
+  - scenario: a table left undescribed is its name alone, a dot leaves a cell empty, and a relation between rows curves
+    before: |-
+      ```model Cases
+      Case .
+      Hearing Judge
+
+      Case
+        id  uuid
+
+      Case --o< Hearing  hearings
+      Hearing >o-- Judge  sits
+      ```
+    after: |-
+      model
+        frame -10 -10 248 192
+        link one any 36.5 58 36.5 95.8 36.5 104.2 36.5 142
+          label 48 104 start "hearings"
+        link any one 73 157 116.2 157 125.8 157 169 157
+          label 121 139 middle "sits"
+        table 0 0 73 58 36.8 74.32 "Case"
+          column 45 "id" type "uuid"
+        table 0 142 73 30 26 26 "Hearing"
+        table 169 142 59 30 195 195 "Judge"
+        caption "Cases"
+
+  - scenario: two tables of one row, the one taller than the other, are joined by a straight line
+    before: |-
+      ```model
+      Account Author
+
+      Account
+        authors  [Author]
+
+      Author
+        title   Text
+        domain  Domain
+        same    Author
+
+      Account --< Author  authors
+      ```
+    after: |-
+      model
+        frame -10 -11 359 123
+        link one more 122 29 165.2 29 174.8 29 218 29
+          label 170 11 middle "authors"
+        table 0 0 122 58 66.68 123.88 "Account"
+          column 45 "authors" type "[Author]"
+        table 218 0 121 102 285.16 340.32 "Author"
+          column 45 "title" type "Text"
+          column 67 "domain" type "Domain"
+          column 89 "same" type "Author"
+
+  - scenario: an end is written as it is drawn, and the tokens of mermaid read too
+    before: |-
+      ```model
+      Order Line Product
+
+      Order --o< Line  lines
+      Line }o--|| Product  mermaid
+      ```
+    after: |-
+      model
+        frame -10 -25 386 65
+        link one any 55 15 98.2 15 107.8 15 151 15
+          label 103 -3 middle "lines"
+        link any one 201 15 244.2 15 253.8 15 297 15
+          label 249 -3 middle "mermaid"
+        table 0 0 55 30 26 26 "Order"
+        table 151 0 50 30 177 177 "Line"
+        table 297 0 69 30 323 323 "Product"
+
+  - scenario: a relation to a table that the grid does not hold is refused
+    before: |-
+      ```model
+      Project
+
+      Project --o< Site  sites
+      ```
+    error: "model: no table called Site"
+
+  - scenario: a table described but missing from the grid is refused
+    before: |-
+      ```model
+      Project
+
+      Site
+        id  uuid
+      ```
+    error: "model: no table called Site in the grid, line 3"
+
+  - scenario: a column before any table is refused
+    before: |-
+      ```model
+      Project
+
+        id  uuid
+      ```
+    error: "model: a column outside a table, line 3"
+
+  - scenario: an end that is not one of the four is refused
+    before: |-
+      ```model
+      Project Site
+
+      Project --x< Site
+      ```
+    error: 'model: cannot read the end "x<", line 3'
+
+  - scenario: a bar is not an end, since a plain end already says exactly one
+    before: |-
+      ```model
+      Project Site
+
+      Project |--< Site
+      ```
+    error: 'model: cannot read the end "|", line 3'
+
+  - scenario: a table described twice is refused
+    before: |-
+      ```model
+      Project
+
+      Project
+        id  uuid
+      Project
+        name  text
+      ```
+    error: "model: Project is described twice, line 5"
+
+  - scenario: a relation takes no kind in its braces
+    before: |-
+      ```model
+      Project Site
+
+      Project --< Site  sites {fail}
+      ```
+    error: "model: no kind called fail, line 3"

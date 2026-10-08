@@ -4,6 +4,7 @@ import * as Api from "./Api.res.mjs";
 import * as Flow from "./Flow.res.mjs";
 import * as Html from "./Html.res.mjs";
 import * as Scan from "./Scan.res.mjs";
+import * as Model from "./Model.res.mjs";
 import * as Write from "./Write.res.mjs";
 import * as Screen from "./Screen.res.mjs";
 import * as States from "./States.res.mjs";
@@ -104,7 +105,8 @@ function context(options) {
       fences: Belt_Array.concatMany([
         [
           "sequence",
-          "states"
+          "states",
+          "model"
         ],
         extras.filter(isFence).map(e => e.name)
       ])
@@ -138,6 +140,11 @@ function readIn(ctx, source, offset) {
         return Api.read(info, body, line);
       case "flow" :
         return Flow.read(ctx.md, body, "Flow");
+      case "model" :
+        return {
+          TAG: "Model",
+          _0: Model.read(body, caption(info))
+        };
       case "quote" :
         let m = quoteInfo.exec((`quote ` + info).trim());
         if (m == null) {
@@ -232,6 +239,8 @@ function renderIn(ctx, nodes, env) {
         return Sequence.render(node._0) + "\n";
       case "States" :
         return States.render(node._0) + "\n";
+      case "Model" :
+        return Model.render(node._0) + "\n";
       case "Extra" :
         let name = node.name;
         let e = ctx.extras.find(e => e.name === name);

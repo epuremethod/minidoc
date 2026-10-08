@@ -160,14 +160,14 @@
 .api__empty { margin: 0; color: var(--blocks-muted); font-style: italic; }
 .api__empty code { font-style: normal; }
 
-/* Drawn blocks: a sequence and a state machine. A kind of the project's
-   carries --tone in its style attribute. */
+/* Drawn blocks: a sequence, a state machine and a database model. A kind of
+   the project's carries --tone in its style attribute. */
 
-.sequence, .states { min-width: 0; margin: 1.25em 0; padding: 0; overflow-x: auto; }
-.sequence__svg, .states__svg { display: block; max-width: 100%; height: auto; overflow: visible; font-family: inherit; }
+.sequence, .states, .model { min-width: 0; margin: 1.25em 0; padding: 0; overflow-x: auto; }
+.sequence__svg, .states__svg, .model__svg { display: block; max-width: 100%; height: auto; overflow: visible; font-family: inherit; }
 /* A plain box is neutral. A box of a kind is marked by the theme's drawing
    amounts, which are stronger than a callout's: a small box needs them. */
-.sequence__head rect, .sequence__state rect, .states__box rect {
+.sequence__head rect, .sequence__state rect, .states__box rect, .model__table rect {
   fill: var(--blocks-surface);
   stroke: var(--drawing-line);
   stroke-width: var(--drawing-edge);
@@ -181,7 +181,7 @@
 .sequence__head[style] text, .states__box[style] text { fill: var(--drawing-kind-ink); }
 .sequence__state text { fill: var(--blocks-ink); font-size: 11px; font-weight: 600; }
 .sequence__life { stroke: var(--blocks-line); stroke-width: 1; stroke-dasharray: 3 4; }
-.sequence__message, .states__move { fill: none; stroke: var(--blocks-stroke); stroke-width: 1.8; }
+.sequence__message, .states__move, .model__link { fill: none; stroke: var(--blocks-stroke); stroke-width: 1.8; }
 .sequence__tip, .states__tip { fill: var(--blocks-stroke); stroke: none; }
 .sequence__message--refused { stroke: var(--tone-refused); stroke-dasharray: 5 4; }
 /* A marked move, its arrowhead and its label take the tone of its kind. */
@@ -190,10 +190,10 @@
 .states__label[style] { fill: var(--mark); }
 marker[style] .states__tip { fill: color-mix(in srgb, var(--tone) var(--drawing-edge-amount), var(--blocks-surface)); }
 .sequence__cross { fill: none; stroke: var(--tone-refused); stroke-width: 1.8; }
-.sequence__label, .states__label { fill: var(--blocks-muted); font-size: 11px; }
+.sequence__label, .states__label, .model__label { fill: var(--blocks-muted); font-size: 11px; }
 .sequence__label--refused { fill: var(--tone-refused); }
-.sequence__caption, .states__caption { display: flex; flex-direction: column; gap: .4em; margin-top: .9em; }
-.sequence__title, .states__title { color: var(--blocks-muted); font-size: .85em; }
+.sequence__caption, .states__caption, .model__caption { display: flex; flex-direction: column; gap: .4em; margin-top: .9em; }
+.sequence__title, .states__title, .model__title { color: var(--blocks-muted); font-size: .85em; }
 .sequence__keys, .states__keys { display: flex; flex-wrap: wrap; gap: .4em 1.2em; }
 .sequence__key, .states__key { display: inline-flex; align-items: center; gap: .4em; color: var(--blocks-muted); font-size: .8em; }
 .sequence__key::before, .states__key::before {
@@ -212,6 +212,16 @@ marker[style] .states__tip { fill: color-mix(in srgb, var(--tone) var(--drawing-
 }
 .sequence__key--message::before, .sequence__key--refused::before { width: 18px; height: 0; border: none; border-top: 2px solid var(--blocks-stroke); border-radius: 0; background: none; }
 .sequence__key--refused::before { border-top-style: dashed; border-top-color: var(--tone-refused); }
+/* A table: its name, a rule under it, then a row per column with its type
+   and a value it may hold. An end of a relation is drawn in crow's foot
+   notation, as markers on the line. */
+.model__rule { stroke: var(--drawing-line); stroke-width: var(--drawing-edge); }
+.model__name { fill: var(--blocks-ink); font-size: 13px; font-weight: 650; }
+.model__column { fill: var(--blocks-ink); font-size: 12px; }
+.model__type { fill: var(--blocks-muted); font-size: 12px; }
+.model__value { fill: var(--blocks-muted); font-size: 12px; font-style: italic; }
+.model__end { fill: none; stroke: var(--blocks-stroke); stroke-width: 1.8; }
+.model__ring { fill: var(--blocks-surface); stroke: var(--blocks-stroke); stroke-width: 1.8; }
 .states__key--move::before { width: 18px; height: 0; border: none; border-top: 2px solid color-mix(in srgb, var(--tone) var(--drawing-edge-amount), var(--blocks-surface)); border-radius: 0; background: none; }
 
 /* The page around the blocks */
@@ -220,5 +230,5 @@ marker[style] .states__tip { fill: color-mix(in srgb, var(--tone) var(--drawing-
 .table-wrap { overflow-x: auto; }
 
 @media print {
-  .callout, .quote, .ui-dialog, .ui-flow, .sequence, .states, .api { break-inside: avoid; }
+  .callout, .quote, .ui-dialog, .ui-flow, .sequence, .states, .model, .api { break-inside: avoid; }
 }

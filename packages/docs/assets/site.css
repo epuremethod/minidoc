@@ -138,6 +138,8 @@ a:hover { color: var(--accent); }
 /* Plates: one scenario each, three columns. */
 
 .plates { margin-top: 36px; }
+.plates__subtitle { margin: 64px 0 6px; font-size: 22px; font-weight: 600; letter-spacing: -.02em; }
+.plates__lead { margin: 0 0 24px; color: var(--muted); font-size: 15px; }
 .plate { counter-increment: plate; margin: 0 0 44px; border-top: 2px solid var(--rule); }
 .plate--differs { border-top-color: var(--alarm); }
 .plate__head { display: flex; align-items: baseline; gap: 16px; padding: 12px 0; border-bottom: 1px solid var(--hairline); }

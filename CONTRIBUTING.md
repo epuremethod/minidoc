@@ -21,8 +21,9 @@ One pnpm workspace. The root holds no code.
 - `packages/minidoc/` is the generator, package `@epure/minidoc`.
 - `packages/blocks/` is the common `:::` blocks, package `@epure/minidoc-blocks`:
   a line scanner, readers into nodes, the nodes' text form, renderers to
-  HTML, `blocks.css` and two themes. Its scenarios are
-  `packages/blocks/test/*.test.yaml`, and the site draws them on its Blocks page.
+  HTML, `blocks.css`, two themes, and `viewer.js`, which opens a drawing full
+  screen. Its scenarios are `packages/blocks/test/*.test.yaml`, and the site
+  draws them on its Blocks page.
 - `packages/docs/` is the documentation site, package `minidoc-docs`, private. It is
   built with minidoc and deployed to GitHub Pages on every push to `main`.
 

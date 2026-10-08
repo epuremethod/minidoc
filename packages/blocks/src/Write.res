@@ -44,6 +44,23 @@ let statesOp = (op: StatesOp.t, pad) =>
     ]
   }
 
+let modelOp = (op: ModelOp.t, pad) =>
+  switch op {
+  | Frame({left, top, width, height}) => [`${pad}frame ${nums([left, top, width, height])}`]
+  | Table({x, y, width, height, name, kindX, valueX, columns}) => [
+      `${pad}table ${nums([x, y, width, height, kindX, valueX])} ${quote(name)}`,
+      ...columns->Array.map(c =>
+        `${pad}  column ${num(c.y)} ${quote(c.name)}${field("type", c.kind)}${field("value", c.value)}`
+      ),
+    ]
+  | Link({from, to, points, label}) => [
+      `${pad}link ${Model.arityName(from)} ${Model.arityName(to)} ${nums(points)}`,
+      ...label->Option.mapOr([], ((l, anchor)) => [
+        `${pad}  label ${nums([l.x, l.y])} ${anchor} ${quote(l.text)}`,
+      ]),
+    ]
+  }
+
 let widget = (w, pad) =>
   switch w {
   | Text(text) => markdown(text, pad)
@@ -108,6 +125,11 @@ let rec lines = (node, pad) => {
   | States(drawing) => [
       `${pad}states`,
       ...drawing.ops->Array.flatMap(op => statesOp(op, inner)),
+      ...keys(drawing, inner),
+    ]
+  | Model(drawing) => [
+      `${pad}model`,
+      ...drawing.ops->Array.flatMap(op => modelOp(op, inner)),
       ...keys(drawing, inner),
     ]
   | Extra({name, info, body}) => [`${pad}extra ${name} ${quote(info)}`, ...markdown(body, inner)]

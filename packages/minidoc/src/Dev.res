@@ -237,8 +237,11 @@ let extension = path =>
 
 let channel = "/__minidoc"
 
-// The page holds a stream open; a finished build says one word down it.
-let live = `<script>new EventSource("${channel}").addEventListener("message",()=>location.reload())</script>`
+// The page holds a stream open; a finished build says one word down it. A
+// hidden page lets go of it: a browser allows a host six connections, so
+// tabs left open would starve the next one, and an open stream keeps a page
+// out of the back and forward cache. Shown again, it opens one anew.
+let live = `<script>(()=>{let s=null;const open=()=>{if(s)return;s=new EventSource("${channel}");s.addEventListener("message",()=>location.reload())};const close=()=>{if(s){s.close();s=null}};open();addEventListener("pagehide",close);addEventListener("pageshow",open);document.addEventListener("visibilitychange",()=>document.hidden?close():open())})()</script>`
 
 let inject = html =>
   switch String.lastIndexOf(html, "</body>") {

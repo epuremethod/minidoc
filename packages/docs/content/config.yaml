@@ -65,6 +65,7 @@ var:
       if (saved === "soft" || saved === "graphic") pick(saved)
     })()
     </script>
+    <script src="./viewer.js" defer></script>
     </body>
     </html>
 
@@ -255,6 +256,9 @@ build:
   - output: "{{output}}/themes"
     input:
       copy: ../../blocks/themes
+  - output: "{{output}}/viewer.js"
+    input:
+      copy: ../../blocks/viewer.js
   - output: "{{output}}/llms.txt"
     input: "{{llmsTxt}}"
   - output: "{{output}}/llms-full.txt"

@@ -26,6 +26,37 @@ module StatesOp = {
     | Move({kind: option<string>, both: bool, points: array<float>, label: option<(label, string)>})
 }
 
+/** One operation of a `model` drawing. */
+module ModelOp = {
+  /**
+   * How many rows an end of a relation stands for. A ring says it may be
+   * none, a crow's foot that it may be more than one, and a plain end
+   * exactly one.
+   */
+  type arity =
+    | One
+    | Optional
+    | More
+    | Any
+
+  /** A column of a table: its baseline, its name, its type, and a value it may hold. */
+  type column = {y: float, name: string, kind: option<string>, value: option<string>}
+
+  type t =
+    | Frame(frame)
+    | Table({
+        x: float,
+        y: float,
+        width: float,
+        height: float,
+        name: string,
+        kindX: float,
+        valueX: float,
+        columns: array<column>,
+      })
+    | Link({from: arity, to: arity, points: array<float>, label: option<(label, string)>})
+}
+
 /** One entry of a legend: a kind and its text. A `move` entry is drawn as a line. */
 type key = {kind: string, text: string, move: bool}
 
@@ -60,4 +91,5 @@ type rec t =
   | Api({method: string, path: string, title: option<string>, parts: array<apiPart>})
   | Sequence(drawing<SequenceOp.t>)
   | States(drawing<StatesOp.t>)
+  | Model(drawing<ModelOp.t>)
   | Extra({name: string, info: string, body: string})
