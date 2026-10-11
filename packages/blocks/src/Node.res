@@ -50,6 +50,7 @@ module ModelOp = {
         width: float,
         height: float,
         name: string,
+        tenant: option<string>,
         kindX: float,
         valueX: float,
         columns: array<column>,

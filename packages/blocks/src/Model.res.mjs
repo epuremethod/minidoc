@@ -11,6 +11,8 @@ import * as Primitive_option from "@rescript/runtime/lib/es6/Primitive_option.js
 
 let nameLine = new RegExp("^[\\p{L}\\p{N}_.\\-]+$", "u");
 
+let headLine = new RegExp("^([\\p{L}\\p{N}_.\\-]+)(?: #([\\p{L}\\p{N}_.\\-]+))?$", "u");
+
 let columnLine = new RegExp("^\\s+(\\S+)(?:\\s+(\\S+))?(?:\\s+(\\S.*?))?\\s*$");
 
 let linkLine = new RegExp("^(\\S+) +([^\\s-]*)--([^\\s-]*) +(\\S+)(?: +(.*))?$");
@@ -152,18 +154,22 @@ function readText(text) {
       }
       let m = linkLine.exec(line);
       if (m == null) {
-        if (!nameLine.test(line)) {
+        let m$1 = headLine.exec(line);
+        if (m$1 == null) {
           return Html.fail(`model: cannot read ` + at);
         }
-        if (!rows.flat().includes(line)) {
-          Html.fail(`model: no table called ` + line + ` in the grid, ` + at);
+        let name = Stdlib_Option.getOr(Sequence.capture(m$1, 0), "");
+        if (!rows.flat().includes(name)) {
+          Html.fail(`model: no table called ` + name + ` in the grid, ` + at);
         }
-        if (tables.some(t => t.name === line)) {
-          Html.fail(`model: ` + line + ` is described twice, ` + at);
+        if (tables.some(t => t.name === name)) {
+          Html.fail(`model: ` + name + ` is described twice, ` + at);
         }
+        let table_tenant = Sequence.capture(m$1, 1);
         let table_columns = [];
         let table = {
-          name: line,
+          name: name,
+          tenant: table_tenant,
           columns: table_columns
         };
         tables.push(table);
@@ -234,7 +240,8 @@ function measure(table) {
   ) + (
     values > 0 ? 14 + values : 0
   );
-  let w = Math.max(Sequence.width(table.name, 13), inner) + 12 * 2;
+  let tag = Stdlib_Option.mapOr(table.tenant, 0, t => 14 + Sequence.width(t, 11));
+  let w = Math.max(Sequence.width(table.name, 13) + tag, inner) + 12 * 2;
   let rows = table.columns.length;
   let h = rows === 0 ? 30 : 30 + rows * 22 + 6;
   return [
@@ -254,6 +261,7 @@ function read(text, caption) {
   let tables = match[1];
   let described = name => Stdlib_Option.getOr(tables.find(t => t.name === name), {
     name: name,
+    tenant: undefined,
     columns: []
   });
   let match$1 = Grid.place(96, match[0].map(row => row.map(c => Stdlib_Option.map(c, name => {
@@ -298,6 +306,7 @@ function read(text, caption) {
           width: b.w,
           height: b.h,
           name: b.name,
+          tenant: match[0].tenant,
           kindX: kindX,
           valueX: widths.kinds > 0 ? kindX + widths.kinds + 14 : kindX,
           columns: match[0].columns.map((param, index) => ({
@@ -428,6 +437,20 @@ function render(drawing) {
         return `<path class="model__link"` + end("marker-start", from) + end("marker-end", to) + ` d="M ` + x0.toString() + ` ` + y0.toString() + ` L ` + match$1[0].toString() + ` ` + match$1[1].toString() + ` C ` + x1.toString() + ` ` + y1.toString() + `, ` + x2.toString() + ` ` + y2.toString() + `, ` + match$2[0].toString() + ` ` + match$2[1].toString() + ` L ` + x3.toString() + ` ` + y3.toString() + `" data-ends="` + arityName(from) + ` ` + arityName(to) + `" />`;
     }
   });
+  let tenants = Stdlib_Array.reduce(drawing.ops, [], (seen, op) => {
+    if (op.TAG !== "Table") {
+      return seen;
+    }
+    let t = op.tenant;
+    if (t !== undefined && !seen.includes(t)) {
+      return Belt_Array.concatMany([
+        seen,
+        [t]
+      ]);
+    } else {
+      return seen;
+    }
+  });
   let tables = pick(op => {
     switch (op.TAG) {
       case "Table" :
@@ -438,13 +461,21 @@ function render(drawing) {
         let y = op.y;
         let x = op.x;
         let left = x + 12;
+        let tenant = op.tenant;
+        let match = tenant !== undefined ? [
+            ` model__table--tenant-` + tenants.indexOf(tenant).toString(),
+            `<text class="model__tenant" text-anchor="end" x="` + (x + width - 12).toString() + `" y="` + (y + 30 / 2 + 4).toString() + `">` + Html.escape(tenant) + `</text>`
+          ] : [
+            "",
+            ""
+          ];
         let rule = Primitive_object.equal(columns, []) ? "" : `<line class="model__rule" x1="` + x.toString() + `" y1="` + (y + 30).toString() + `" x2="` + (x + width).toString() + `" y2="` + (y + 30).toString() + `" />`;
         let rows = columns.map(c => [
           `<text class="model__column" x="` + left.toString() + `" y="` + c.y.toString() + `">` + Html.escape(c.name) + `</text>`,
           Stdlib_Option.mapOr(c.kind, "", k => `<text class="model__type" x="` + kindX.toString() + `" y="` + c.y.toString() + `">` + Html.escape(k) + `</text>`),
           Stdlib_Option.mapOr(c.value, "", v => `<text class="model__value" x="` + valueX.toString() + `" y="` + c.y.toString() + `">` + Html.escape(v) + `</text>`)
         ].join("")).join("");
-        return `<g class="model__table"><rect x="` + x.toString() + `" y="` + y.toString() + `" width="` + width.toString() + `" height="` + op.height.toString() + `" /><text class="model__name" x="` + left.toString() + `" y="` + (y + 30 / 2 + 4).toString() + `">` + Html.escape(op.name) + `</text>` + rule + rows + `</g>`;
+        return `<g class="model__table` + match[0] + `"><rect x="` + x.toString() + `" y="` + y.toString() + `" width="` + width.toString() + `" height="` + op.height.toString() + `" /><text class="model__name" x="` + left.toString() + `" y="` + (y + 30 / 2 + 4).toString() + `">` + Html.escape(op.name) + `</text>` + match[1] + rule + rows + `</g>`;
       case "Frame" :
       case "Link" :
         return;
@@ -505,6 +536,7 @@ export {
   across,
   baseline,
   nameLine,
+  headLine,
   columnLine,
   linkLine,
   leftEnds,

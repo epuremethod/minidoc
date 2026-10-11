@@ -21,10 +21,12 @@ let across = 96.
 // The baseline of a row's text, from the top of its row.
 let baseline = 15.
 
-type table = {name: string, columns: array<(string, option<string>, option<string>)>}
+type table = {name: string, tenant: option<string>, columns: array<(string, option<string>, option<string>)>}
 type relation = {from: string, to: string, fromEnd: ModelOp.arity, toEnd: ModelOp.arity, way: Grid.way}
 
 let nameLine = RegExp.fromString("^[\\p{L}\\p{N}_.\\-]+$", ~flags="u")
+// A table's head line may name the tenant its rows carry: `Account #sonya`.
+let headLine = RegExp.fromString("^([\\p{L}\\p{N}_.\\-]+)(?: #([\\p{L}\\p{N}_.\\-]+))?$", ~flags="u")
 let columnLine = RegExp.fromString("^\\s+(\\S+)(?:\\s+(\\S+))?(?:\\s+(\\S.*?))?\\s*$")
 let linkLine = RegExp.fromString("^(\\S+) +([^\\s-]*)--([^\\s-]*) +(\\S+)(?: +(.*))?$")
 
@@ -112,17 +114,21 @@ let readText = text => {
           toEnd: readEnd(rightEnds, capture(m, 2)->Option.getOr(""), at),
           way: {from, to, label, at: where, right},
         })
-      | None if RegExp.test(nameLine, line) =>
-        if !(rows->Array.flat->Array.includes(Some(line))) {
-          fail(`model: no table called ${line} in the grid, ${at}`)
+      | None =>
+        switch RegExp.exec(headLine, line) {
+        | None => fail(`model: cannot read ${at}`)
+        | Some(m) =>
+          let name = capture(m, 0)->Option.getOr("")
+          if !(rows->Array.flat->Array.includes(Some(name))) {
+            fail(`model: no table called ${name} in the grid, ${at}`)
+          }
+          if tables->Array.some(t => t.name == name) {
+            fail(`model: ${name} is described twice, ${at}`)
+          }
+          let table = {name, tenant: capture(m, 1), columns: []}
+          tables->Array.push(table)
+          current := Some(table)
         }
-        if tables->Array.some(t => t.name == line) {
-          fail(`model: ${line} is described twice, ${at}`)
-        }
-        let table = {name: line, columns: []}
-        tables->Array.push(table)
-        current := Some(table)
-      | None => fail(`model: cannot read ${at}`)
       }
     }
   })
@@ -152,7 +158,8 @@ let measure = (table: table) => {
   let kinds = table.columns->Array.filterMap(((_, kind, _)) => kind)->Array.map(k => width(k, 12.))->most
   let values = table.columns->Array.filterMap(((_, _, value)) => value)->Array.map(v => width(v, 12.))->most
   let inner = names +. (kinds > 0. ? gap +. kinds : 0.) +. (values > 0. ? gap +. values : 0.)
-  let w = Math.max(width(table.name, 13.), inner) +. pad *. 2.
+  let tag = table.tenant->Option.mapOr(0., t => gap +. width(t, 11.))
+  let w = Math.max(width(table.name, 13.) +. tag, inner) +. pad *. 2.
   let rows = Array.length(table.columns)
   let h = rows == 0 ? headHeight : headHeight +. Int.toFloat(rows) *. rowHeight +. foot
   ({names, kinds, values}, w, h)
@@ -162,7 +169,7 @@ let measure = (table: table) => {
 let read = (text, caption): drawing<ModelOp.t> => {
   let (rows, tables, relations) = readText(text)
   let described = name =>
-    tables->Array.find(t => t.name == name)->Option.getOr({name, columns: []})
+    tables->Array.find(t => t.name == name)->Option.getOr({name, tenant: None, columns: []})
   let (boxes, right) = Grid.place(
     ~across,
     rows->Array.map(row =>
@@ -192,6 +199,7 @@ let read = (text, caption): drawing<ModelOp.t> => {
           width: b.w,
           height: b.h,
           name: b.name,
+          tenant: table.tenant,
           kindX,
           valueX: widths.kinds > 0. ? kindX +. widths.kinds +. gap : kindX,
           columns: table.columns->Array.mapWithIndex(((name, kind, value), index): ModelOp.column => {
@@ -285,10 +293,24 @@ let render = (drawing: drawing<ModelOp.t>) => {
     | _ => None
     }
   )
+  // A tenant takes the index of its first table, counted among tenants.
+  let tenants = drawing.ops->Array.reduce([], (seen, op) =>
+    switch op {
+    | ModelOp.Table({tenant: Some(t)}) if !(seen->Array.includes(t)) => [...seen, t]
+    | _ => seen
+    }
+  )
   let tables = pick(op =>
     switch op {
-    | ModelOp.Table({x, y, width, height, name, kindX, valueX, columns}) =>
+    | ModelOp.Table({x, y, width, height, name, tenant, kindX, valueX, columns}) =>
       let left = x +. pad
+      let (tone, tag) = switch tenant {
+      | Some(t) => (
+          ` model__table--tenant-${Int.toString(tenants->Array.indexOf(t))}`,
+          `<text class="model__tenant" text-anchor="end" x="${n(x +. width -. pad)}" y="${n(y +. headHeight /. 2. +. 4.)}">${escape(t)}</text>`,
+        )
+      | None => ("", "")
+      }
       let rule =
         columns == []
           ? ""
@@ -301,7 +323,7 @@ let render = (drawing: drawing<ModelOp.t>) => {
         ]->Array.join("")
       )->Array.join("")
       Some(
-        `<g class="model__table"><rect x="${n(x)}" y="${n(y)}" width="${n(width)}" height="${n(height)}" /><text class="model__name" x="${n(left)}" y="${n(y +. headHeight /. 2. +. 4.)}">${escape(name)}</text>${rule}${rows}</g>`,
+        `<g class="model__table${tone}"><rect x="${n(x)}" y="${n(y)}" width="${n(width)}" height="${n(height)}" /><text class="model__name" x="${n(left)}" y="${n(y +. headHeight /. 2. +. 4.)}">${escape(name)}</text>${tag}${rule}${rows}</g>`,
       )
     | _ => None
     }

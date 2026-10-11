@@ -47,8 +47,8 @@ let statesOp = (op: StatesOp.t, pad) =>
 let modelOp = (op: ModelOp.t, pad) =>
   switch op {
   | Frame({left, top, width, height}) => [`${pad}frame ${nums([left, top, width, height])}`]
-  | Table({x, y, width, height, name, kindX, valueX, columns}) => [
-      `${pad}table ${nums([x, y, width, height, kindX, valueX])} ${quote(name)}`,
+  | Table({x, y, width, height, name, tenant, kindX, valueX, columns}) => [
+      `${pad}table ${nums([x, y, width, height, kindX, valueX])} ${quote(name)}${field("tenant", tenant)}`,
       ...columns->Array.map(c =>
         `${pad}  column ${num(c.y)} ${quote(c.name)}${field("type", c.kind)}${field("value", c.value)}`
       ),

@@ -100,6 +100,45 @@ examples:
         table 151 0 50 30 177 177 "Line"
         table 297 0 69 30 323 323 "Product"
 
+  - scenario: a table names its tenant after a hash, and each tenant is drawn in its own tone
+    before: |-
+      ```model Two tenants
+      Customer Order Invoice
+
+      Customer #eu
+        id  uuid
+
+      Order #eu
+        customer  ref
+
+      Invoice #us
+
+      Customer --o< Order  orders
+      Order --o Invoice  invoice
+      ```
+    after: |-
+      model
+        frame -10 -25 518 93
+        link one any 106 15 149.2 15 158.8 15 202 15
+          label 154 -3 middle "orders"
+        link one optional 308 15 351.2 15 360.8 15 404 15
+          label 356 -3 middle "invoice"
+        table 0 0 106 58 36.8 74.32 "Customer" tenant "eu"
+          column 45 "id" type "uuid"
+        table 202 0 106 58 279.96 309.2 "Order" tenant "eu"
+          column 45 "customer" type "ref"
+        table 404 0 94 30 430 430 "Invoice" tenant "us"
+        caption "Two tenants"
+
+  - scenario: a tenant is one word
+    before: |-
+      ```model
+      Order
+
+      Order #eu west
+      ```
+    error: "model: cannot read line 3"
+
   - scenario: a relation to a table that the grid does not hold is refused
     before: |-
       ```model

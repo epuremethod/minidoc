@@ -142,7 +142,7 @@ function modelOp(op, pad) {
             op.height,
             op.kindX,
             op.valueX
-          ]) + ` ` + quote(op.name)],
+          ]) + ` ` + quote(op.name) + field("tenant", op.tenant)],
         op.columns.map(c => pad + `  column ` + num(c.y) + ` ` + quote(c.name) + field("type", c.kind) + field("value", c.value))
       ]);
     case "Link" :

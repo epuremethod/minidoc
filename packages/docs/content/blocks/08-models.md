@@ -12,6 +12,11 @@ column: its name, its type, and a value it may hold, shown as an example. A
 table the grid holds but nothing describes is drawn with its name alone.
 The words after `model` on the fence are its caption.
 
+A table's name line may end with a tenant after a hash: `Order #eu`. The
+tenant is one word. It is shown without the hash at the right of the
+table's name, and the table takes one tone per tenant, in the order the
+tenants first appear.
+
 `a --o< b label` is a relation. The marks on each side of `--` are its ends,
 written as they are drawn, from the table toward the line. A relation
 between rows curves. A label sits in the middle of its relation, unless

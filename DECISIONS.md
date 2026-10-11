@@ -287,3 +287,17 @@ two, and a bar for one forces a third mark, `o|<`, for zero, one or more.
 
 Costs: a reader of standard crow's foot takes a plain end for "not said".
 The docs table states it. Mermaid's tokens still read, drawn as the four.
+
+## 2026-10-08: A table names its tenant with a hash suffix
+
+A table's name line may end with ` #tenant`, one word. The table shows the
+tenant, without the hash, at the right of its name, and its group carries
+`model__table--tenant-<n>`, where `<n>` counts the tenants in the order they
+first appear. `blocks.css` gives the first four a tone each.
+
+Refused: grouping the tables of one tenant, as a radif page would group rows
+under their Domain. In a place drawing, a row under another is a parent edge,
+so the grouping would draw edges that do not exist.
+
+Costs: one more suffix in the row grammar. A fifth tenant gets the tag and
+no tone of its own.

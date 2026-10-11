@@ -222,6 +222,17 @@ marker[style] .states__tip { fill: color-mix(in srgb, var(--tone) var(--drawing-
 .model__value { fill: var(--blocks-muted); font-size: 12px; font-style: italic; }
 .model__end { fill: none; stroke: var(--blocks-stroke); stroke-width: 1.8; }
 .model__ring { fill: var(--blocks-surface); stroke: var(--blocks-stroke); stroke-width: 1.8; }
+/* A table that names its tenant takes one tone per tenant, in the order the
+   tenants first appear, and shows the tenant at the right of its name. */
+.model__table--tenant-0 { --tone: var(--tone-note); }
+.model__table--tenant-1 { --tone: var(--tone-settled); }
+.model__table--tenant-2 { --tone: var(--tone-open); }
+.model__table--tenant-3 { --tone: var(--tone-technical); }
+.model__table[class*="--tenant-"] rect {
+  fill: color-mix(in srgb, var(--tone, var(--blocks-ink)) var(--drawing-fill-amount), var(--blocks-surface));
+  stroke: color-mix(in srgb, var(--tone, var(--blocks-ink)) var(--drawing-edge-amount), var(--blocks-surface));
+}
+.model__tenant { fill: var(--blocks-muted); font-size: 11px; }
 .states__key--move::before { width: 18px; height: 0; border: none; border-top: 2px solid color-mix(in srgb, var(--tone) var(--drawing-edge-amount), var(--blocks-surface)); border-radius: 0; background: none; }
 
 /* The page around the blocks */
