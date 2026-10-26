@@ -44,6 +44,9 @@ let statesOp = (op: StatesOp.t, pad) =>
     ]
   }
 
+let placed = (label, pad) =>
+  label->Option.mapOr([], ((l: label, anchor)) => [`${pad}  label ${nums([l.x, l.y])} ${anchor} ${quote(l.text)}`])
+
 let modelOp = (op: ModelOp.t, pad) =>
   switch op {
   | Frame({left, top, width, height}) => [`${pad}frame ${nums([left, top, width, height])}`]
@@ -55,10 +58,9 @@ let modelOp = (op: ModelOp.t, pad) =>
     ]
   | Link({from, to, points, label}) => [
       `${pad}link ${Model.arityName(from)} ${Model.arityName(to)} ${nums(points)}`,
-      ...label->Option.mapOr([], ((l, anchor)) => [
-        `${pad}  label ${nums([l.x, l.y])} ${anchor} ${quote(l.text)}`,
-      ]),
+      ...placed(label, pad),
     ]
+  | Parent({points, label}) => [`${pad}parent ${nums(points)}`, ...placed(label, pad)]
   }
 
 let widget = (w, pad) =>

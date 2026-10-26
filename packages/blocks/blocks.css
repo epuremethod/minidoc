@@ -222,6 +222,9 @@ marker[style] .states__tip { fill: color-mix(in srgb, var(--tone) var(--drawing-
 .model__value { fill: var(--blocks-muted); font-size: 12px; font-style: italic; }
 .model__end { fill: none; stroke: var(--blocks-stroke); stroke-width: 1.8; }
 .model__ring { fill: var(--blocks-surface); stroke: var(--blocks-stroke); stroke-width: 1.8; }
+/* A subclass link is secondary to a relation: it takes the secondary line. */
+.model__link[data-parent] { stroke: var(--drawing-line-secondary); }
+.model__parent { fill: var(--blocks-surface); stroke: var(--drawing-line-secondary); stroke-width: 1.8; stroke-linejoin: round; }
 /* A table that names its tenant takes one tone per tenant, in the order the
    tenants first appear, and shows the tenant at the right of its name. */
 .model__table--tenant-0 { --tone: var(--tone-note); }

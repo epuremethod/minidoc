@@ -123,6 +123,16 @@ function statesOp(op, pad) {
   }
 }
 
+function placed(label, pad) {
+  return Stdlib_Option.mapOr(label, [], param => {
+    let l = param[0];
+    return [pad + `  label ` + nums([
+        l.x,
+        l.y
+      ]) + ` ` + param[1] + ` ` + quote(l.text)];
+  });
+}
+
 function modelOp(op, pad) {
   switch (op.TAG) {
     case "Frame" :
@@ -148,13 +158,12 @@ function modelOp(op, pad) {
     case "Link" :
       return Belt_Array.concatMany([
         [pad + `link ` + Model.arityName(op.from) + ` ` + Model.arityName(op.to) + ` ` + nums(op.points)],
-        Stdlib_Option.mapOr(op.label, [], param => {
-          let l = param[0];
-          return [pad + `  label ` + nums([
-              l.x,
-              l.y
-            ]) + ` ` + param[1] + ` ` + quote(l.text)];
-        })
+        placed(op.label, pad)
+      ]);
+    case "Parent" :
+      return Belt_Array.concatMany([
+        [pad + `parent ` + nums(op.points)],
+        placed(op.label, pad)
       ]);
   }
 }
@@ -277,6 +286,7 @@ export {
   keys,
   sequenceOp,
   statesOp,
+  placed,
   modelOp,
   widget,
   lines,

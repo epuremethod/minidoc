@@ -56,6 +56,8 @@ module ModelOp = {
         columns: array<column>,
       })
     | Link({from: arity, to: arity, points: array<float>, label: option<(label, string)>})
+    /** A subclass line, drawn from the child to its parent. */
+    | Parent({points: array<float>, label: option<(label, string)>})
 }
 
 /** One entry of a legend: a kind and its text. A `move` entry is drawn as a line. */

@@ -331,3 +331,28 @@ rule is written in the README and the guide instead.
 
 Costs: an output no longer declared stays until someone removes it. A deploy
 builds from a fresh checkout and never sees one.
+
+## 2026-10-19: A model draws a subclass as `Parent <- Child`
+
+The `model` block joins two tables in a second way: a parent and its
+subclass. The line is written as the arrow reads, `Parent <- Child`, and
+drawn as a class diagram draws it, from the child to its parent with a
+hollow triangle at the parent.
+
+Refused: a fifth end token on a relation. An end counts rows, and a parent
+counts none.
+
+Costs: a schema that had a table called `<-` cannot be written, which no
+table should be.
+
+## 2026-10-19: A secondary line in a drawing is `--drawing-line-secondary`
+
+A line that matters less than the drawing's main lines, such as a model's
+subclass link and its arrowhead, takes `--drawing-line-secondary`. Every
+theme sets it: a lighter grey than the stroke in soft, and a grey in
+graphic.
+
+Refused: `--blocks-line`, which is black in graphic, so a subclass link
+would look the same as a relation there.
+
+Costs: one more variable in every theme.

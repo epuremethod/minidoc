@@ -605,6 +605,8 @@ stand in for. `pnpm check` runs everything.
 ## Changelog
 
 - Unreleased
+  - The `model` block draws a subclass: `Parent <- Child` is a line from the
+    child to its parent, with a hollow triangle at the parent.
   - `dev` no longer reloads the page after a failed build. The page stays and
     shows the failure, with the build script's output, until a build lands.
   - **Nested vars.** Var blocks and frontmatter nest (`layouts: { cv: … }`),

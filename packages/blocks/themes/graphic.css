@@ -57,6 +57,7 @@
   --ui-flow-gap: 2.5em;
   --drawing-radius: 0;
   --drawing-line: #000000;
+  --drawing-line-secondary: #8c8c8c;
   --drawing-fill-amount: 100%;
   --drawing-edge-amount: 100%;
   --drawing-kind-ink: #ffffff;

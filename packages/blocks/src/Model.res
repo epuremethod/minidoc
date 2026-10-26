@@ -22,13 +22,18 @@ let across = 96.
 let baseline = 15.
 
 type table = {name: string, tenant: option<string>, columns: array<(string, option<string>, option<string>)>}
-type relation = {from: string, to: string, fromEnd: ModelOp.arity, toEnd: ModelOp.arity, way: Grid.way}
+/** What joins two tables: the two ends of a relation, or a parent to its subclass. */
+type join = Ends(ModelOp.arity, ModelOp.arity) | Parent
+type relation = {from: string, to: string, join: join, way: Grid.way}
 
 let nameLine = RegExp.fromString("^[\\p{L}\\p{N}_.\\-]+$", ~flags="u")
 // A table's head line may name the tenant its rows carry: `Account #sonya`.
 let headLine = RegExp.fromString("^([\\p{L}\\p{N}_.\\-]+)(?: #([\\p{L}\\p{N}_.\\-]+))?$", ~flags="u")
 let columnLine = RegExp.fromString("^\\s+(\\S+)(?:\\s+(\\S+))?(?:\\s+(\\S.*?))?\\s*$")
 let linkLine = RegExp.fromString("^(\\S+) +([^\\s-]*)--([^\\s-]*) +(\\S+)(?: +(.*))?$")
+// A parent is written as the arrow reads, `Parent <- Child`, and drawn from
+// the child to its parent.
+let parentLine = RegExp.fromString("^(\\S+) +<- +(\\S+)(?: +(.*))?$")
 
 // An end is written as it is drawn, read from its table toward the line: a
 // ring for none, a crow's foot for more than one, nothing for exactly one.
@@ -69,6 +74,32 @@ let readEnd = (ends, said, at) =>
   | None => fail(`model: cannot read the end "${said}", ${at}`)
   }
 
+let readLabel = (said, at) => {
+  let (label, where, right, kind) = Grid.label(said->Option.getOr(""))
+  kind->Option.forEach(kind => fail(`model: no kind called ${kind}, ${at}`))
+  (label, where, right)
+}
+
+let readRelation = (line, at) =>
+  switch RegExp.exec(linkLine, line) {
+  | Some(m) =>
+    let from = capture(m, 0)->Option.getOr("")
+    let to = capture(m, 3)->Option.getOr("")
+    let (label, where, right) = readLabel(capture(m, 4), at)
+    let fromEnd = readEnd(leftEnds, capture(m, 1)->Option.getOr(""), at)
+    let toEnd = readEnd(rightEnds, capture(m, 2)->Option.getOr(""), at)
+    Some({from, to, join: Ends(fromEnd, toEnd), way: {from, to, label, at: where, right}})
+  | None =>
+    switch RegExp.exec(parentLine, line) {
+    | Some(m) =>
+      let parent = capture(m, 0)->Option.getOr("")
+      let child = capture(m, 1)->Option.getOr("")
+      let (label, where, right) = readLabel(capture(m, 2), at)
+      Some({from: child, to: parent, join: Parent, way: {from: child, to: parent, label, at: where, right}})
+    | None => None
+    }
+  }
+
 let readText = text => {
   let rows: array<array<option<string>>> = []
   let tables: array<table> = []
@@ -100,20 +131,10 @@ let readText = text => {
         table.columns->Array.push((capture(m, 0)->Option.getOr(""), capture(m, 1), capture(m, 2)))
       }
     } else {
-      switch RegExp.exec(linkLine, line) {
-      | Some(m) =>
+      switch readRelation(line, at) {
+      | Some(relation) =>
         current := None
-        let from = capture(m, 0)->Option.getOr("")
-        let to = capture(m, 3)->Option.getOr("")
-        let (label, where, right, kind) = Grid.label(capture(m, 4)->Option.getOr(""))
-        kind->Option.forEach(kind => fail(`model: no kind called ${kind}, ${at}`))
-        relations->Array.push({
-          from,
-          to,
-          fromEnd: readEnd(leftEnds, capture(m, 1)->Option.getOr(""), at),
-          toEnd: readEnd(rightEnds, capture(m, 2)->Option.getOr(""), at),
-          way: {from, to, label, at: where, right},
-        })
+        relations->Array.push(relation)
       | None =>
         switch RegExp.exec(headLine, line) {
         | None => fail(`model: cannot read ${at}`)
@@ -188,7 +209,10 @@ let read = (text, caption): drawing<ModelOp.t> => {
       ModelOp.Frame(Grid.frame(boxes, drawn, right)),
       ...drawn->Array.mapWithIndex((d, index) => {
         let relation = relations->Array.getUnsafe(index)
-        ModelOp.Link({from: relation.fromEnd, to: relation.toEnd, points: d.points, label: Grid.placedText(d)})
+        switch relation.join {
+        | Ends(from, to) => ModelOp.Link({from, to, points: d.points, label: Grid.placedText(d)})
+        | Parent => ModelOp.Parent({points: d.points, label: Grid.placedText(d)})
+        }
       }),
       ...boxes->Array.map(b => {
         let (table, widths) = b.data
@@ -259,6 +283,12 @@ let stub = (x, y, towardX, towardY, length) => {
 
 let markerId = arity => `model-${arityName(arity)}`
 
+// A parent's end is a hollow triangle, as a class diagram draws it. It
+// stands as far from its table as the longest crow's foot.
+let parentId = "model-parent"
+let parentReach = 14.
+let parentMarker = `<marker id="${parentId}" viewBox="0 0 20 16" refX="20" refY="8" markerWidth="20" markerHeight="16" markerUnits="userSpaceOnUse" orient="auto"><path class="model__parent" d="M 6 1 L 20 8 L 6 15 z" /></marker>`
+
 let marker = arity =>
   `<marker id="${markerId(arity)}" viewBox="0 0 20 16" refX="20" refY="8" markerWidth="20" markerHeight="16" markerUnits="userSpaceOnUse" orient="auto-start-reverse">${shapes(
       arity,
@@ -280,7 +310,16 @@ let render = (drawing: drawing<ModelOp.t>) => {
     }
   )->Array.filter(a => a != ModelOp.One)
   let used = [ModelOp.Optional, ModelOp.More, ModelOp.Any]->Array.filter(a => used->Array.includes(a))
-  let tips = used == [] ? "" : `<defs>${used->Array.map(marker)->Array.join("")}</defs>`
+  let parents = drawing.ops->Array.some(op =>
+    switch op {
+    | ModelOp.Parent(_) => true
+    | _ => false
+    }
+  )
+  let tips =
+    used == [] && !parents
+      ? ""
+      : `<defs>${used->Array.map(marker)->Array.join("")}${parents ? parentMarker : ""}</defs>`
   let end = (attribute, arity) => arity == ModelOp.One ? "" : ` ${attribute}="url(#${markerId(arity)})"`
   let links = pick(op =>
     switch op {
@@ -289,6 +328,11 @@ let render = (drawing: drawing<ModelOp.t>) => {
       let (s3x, s3y) = stub(x3, y3, x2, y2, reach(to) *. straight)
       Some(
         `<path class="model__link"${end("marker-start", from)}${end("marker-end", to)} d="M ${n(x0)} ${n(y0)} L ${n(s0x)} ${n(s0y)} C ${n(x1)} ${n(y1)}, ${n(x2)} ${n(y2)}, ${n(s3x)} ${n(s3y)} L ${n(x3)} ${n(y3)}" data-ends="${arityName(from)} ${arityName(to)}" />`,
+      )
+    | ModelOp.Parent({points: [x0, y0, x1, y1, x2, y2, x3, y3]}) =>
+      let (s3x, s3y) = stub(x3, y3, x2, y2, parentReach *. straight)
+      Some(
+        `<path class="model__link" marker-end="url(#${parentId})" d="M ${n(x0)} ${n(y0)} C ${n(x1)} ${n(y1)}, ${n(x2)} ${n(y2)}, ${n(s3x)} ${n(s3y)} L ${n(x3)} ${n(y3)}" data-parent="" />`,
       )
     | _ => None
     }
@@ -330,7 +374,8 @@ let render = (drawing: drawing<ModelOp.t>) => {
   )
   let notes = pick(op =>
     switch op {
-    | ModelOp.Link({label: Some(({x, y, text}, anchor))}) =>
+    | ModelOp.Link({label: Some(({x, y, text}, anchor))})
+    | ModelOp.Parent({label: Some(({x, y, text}, anchor))}) =>
       Some(`<text class="model__label" text-anchor="${anchor}" x="${n(x)}" y="${n(y)}">${escape(text)}</text>`)
     | _ => None
     }

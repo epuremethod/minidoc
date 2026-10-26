@@ -36,6 +36,10 @@ counts exactly one.
 So `Project --o< Site` reads: a site belongs to exactly one project, and a
 project has zero or more sites.
 
+`Parent <- Child` is a subclass. It is written as the arrow reads, and
+drawn as a class diagram draws it: a line from the child to its parent,
+with a hollow triangle at the parent. It takes a label like a relation.
+
 The tokens of mermaid's entity relations read too, and draw as the same
 four ends: `||` for exactly one, `|o` for zero or one, `}|` for one or more
 and `}o` for zero or more, mirrored on the right as `o|`, `|{` and `o{`.

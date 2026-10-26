@@ -17,6 +17,8 @@ let columnLine = new RegExp("^\\s+(\\S+)(?:\\s+(\\S+))?(?:\\s+(\\S.*?))?\\s*$");
 
 let linkLine = new RegExp("^(\\S+) +([^\\s-]*)--([^\\s-]*) +(\\S+)(?: +(.*))?$");
 
+let parentLine = new RegExp("^(\\S+) +<- +(\\S+)(?: +(.*))?$");
+
 let leftEnds = [
   [
     "",
@@ -109,6 +111,62 @@ function readEnd(ends, said, at) {
   }
 }
 
+function readLabel(said, at) {
+  let match = Grid.label(Stdlib_Option.getOr(said, ""));
+  Stdlib_Option.forEach(match[3], kind => Html.fail(`model: no kind called ` + kind + `, ` + at));
+  return [
+    match[0],
+    match[1],
+    match[2]
+  ];
+}
+
+function readRelation(line, at) {
+  let m = linkLine.exec(line);
+  if (m == null) {
+    let m$1 = parentLine.exec(line);
+    if (m$1 == null) {
+      return;
+    }
+    let parent = Stdlib_Option.getOr(Sequence.capture(m$1, 0), "");
+    let child = Stdlib_Option.getOr(Sequence.capture(m$1, 1), "");
+    let match = readLabel(Sequence.capture(m$1, 2), at);
+    return {
+      from: child,
+      to: parent,
+      join: "Parent",
+      way: {
+        from: child,
+        to: parent,
+        label: match[0],
+        at: match[1],
+        right: match[2]
+      }
+    };
+  }
+  let from = Stdlib_Option.getOr(Sequence.capture(m, 0), "");
+  let to = Stdlib_Option.getOr(Sequence.capture(m, 3), "");
+  let match$1 = readLabel(Sequence.capture(m, 4), at);
+  let fromEnd = readEnd(leftEnds, Stdlib_Option.getOr(Sequence.capture(m, 1), ""), at);
+  let toEnd = readEnd(rightEnds, Stdlib_Option.getOr(Sequence.capture(m, 2), ""), at);
+  return {
+    from: from,
+    to: to,
+    join: {
+      TAG: "Ends",
+      _0: fromEnd,
+      _1: toEnd
+    },
+    way: {
+      from: from,
+      to: to,
+      label: match$1[0],
+      at: match$1[1],
+      right: match$1[2]
+    }
+  };
+}
+
 function readText(text) {
   let rows = [];
   let tables = [];
@@ -152,48 +210,32 @@ function readText(text) {
           return Html.fail(`model: a column outside a table, ` + at);
         }
       }
-      let m = linkLine.exec(line);
-      if (m == null) {
-        let m$1 = headLine.exec(line);
-        if (m$1 == null) {
-          return Html.fail(`model: cannot read ` + at);
-        }
-        let name = Stdlib_Option.getOr(Sequence.capture(m$1, 0), "");
-        if (!rows.flat().includes(name)) {
-          Html.fail(`model: no table called ` + name + ` in the grid, ` + at);
-        }
-        if (tables.some(t => t.name === name)) {
-          Html.fail(`model: ` + name + ` is described twice, ` + at);
-        }
-        let table_tenant = Sequence.capture(m$1, 1);
-        let table_columns = [];
-        let table = {
-          name: name,
-          tenant: table_tenant,
-          columns: table_columns
-        };
-        tables.push(table);
-        current.contents = table;
+      let relation = readRelation(line, at);
+      if (relation !== undefined) {
+        current.contents = undefined;
+        relations.push(relation);
         return;
       }
-      current.contents = undefined;
-      let from = Stdlib_Option.getOr(Sequence.capture(m, 0), "");
-      let to = Stdlib_Option.getOr(Sequence.capture(m, 3), "");
-      let match$2 = Grid.label(Stdlib_Option.getOr(Sequence.capture(m, 4), ""));
-      Stdlib_Option.forEach(match$2[3], kind => Html.fail(`model: no kind called ` + kind + `, ` + at));
-      relations.push({
-        from: from,
-        to: to,
-        fromEnd: readEnd(leftEnds, Stdlib_Option.getOr(Sequence.capture(m, 1), ""), at),
-        toEnd: readEnd(rightEnds, Stdlib_Option.getOr(Sequence.capture(m, 2), ""), at),
-        way: {
-          from: from,
-          to: to,
-          label: match$2[0],
-          at: match$2[1],
-          right: match$2[2]
-        }
-      });
+      let m = headLine.exec(line);
+      if (m == null) {
+        return Html.fail(`model: cannot read ` + at);
+      }
+      let name = Stdlib_Option.getOr(Sequence.capture(m, 0), "");
+      if (!rows.flat().includes(name)) {
+        Html.fail(`model: no table called ` + name + ` in the grid, ` + at);
+      }
+      if (tables.some(t => t.name === name)) {
+        Html.fail(`model: ` + name + ` is described twice, ` + at);
+      }
+      let table_tenant = Sequence.capture(m, 1);
+      let table_columns = [];
+      let table = {
+        name: name,
+        tenant: table_tenant,
+        columns: table_columns
+      };
+      tables.push(table);
+      current.contents = table;
       return;
     }
     let cells = Grid.cells(line);
@@ -287,17 +329,27 @@ function read(text, caption) {
         }],
       drawn.map((d, index) => {
         let relation = relations[index];
-        return {
-          TAG: "Link",
-          from: relation.fromEnd,
-          to: relation.toEnd,
-          points: d.points,
-          label: Grid.placedText(d)
-        };
+        let match = relation.join;
+        if (typeof match !== "object") {
+          return {
+            TAG: "Parent",
+            points: d.points,
+            label: Grid.placedText(d)
+          };
+        } else {
+          return {
+            TAG: "Link",
+            from: match._0,
+            to: match._1,
+            points: d.points,
+            label: Grid.placedText(d)
+          };
+        }
       }),
       boxes.map(b => {
         let match = b.data;
         let widths = match[1];
+        let table = match[0];
         let kindX = b.x + 12 + widths.names + 14;
         return {
           TAG: "Table",
@@ -306,10 +358,10 @@ function read(text, caption) {
           width: b.w,
           height: b.h,
           name: b.name,
-          tenant: match[0].tenant,
+          tenant: table.tenant,
           kindX: kindX,
           valueX: widths.kinds > 0 ? kindX + widths.kinds + 14 : kindX,
-          columns: match[0].columns.map((param, index) => ({
+          columns: table.columns.map((param, index) => ({
             y: b.y + 30 + index * 22 + 15,
             name: param[0],
             kind: param[1],
@@ -372,6 +424,10 @@ function markerId(arity) {
   return `model-` + arityName(arity);
 }
 
+let parentId = "model-parent";
+
+let parentMarker = `<marker id="` + parentId + `" viewBox="0 0 20 16" refX="20" refY="8" markerWidth="20" markerHeight="16" markerUnits="userSpaceOnUse" orient="auto"><path class="model__parent" d="M 6 1 L 20 8 L 6 15 z" /></marker>`;
+
 function marker(arity) {
   return `<marker id="` + markerId(arity) + `" viewBox="0 0 20 16" refX="20" refY="8" markerWidth="20" markerHeight="16" markerUnits="userSpaceOnUse" orient="auto-start-reverse">` + shapes(arity) + `</marker>`;
 }
@@ -379,24 +435,18 @@ function marker(arity) {
 function render(drawing) {
   let pick = f => Stdlib_Array.filterMap(drawing.ops, f).join("");
   let frame = Stdlib_Option.getOrThrow(Stdlib_Array.findMap(drawing.ops, op => {
-    switch (op.TAG) {
-      case "Frame" :
-        return op._0;
-      case "Table" :
-      case "Link" :
-        return;
+    if (op.TAG === "Frame") {
+      return op._0;
     }
   }), undefined);
   let used = drawing.ops.flatMap(op => {
-    switch (op.TAG) {
-      case "Frame" :
-      case "Table" :
-        return [];
-      case "Link" :
-        return [
-          op.from,
-          op.to
-        ];
+    if (op.TAG === "Link") {
+      return [
+        op.from,
+        op.to
+      ];
+    } else {
+      return [];
     }
   }).filter(a => a !== "One");
   let used$1 = [
@@ -404,7 +454,10 @@ function render(drawing) {
     "More",
     "Any"
   ].filter(a => used.includes(a));
-  let tips = Primitive_object.equal(used$1, []) ? "" : `<defs>` + used$1.map(marker).join("") + `</defs>`;
+  let parents = drawing.ops.some(op => op.TAG === "Parent");
+  let tips = Primitive_object.equal(used$1, []) && !parents ? "" : `<defs>` + used$1.map(marker).join("") + (
+      parents ? parentMarker : ""
+    ) + `</defs>`;
   let end = (attribute, arity) => {
     if (arity === "One") {
       return "";
@@ -435,6 +488,21 @@ function render(drawing) {
         let match$1 = stub(x0, y0, x1, y1, reach(from) * 0.7);
         let match$2 = stub(x3, y3, x2, y2, reach(to) * 0.7);
         return `<path class="model__link"` + end("marker-start", from) + end("marker-end", to) + ` d="M ` + x0.toString() + ` ` + y0.toString() + ` L ` + match$1[0].toString() + ` ` + match$1[1].toString() + ` C ` + x1.toString() + ` ` + y1.toString() + `, ` + x2.toString() + ` ` + y2.toString() + `, ` + match$2[0].toString() + ` ` + match$2[1].toString() + ` L ` + x3.toString() + ` ` + y3.toString() + `" data-ends="` + arityName(from) + ` ` + arityName(to) + `" />`;
+      case "Parent" :
+        let match$3 = op.points;
+        if (match$3.length !== 8) {
+          return;
+        }
+        let x0$1 = match$3[0];
+        let y0$1 = match$3[1];
+        let x1$1 = match$3[2];
+        let y1$1 = match$3[3];
+        let x2$1 = match$3[4];
+        let y2$1 = match$3[5];
+        let x3$1 = match$3[6];
+        let y3$1 = match$3[7];
+        let match$4 = stub(x3$1, y3$1, x2$1, y2$1, 14 * 0.7);
+        return `<path class="model__link" marker-end="url(#` + parentId + `)" d="M ` + x0$1.toString() + ` ` + y0$1.toString() + ` C ` + x1$1.toString() + ` ` + y1$1.toString() + `, ` + x2$1.toString() + ` ` + y2$1.toString() + `, ` + match$4[0].toString() + ` ` + match$4[1].toString() + ` L ` + x3$1.toString() + ` ` + y3$1.toString() + `" data-parent="" />`;
     }
   });
   let tenants = Stdlib_Array.reduce(drawing.ops, [], (seen, op) => {
@@ -452,36 +520,37 @@ function render(drawing) {
     }
   });
   let tables = pick(op => {
-    switch (op.TAG) {
-      case "Table" :
-        let columns = op.columns;
-        let valueX = op.valueX;
-        let kindX = op.kindX;
-        let width = op.width;
-        let y = op.y;
-        let x = op.x;
-        let left = x + 12;
-        let tenant = op.tenant;
-        let match = tenant !== undefined ? [
-            ` model__table--tenant-` + tenants.indexOf(tenant).toString(),
-            `<text class="model__tenant" text-anchor="end" x="` + (x + width - 12).toString() + `" y="` + (y + 30 / 2 + 4).toString() + `">` + Html.escape(tenant) + `</text>`
-          ] : [
-            "",
-            ""
-          ];
-        let rule = Primitive_object.equal(columns, []) ? "" : `<line class="model__rule" x1="` + x.toString() + `" y1="` + (y + 30).toString() + `" x2="` + (x + width).toString() + `" y2="` + (y + 30).toString() + `" />`;
-        let rows = columns.map(c => [
-          `<text class="model__column" x="` + left.toString() + `" y="` + c.y.toString() + `">` + Html.escape(c.name) + `</text>`,
-          Stdlib_Option.mapOr(c.kind, "", k => `<text class="model__type" x="` + kindX.toString() + `" y="` + c.y.toString() + `">` + Html.escape(k) + `</text>`),
-          Stdlib_Option.mapOr(c.value, "", v => `<text class="model__value" x="` + valueX.toString() + `" y="` + c.y.toString() + `">` + Html.escape(v) + `</text>`)
-        ].join("")).join("");
-        return `<g class="model__table` + match[0] + `"><rect x="` + x.toString() + `" y="` + y.toString() + `" width="` + width.toString() + `" height="` + op.height.toString() + `" /><text class="model__name" x="` + left.toString() + `" y="` + (y + 30 / 2 + 4).toString() + `">` + Html.escape(op.name) + `</text>` + match[1] + rule + rows + `</g>`;
-      case "Frame" :
-      case "Link" :
-        return;
+    if (op.TAG !== "Table") {
+      return;
     }
+    let columns = op.columns;
+    let valueX = op.valueX;
+    let kindX = op.kindX;
+    let tenant = op.tenant;
+    let width = op.width;
+    let y = op.y;
+    let x = op.x;
+    let left = x + 12;
+    let match = tenant !== undefined ? [
+        ` model__table--tenant-` + tenants.indexOf(tenant).toString(),
+        `<text class="model__tenant" text-anchor="end" x="` + (x + width - 12).toString() + `" y="` + (y + 30 / 2 + 4).toString() + `">` + Html.escape(tenant) + `</text>`
+      ] : [
+        "",
+        ""
+      ];
+    let rule = Primitive_object.equal(columns, []) ? "" : `<line class="model__rule" x1="` + x.toString() + `" y1="` + (y + 30).toString() + `" x2="` + (x + width).toString() + `" y2="` + (y + 30).toString() + `" />`;
+    let rows = columns.map(c => [
+      `<text class="model__column" x="` + left.toString() + `" y="` + c.y.toString() + `">` + Html.escape(c.name) + `</text>`,
+      Stdlib_Option.mapOr(c.kind, "", k => `<text class="model__type" x="` + kindX.toString() + `" y="` + c.y.toString() + `">` + Html.escape(k) + `</text>`),
+      Stdlib_Option.mapOr(c.value, "", v => `<text class="model__value" x="` + valueX.toString() + `" y="` + c.y.toString() + `">` + Html.escape(v) + `</text>`)
+    ].join("")).join("");
+    return `<g class="model__table` + match[0] + `"><rect x="` + x.toString() + `" y="` + y.toString() + `" width="` + width.toString() + `" height="` + op.height.toString() + `" /><text class="model__name" x="` + left.toString() + `" y="` + (y + 30 / 2 + 4).toString() + `">` + Html.escape(op.name) + `</text>` + match[1] + rule + rows + `</g>`;
   });
   let notes = pick(op => {
+    let x;
+    let y;
+    let text;
+    let anchor;
     switch (op.TAG) {
       case "Frame" :
       case "Table" :
@@ -492,8 +561,24 @@ function render(drawing) {
           return;
         }
         let match$1 = match[0];
-        return `<text class="model__label" text-anchor="` + match[1] + `" x="` + match$1.x.toString() + `" y="` + match$1.y.toString() + `">` + Html.escape(match$1.text) + `</text>`;
+        x = match$1.x;
+        y = match$1.y;
+        text = match$1.text;
+        anchor = match[1];
+        break;
+      case "Parent" :
+        let match$2 = op.label;
+        if (match$2 === undefined) {
+          return;
+        }
+        let match$3 = match$2[0];
+        x = match$3.x;
+        y = match$3.y;
+        text = match$3.text;
+        anchor = match$2[1];
+        break;
     }
+    return `<text class="model__label" text-anchor="` + anchor + `" x="` + x.toString() + `" y="` + y.toString() + `">` + Html.escape(text) + `</text>`;
   });
   let label = Stdlib_Option.getOr(drawing.caption, "A database schema");
   let under = Stdlib_Option.mapOr(drawing.caption, "", c => `<figcaption class="model__caption"><span class="model__title">` + Html.escape(c) + `</span></figcaption>`);
@@ -524,6 +609,8 @@ let escape = Html.escape;
 
 let straight = 0.7;
 
+let parentReach = 14;
+
 export {
   fail,
   width,
@@ -539,10 +626,13 @@ export {
   headLine,
   columnLine,
   linkLine,
+  parentLine,
   leftEnds,
   rightEnds,
   arityName,
   readEnd,
+  readLabel,
+  readRelation,
   readText,
   most,
   measure,
@@ -554,6 +644,9 @@ export {
   reach,
   stub,
   markerId,
+  parentId,
+  parentReach,
+  parentMarker,
   marker,
   render,
 }

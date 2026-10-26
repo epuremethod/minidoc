@@ -130,6 +130,25 @@ examples:
         table 404 0 94 30 430 430 "Invoice" tenant "us"
         caption "Two tenants"
 
+  - scenario: a parent is written as the arrow reads, and drawn from the child with a hollow triangle at the parent
+    before: |-
+      ```model
+      Document Course
+
+      Course
+        extension  Text  course
+
+      Document <- Course  is a
+      ```
+    after: |-
+      model
+        frame -10 -10 365 78
+        parent 179 15 135.8 15 126.2 15 83 15
+          label 131 35 middle "is a"
+        table 0 0 83 30 26 26 "Document"
+        table 179 0 166 58 258.4 295.92 "Course"
+          column 45 "extension" type "Text" value "course"
+
   - scenario: a tenant is one word
     before: |-
       ```model
