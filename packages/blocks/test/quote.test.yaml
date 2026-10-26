@@ -74,6 +74,31 @@ examples:
         | Chacun est responsable du dommage qu'il a causé non seulement par son
         | fait, mais encore par sa négligence ou par son imprudence.
 
+  - scenario: a quote links its title to its source, written in angle brackets after its date
+    before: |-
+      ::: quote "Art. 10 al. 2 CPP" RS 312.0, état au 1er avril 2025 <https://www.fedlex.admin.ch/eli/cc/2010/267/fr#art_10> #cpp-10
+      Le tribunal apprécie librement les preuves.
+      :::
+    after: |-
+      quote author "Art. 10 al. 2 CPP" date "RS 312.0, état au 1er avril 2025" url "https://www.fedlex.admin.ch/eli/cc/2010/267/fr#art_10" anchor "cpp-10"
+        | Le tribunal apprécie librement les preuves.
+
+  - scenario: a source needs no name and no date
+    before: |-
+      ::: quote "Art. 10 al. 2 CPP" <https://www.fedlex.admin.ch/eli/cc/2010/267/fr#art_10>
+      Le tribunal apprécie librement les preuves.
+      :::
+    after: |-
+      quote author "Art. 10 al. 2 CPP" url "https://www.fedlex.admin.ch/eli/cc/2010/267/fr#art_10"
+        | Le tribunal apprécie librement les preuves.
+
+  - scenario: a source without a title fails
+    before: |-
+      ::: quote 2025 <https://www.fedlex.admin.ch/eli/cc/2010/267/fr>
+      Le tribunal apprécie librement les preuves.
+      :::
+    error: "Source without a title on line 1: <https://www.fedlex.admin.ch/eli/cc/2010/267/fr>"
+
   - scenario: a name used twice fails and names both lines
     before: |-
       ::: quote "Code civil, art. 1240" #cc-1240

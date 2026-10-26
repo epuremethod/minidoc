@@ -61,6 +61,35 @@ examples:
       </blockquote><figcaption>— <cite>Code civil, art. 1240</cite>, <span class="quote__date">2016</span></figcaption></figure>
       </section>
 
+  - scenario: a quote's source makes its title a link, and a reference still points at the quote
+    before: |-
+      ::: quote "Art. 10 al. 2 CPP" RS 312.0, état au 1er avril 2025 <https://www.fedlex.admin.ch/eli/cc/2010/267/fr?a=1&b=2#art_10> #cpp-10 annexe
+      Le tribunal apprécie librement les preuves.
+      :::
+
+      Voir `(cpp-10)`.
+
+      ::: annexe
+      :::
+    after: |-
+      <p class="annexe__ref"><a href="#cpp-10">Art. 10 al. 2 CPP</a></p>
+      <p>Voir <a href="#cpp-10">Art. 10 al. 2 CPP</a>.</p>
+      <section class="annexe">
+      <figure class="quote" id="cpp-10"><blockquote>
+      <p>Le tribunal apprécie librement les preuves.</p>
+      </blockquote><figcaption>— <cite><a href="https://www.fedlex.admin.ch/eli/cc/2010/267/fr?a=1&amp;b=2#art_10">Art. 10 al. 2 CPP</a></cite>, <span class="quote__date">RS 312.0, état au 1er avril 2025</span></figcaption></figure>
+      </section>
+
+  - scenario: a callout's source makes its author a link
+    before: |-
+      ::: rejected "Ada Lovelace" 1843 <https://example.org/notes>
+      We keep the punched cards.
+      :::
+    after: |-
+      <aside class="callout callout--rejected" aria-label="Rejected"><p class="callout__label">Rejected</p><div class="callout__body">
+      <p>We keep the punched cards.</p>
+      </div><p class="callout__by">— <cite><a href="https://example.org/notes">Ada Lovelace</a></cite>, <span class="callout__date">1843</span></p></aside>
+
   - scenario: a named callout carries its name as its id
     before: |-
       ::: rejected "Ada Lovelace" #cards

@@ -386,3 +386,17 @@ the text, which could return to only one of the places that cite a block.
 Costs: inline code that is exactly a word in parentheses is a reference,
 and fails when the page has no block of that name. A date that ends in
 `annexe` or in `#word` is read as the filing or the name.
+
+## 2026-10-26: A block's title links to its source with `<url>`
+
+A quote's or callout's line may give, after its date, the official source of
+its title in angle brackets: `::: quote "Art. 10 al. 2 CPP" RS 312.0
+<https://www.fedlex.admin.ch/…> #cpp-10 annexe`. The tail reads `<url>`, then
+` #name`, then ` annexe`, each optional, and the date is what is left. The
+title under the block becomes a link to the source, in its `cite`. A source
+needs a title in double quotes, as a name does.
+
+Refused: pointing `(name)` references and the annexe's link at the source.
+They lead to the block in the page, which shows its source in turn.
+
+Costs: a date that ends in `<word>` is read as the source.

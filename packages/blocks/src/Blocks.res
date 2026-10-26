@@ -52,6 +52,9 @@ let annexeTail = RegExp.fromString("^(.*?)(?:^|\\s)annexe$")
 /** The end of an info that names its block: `#name`. */
 let nameTail = RegExp.fromString(`^(.*?)(?:^|\\s)#(${Markdown.name})$`)
 
+/** The end of an info that links its title to its source: `<url>`. */
+let urlTail = RegExp.fromString("^(.*?)(?:^|\\s)<([^<>\\s]+)>$")
+
 /** What the reader keeps of a whole page: each name with its line, the first block filed in the annexe, and the annexe's line. */
 type page = {
   anchors: dict<int>,
@@ -111,7 +114,7 @@ let by = (name, info, line) =>
   | Some(m) => (Sequence.capture(m, 0), Sequence.capture(m, 1))
   }
 
-/** A quote's or callout's info: its author, its date, its name, and whether it goes to the annexe. */
+/** A quote's or callout's info: its author, its date, its source, its name, and whether it goes to the annexe. */
 let named = (page, name, info, line) => {
   let at = Int.toString(line)
   let info = String.trim(info)
@@ -123,7 +126,15 @@ let named = (page, name, info, line) => {
   | Some(m) => (String.trim(Scan.capture(m, 0)), Sequence.capture(m, 1))
   | None => (info, None)
   }
+  let (info, url) = switch RegExp.exec(urlTail, info) {
+  | Some(m) => (String.trim(Scan.capture(m, 0)), Sequence.capture(m, 1))
+  | None => (info, None)
+  }
   let (author, date) = by(name, info, line)
+  switch (url, author) {
+  | (Some(url), None) => Html.fail(`Source without a title on line ${at}: <${url}>`)
+  | _ => ()
+  }
   switch anchor {
   | None => annexe ? Html.fail(`Annexe without a name on line ${at}`) : ()
   | Some(anchor) =>
@@ -138,7 +149,7 @@ let named = (page, name, info, line) => {
       page.filed = Some((anchor, line))
     }
   }
-  (author, date, anchor, annexe)
+  (author, date, url, anchor, annexe)
 }
 
 /** Call `f` on each node, and on each node inside it. */
@@ -151,10 +162,11 @@ let rec each = (nodes, f) =>
     }
   })
 
-/** The author and date under a quote or callout, or nothing when it names neither. */
-let byline = (author, date, ~tag, ~className) => {
+/** The author and date under a quote or callout, or nothing when it names neither. A source makes the author a link. */
+let byline = (author, date, url, ~tag, ~className) => {
+  let title = a => url->Option.mapOr(Html.escape(a), u => `<a href="${Html.escape(u)}">${Html.escape(a)}</a>`)
   let parts = [
-    author->Option.map(a => `<cite>${Html.escape(a)}</cite>`),
+    author->Option.map(a => `<cite>${title(a)}</cite>`),
     date->Option.map(d => `<span class="${className}__date">${Html.escape(d)}</span>`),
   ]->Array.keepSome
   parts == [] ? "" : `<${tag}${tag == "p" ? ` class="${className}__by"` : ""}>— ${parts->Array.join(", ")}</${tag}>`
@@ -168,8 +180,8 @@ let rec readIn = (ctx, page, source, offset) =>
       let inner = () => readIn(ctx, page, body, line + 1)
       switch name {
       | "quote" =>
-        let (author, date, anchor, annexe) = named(page, name, info, line)
-        Quote({author, date, anchor, annexe, children: inner()})
+        let (author, date, url, anchor, annexe) = named(page, name, info, line)
+        Quote({author, date, url, anchor, annexe, children: inner()})
       | "annexe" =>
         let at = Int.toString(line)
         if page.annexe != None {
@@ -195,8 +207,8 @@ let rec readIn = (ctx, page, source, offset) =>
       | _ =>
         switch ctx.callouts->Dict.get(name) {
         | Some(label) =>
-          let (author, date, anchor, annexe) = named(page, name, info, line)
-          Callout({name, label, author, date, anchor, annexe, children: inner()})
+          let (author, date, url, anchor, annexe) = named(page, name, info, line)
+          Callout({name, label, author, date, url, anchor, annexe, children: inner()})
         | None => Extra({name, info, body})
         }
       }
@@ -219,17 +231,17 @@ let rec renderIn = (ctx, nodes, env, filed, ~whole=false) =>
     | Callout({anchor: Some(anchor), author, annexe: true}) | Quote({anchor: Some(anchor), author, annexe: true})
       if !whole =>
       filedLink(anchor, author)
-    | Callout({name, label, author, date, anchor, children}) =>
+    | Callout({name, label, author, date, url, anchor, children}) =>
       let label = Html.escape(label)
-      let under = byline(author, date, ~tag="p", ~className="callout")
+      let under = byline(author, date, url, ~tag="p", ~className="callout")
       `<aside class="callout callout--${name}"${id(anchor)} aria-label="${label}"><p class="callout__label">${label}</p><div class="callout__body">\n${renderIn(
           ctx,
           children,
           env,
           filed,
         )}</div>${under}</aside>\n`
-    | Quote({author, date, anchor, children}) =>
-      let under = byline(author, date, ~tag="figcaption", ~className="quote")
+    | Quote({author, date, url, anchor, children}) =>
+      let under = byline(author, date, url, ~tag="figcaption", ~className="quote")
       `<figure class="quote"${id(anchor)}><blockquote>\n${renderIn(ctx, children, env, filed)}</blockquote>${under}</figure>\n`
     | Annexe =>
       filed == []

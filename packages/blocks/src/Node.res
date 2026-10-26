@@ -90,6 +90,7 @@ type rec t =
       label: string,
       author: option<string>,
       date: option<string>,
+      url: option<string>,
       anchor: option<string>,
       annexe: bool,
       children: array<t>,
@@ -97,6 +98,8 @@ type rec t =
   | Quote({
       author: option<string>,
       date: option<string>,
+      /** The official source its title links to, after the date in `<` and `>`. */
+      url: option<string>,
       /** The block's name after `#`, its id in the page. */
       anchor: option<string>,
       /** Drawn in the annexe, leaving a link to its title in its place. */

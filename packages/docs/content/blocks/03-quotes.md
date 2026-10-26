@@ -17,3 +17,8 @@ With `annexe` after its name, the quote moves to the end of the page: only
 its title stays in the text, as a link. The page says where the annexe goes
 with an empty `::: annexe` block, and the quotes are drawn there whole, in
 the order they appear. A callout is named and filed the same way.
+
+The official source of a quote goes in angle brackets after its date, before
+its name: `::: quote "Art. 10 al. 2 CPP" RS 312.0 <https://www.fedlex.admin.ch/eli/cc/2010/267/fr#art_10> #cpp-10`.
+The title under the quote then links to it. References to the quote still
+point at the quote in the page. A callout takes a source the same way.

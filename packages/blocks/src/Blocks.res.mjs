@@ -79,6 +79,8 @@ let annexeTail = new RegExp("^(.*?)(?:^|\\s)annexe$");
 
 let nameTail = new RegExp(`^(.*?)(?:^|\\s)#(` + Markdown.name + `)$`);
 
+let urlTail = new RegExp("^(.*?)(?:^|\\s)<([^<>\\s]+)>$");
+
 function context(options) {
   let callouts = Object.fromEntries(Belt_Array.concatMany([
     common,
@@ -165,8 +167,21 @@ function named(page, name, info, line) {
       Sequence.capture(m$1, 1)
     ];
   let anchor = match$1[1];
-  let match$2 = by(name, match$1[0], line);
-  let author = match$2[0];
+  let info$3 = match$1[0];
+  let m$2 = urlTail.exec(info$3);
+  let match$2 = (m$2 == null) ? [
+      info$3,
+      undefined
+    ] : [
+      Scan.capture(m$2, 0).trim(),
+      Sequence.capture(m$2, 1)
+    ];
+  let url = match$2[1];
+  let match$3 = by(name, match$2[0], line);
+  let author = match$3[0];
+  if (url !== undefined && author === undefined) {
+    Html.fail(`Source without a title on line ` + at + `: <` + url + `>`);
+  }
   if (anchor !== undefined) {
     if (author === undefined) {
       Html.fail(`Named block without a title on line ` + at + `: #` + anchor);
@@ -188,7 +203,8 @@ function named(page, name, info, line) {
   }
   return [
     author,
-    match$2[1],
+    match$3[1],
+    url,
     anchor,
     annexe
   ];
@@ -213,9 +229,10 @@ function each(nodes, f) {
   });
 }
 
-function byline(author, date, tag, className) {
+function byline(author, date, url, tag, className) {
+  let title = a => Stdlib_Option.mapOr(url, Html.escape(a), u => `<a href="` + Html.escape(u) + `">` + Html.escape(a) + `</a>`);
   let parts = Stdlib_Array.keepSome([
-    Stdlib_Option.map(author, a => `<cite>` + Html.escape(a) + `</cite>`),
+    Stdlib_Option.map(author, a => `<cite>` + title(a) + `</cite>`),
     Stdlib_Option.map(date, d => `<span class="` + className + `__date">` + Html.escape(d) + `</span>`)
   ]);
   if (Primitive_object.equal(parts, [])) {
@@ -266,8 +283,9 @@ function readIn(ctx, page, source, offset) {
           TAG: "Quote",
           author: match[0],
           date: match[1],
-          anchor: match[2],
-          annexe: match[3],
+          url: match[2],
+          anchor: match[3],
+          annexe: match[4],
           children: inner()
         };
       case "sequence" :
@@ -319,8 +337,9 @@ function readIn(ctx, page, source, offset) {
           label: label,
           author: match$3[0],
           date: match$3[1],
-          anchor: match$3[2],
-          annexe: match$3[3],
+          url: match$3[2],
+          anchor: match$3[3],
+          annexe: match$3[4],
           children: inner()
         };
     }
@@ -394,10 +413,10 @@ function renderIn(ctx, nodes, env, filed, wholeOpt) {
     if (typeof node === "object") {
       if (node.TAG === "Callout") {
         let label = Html.escape(node.label);
-        let under = byline(node.author, node.date, "p", "callout");
+        let under = byline(node.author, node.date, node.url, "p", "callout");
         return `<aside class="callout callout--` + node.name + `"` + id(node.anchor) + ` aria-label="` + label + `"><p class="callout__label">` + label + `</p><div class="callout__body">\n` + renderIn(ctx, node.children, env, filed, undefined) + `</div>` + under + `</aside>\n`;
       }
-      let under$1 = byline(node.author, node.date, "figcaption", "quote");
+      let under$1 = byline(node.author, node.date, node.url, "figcaption", "quote");
       return `<figure class="quote"` + id(node.anchor) + `><blockquote>\n` + renderIn(ctx, node.children, env, filed, undefined) + `</blockquote>` + under$1 + `</figure>\n`;
     }
   }).join("");
