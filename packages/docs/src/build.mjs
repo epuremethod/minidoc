@@ -1,14 +1,13 @@
-import { rm } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { nodeFs, run } from "@epure/minidoc";
 import { plates } from "./plates.mjs";
 import { md } from "./transforms.mjs";
 
 const root = new URL("../", import.meta.url);
-const output = new URL("dist/", root);
 
+// The output is written over, never emptied first: `dev` serves it while
+// this runs, and after a failed build it is all there is.
 export async function build() {
-  await rm(output, { recursive: true, force: true });
   await run({
     fs: nodeFs(fileURLToPath(root).replace(/\/$/, ""), { allow: ["../blocks"] }),
     glob: "content/config.yaml",

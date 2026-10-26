@@ -29,6 +29,20 @@ whose file has changed. A fresh process always has the latest highlighter.
 Without `build`, `dev` calls `run` itself, with `inlineErrors` on. That is
 enough for a site with no transforms of its own.
 
+### When a build breaks
+
+Mara saves a page with a bad fence. The build fails. The page she was
+reading stays in the browser, and the failure appears at its foot, with
+what the build script printed. She fixes the fence, and the next build
+reloads the page as before. A page she opens while the build is broken
+shows the same failure.
+
+That works because the output folder keeps the last good site. A build
+script writes over the old output and never empties the folder first: `dev`
+serves that folder while the script runs, and after a failed build it is
+all there is. A deploy builds from a fresh checkout and never sees a stale
+output.
+
 ### What gets watched
 
 Everything under the project folder with a content, config or script

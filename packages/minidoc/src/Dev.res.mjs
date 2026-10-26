@@ -65,8 +65,12 @@ function changed(skip, exts, name) {
 }
 
 let attempt = (async (fn) => {
-  try { await fn(); return null } catch (e) { return String((e && e.stack) || e) }
+  try { await fn(); return null } catch (e) {
+    return {message: String((e && e.message) || e), stack: e && typeof e.stack === "string" ? e.stack : String(e)}
+  }
 });
+
+let quiet = ((message) => { const e = new Error(message); e.stack = ""; throw e });
 
 function looper(rebuild, built) {
   let busy = {
@@ -82,14 +86,14 @@ function looper(rebuild, built) {
     busy.contents = false;
     if (failure == null) {
       say(`built in ` + (Date.now() - started | 0).toString() + `ms`);
-    } else {
-      console.error(failure);
+    } else if (failure.stack !== "") {
+      console.error(failure.stack);
     }
     if (again.contents) {
       again.contents = false;
       return await go();
     } else {
-      return built((failure == null) ? undefined : Primitive_option.some(failure));
+      return built(Stdlib_Option.map((failure == null) ? undefined : Primitive_option.some(failure), f => f.message));
     }
   };
   return async () => {
@@ -104,17 +108,24 @@ function looper(rebuild, built) {
 
 let rawSpawn = ((spawn, bin, args, cwd) =>
   new Promise((resolve) => {
-    const child = spawn(bin, args, {cwd, stdio: "inherit"})
-    child.on("exit", (code) => resolve(code ?? 1))
-    child.on("error", (e) => { console.error(e); resolve(1) })
+    const child = spawn(bin, args, {cwd, stdio: ["inherit", "inherit", "pipe"]})
+    let said = ""
+    child.stderr.on("data", (chunk) => { process.stderr.write(chunk); said += chunk })
+    child.on("exit", (code) => resolve([code ?? 1, said]))
+    child.on("error", (e) => { console.error(e); resolve([1, said + String(e)]) })
   }));
 
 async function script(path, at) {
   let cp = await import_("node:child_process");
-  let code = await rawSpawn(cp.spawn, process.execPath, [path], at);
-  if (code !== 0) {
-    return Schema.fail(`build script ` + path + ` exited with code ` + code.toString());
+  let match = await rawSpawn(cp.spawn, process.execPath, [path], at);
+  let code = match[0];
+  if (code === 0) {
+    return;
   }
+  let exit = `build script ` + path + ` exited with code ` + code.toString();
+  console.error(exit);
+  let said = match[1].trim();
+  return quiet(said === "" ? exit : said + `\n` + exit);
 }
 
 async function folder(path) {
@@ -274,7 +285,15 @@ function extension(path) {
 
 let channel = "/__minidoc";
 
-let live = `<script>(()=>{let s=null;const open=()=>{if(s)return;s=new EventSource("` + channel + `");s.addEventListener("message",()=>location.reload())};const close=()=>{if(s){s.close();s=null}};open();addEventListener("pagehide",close);addEventListener("pageshow",open);document.addEventListener("visibilitychange",()=>document.hidden?close():open())})()</script>`;
+let reload = "data: reload\n\n";
+
+function failed(message) {
+  return `event: failed\ndata: ` + JSON.stringify(message) + `\n\n`;
+}
+
+let banner = "position:fixed;left:0;right:0;bottom:0;max-height:50vh;overflow:auto;margin:0;padding:12px 16px;background:#3b0a0a;color:#ffd9d9;font:12px/1.4 ui-monospace,monospace;white-space:pre-wrap;z-index:2147483647";
+
+let live = `<script>(()=>{let s=null;const fail=e=>{let b=document.getElementById("__minidoc");if(!b){b=document.body.appendChild(Object.assign(document.createElement("pre"),{id:"__minidoc"}));b.style.cssText="` + banner + `"}b.textContent=JSON.parse(e.data)};const open=()=>{if(s)return;s=new EventSource("` + channel + `");s.addEventListener("message",()=>location.reload());s.addEventListener("failed",fail)};const close=()=>{if(s){s.close();s=null}};open();addEventListener("pagehide",close);addEventListener("pageshow",open);document.addEventListener("visibilitychange",()=>document.hidden?close():open())})()</script>`;
 
 function inject(html) {
   let at = html.lastIndexOf("</body>");
@@ -298,7 +317,7 @@ function candidates(path) {
   }
 }
 
-async function serve(dir, clients, req, res) {
+async function serve(dir, clients, broken, req, res) {
   let path = decodeURIComponent(req.url.split("?")[0]);
   if (path === channel) {
     res.writeHead(200, Object.fromEntries([
@@ -316,6 +335,9 @@ async function serve(dir, clients, req, res) {
       ]
     ]));
     res.write(":open\n\n");
+    Stdlib_Option.forEach(broken.contents, message => {
+      res.write(failed(message));
+    });
     clients.contents = Belt_Array.concatMany([
       clients.contents,
       [res]
@@ -426,9 +448,12 @@ async function dev(options, hooks) {
   let clients = {
     contents: []
   };
+  let broken = {
+    contents: undefined
+  };
   let http = await import_("node:http");
   let server = http.createServer((req, res) => {
-    serve(dir, clients, req, res);
+    serve(dir, clients, broken, req, res);
   });
   let port = options.port;
   let remembered = port !== undefined ? port : await hooks.readPort();
@@ -450,9 +475,11 @@ async function dev(options, hooks) {
   if (Stdlib_Option.isNone(options.port) && Primitive_object.notequal(remembered, port$1)) {
     await hooks.writePort(port$1);
   }
-  let trigger = looper(hooks.rebuild, param => {
+  let trigger = looper(hooks.rebuild, failure => {
+    broken.contents = failure;
+    let word = failure !== undefined ? failed(failure) : reload;
     clients.contents.forEach(r => {
-      r.write("data: reload\n\n");
+      r.write(word);
     });
   });
   await trigger();
@@ -485,6 +512,7 @@ export {
   extensions,
   changed,
   attempt,
+  quiet,
   looper,
   rawSpawn,
   script,
@@ -495,6 +523,9 @@ export {
   plain,
   extension,
   channel,
+  reload,
+  failed,
+  banner,
   live,
   inject,
   candidates,

@@ -66,13 +66,21 @@ let changed = (skip, exts, name) => {
 // ---------------------------------------------------------------------------
 // Building.
 
-let attempt: (unit => promise<unit>) => promise<Nullable.t<string>> = %raw(`async (fn) => {
-  try { await fn(); return null } catch (e) { return String((e && e.stack) || e) }
+type failure = {message: string, stack: string}
+
+let attempt: (unit => promise<unit>) => promise<Nullable.t<failure>> = %raw(`async (fn) => {
+  try { await fn(); return null } catch (e) {
+    return {message: String((e && e.message) || e), stack: e && typeof e.stack === "string" ? e.stack : String(e)}
+  }
 }`)
+
+/** Fail with a message the terminal has already seen: no stack to print. */
+let quiet: string => 'a = %raw(`(message) => { const e = new Error(message); e.stack = ""; throw e }`)
 
 // One build at a time, and never a stale one: changes arriving mid-build
 // queue exactly one more run, however many of them there are. `built` fires
-// once the burst has settled, with the failure of the last run, if any.
+// once the burst has settled, with the message of the last run's failure,
+// if any. The terminal gets the stack; the message is for the page.
 let looper = (rebuild, built) => {
   let busy = ref(false)
   let again = ref(false)
@@ -82,14 +90,15 @@ let looper = (rebuild, built) => {
     let failure = (await attempt(rebuild))->Nullable.toOption
     busy := false
     switch failure {
-    | Some(message) => Console.error(message)
+    | Some({stack: ""}) => ()
+    | Some(f) => Console.error(f.stack)
     | None => say(`built in ${(Date.now() -. started)->Float.toInt->Int.toString}ms`)
     }
     if again.contents {
       again := false
       await go()
     } else {
-      built(failure)
+      built(failure->Option.map(f => f.message))
     }
   }
   async () =>
@@ -103,19 +112,26 @@ let looper = (rebuild, built) => {
 type spawner
 type cpmod = {spawn: spawner}
 
-let rawSpawn: (spawner, string, array<string>, string) => promise<int> = %raw(`(spawn, bin, args, cwd) =>
+// The script's stderr goes through to the terminal and is kept: what it
+// printed is the failure, and the page that stays up will show it.
+let rawSpawn: (spawner, string, array<string>, string) => promise<(int, string)> = %raw(`(spawn, bin, args, cwd) =>
   new Promise((resolve) => {
-    const child = spawn(bin, args, {cwd, stdio: "inherit"})
-    child.on("exit", (code) => resolve(code ?? 1))
-    child.on("error", (e) => { console.error(e); resolve(1) })
+    const child = spawn(bin, args, {cwd, stdio: ["inherit", "inherit", "pipe"]})
+    let said = ""
+    child.stderr.on("data", (chunk) => { process.stderr.write(chunk); said += chunk })
+    child.on("exit", (code) => resolve([code ?? 1, said]))
+    child.on("error", (e) => { console.error(e); resolve([1, said + String(e)]) })
   })`)
 
 /** Run a build script in a fresh process, so its transformers are fresh too. */
 let script = async (path, at) => {
   let cp: cpmod = await import_("node:child_process")
-  let code = await rawSpawn(cp.spawn, execPath, [path], at)
+  let (code, said) = await rawSpawn(cp.spawn, execPath, [path], at)
   if code != 0 {
-    fail(`build script ${path} exited with code ${Int.toString(code)}`)
+    let exit = `build script ${path} exited with code ${Int.toString(code)}`
+    Console.error(exit)
+    let said = String.trim(said)
+    quiet(said == "" ? exit : `${said}\n${exit}`)
   }
 }
 
@@ -192,6 +208,7 @@ type httpmod = {createServer: ((req, res) => unit) => server}
 @send external shut: server => unit = "close"
 @send external drop: server => unit = "closeAllConnections"
 @val external decode: string => string = "decodeURIComponent"
+@scope("JSON") @val external stringify: string => string = "stringify"
 
 /** The file at `path`, or nothing when it is missing or is not a file. */
 let readBytes = async path => {
@@ -237,11 +254,18 @@ let extension = path =>
 
 let channel = "/__minidoc"
 
+// A build that lands says `reload` down the stream. A build that fails says
+// `failed`, with what it printed: the page stays as it is and shows the
+// failure at its foot, because a reload into a broken build loses the page.
+let reload = "data: reload\n\n"
+let failed = message => `event: failed\ndata: ${stringify(message)}\n\n`
+
 // The page holds a stream open; a finished build says one word down it. A
 // hidden page lets go of it: a browser allows a host six connections, so
 // tabs left open would starve the next one, and an open stream keeps a page
 // out of the back and forward cache. Shown again, it opens one anew.
-let live = `<script>(()=>{let s=null;const open=()=>{if(s)return;s=new EventSource("${channel}");s.addEventListener("message",()=>location.reload())};const close=()=>{if(s){s.close();s=null}};open();addEventListener("pagehide",close);addEventListener("pageshow",open);document.addEventListener("visibilitychange",()=>document.hidden?close():open())})()</script>`
+let banner = "position:fixed;left:0;right:0;bottom:0;max-height:50vh;overflow:auto;margin:0;padding:12px 16px;background:#3b0a0a;color:#ffd9d9;font:12px/1.4 ui-monospace,monospace;white-space:pre-wrap;z-index:2147483647"
+let live = `<script>(()=>{let s=null;const fail=e=>{let b=document.getElementById("__minidoc");if(!b){b=document.body.appendChild(Object.assign(document.createElement("pre"),{id:"__minidoc"}));b.style.cssText="${banner}"}b.textContent=JSON.parse(e.data)};const open=()=>{if(s)return;s=new EventSource("${channel}");s.addEventListener("message",()=>location.reload());s.addEventListener("failed",fail)};const close=()=>{if(s){s.close();s=null}};open();addEventListener("pagehide",close);addEventListener("pageshow",open);document.addEventListener("visibilitychange",()=>document.hidden?close():open())})()</script>`
 
 let inject = html =>
   switch String.lastIndexOf(html, "</body>") {
@@ -260,7 +284,7 @@ let candidates = path =>
     [path]
   }
 
-let serve = async (dir, clients: ref<array<res>>, req, res) => {
+let serve = async (dir, clients: ref<array<res>>, broken: ref<option<string>>, req, res) => {
   let path = decode(target(req)->String.split("?")->Array.getUnsafe(0))
   if path == channel {
     head(
@@ -273,6 +297,8 @@ let serve = async (dir, clients: ref<array<res>>, req, res) => {
       ]),
     )
     let _ = push(res, ":open\n\n")
+    // A page opened while the build is broken is told at once.
+    broken.contents->Option.forEach(message => push(res, failed(message))->ignore)
     clients := [...clients.contents, res]
     onClose(res, "close", () => clients := clients.contents->Array.filter(r => r !== res))
   } else if String.includes(path, "..") {
@@ -379,8 +405,9 @@ let dev = async (options: options, hooks: hooks) => {
   let root = options.root->Option.getOr(cwd())
   let dir = absolute(root, options.serve->Option.getOr("dist"))
   let clients: ref<array<res>> = ref([])
+  let broken: ref<option<string>> = ref(None)
   let http: httpmod = await import_("node:http")
-  let server = http.createServer((req, res) => serve(dir, clients, req, res)->ignore)
+  let server = http.createServer((req, res) => serve(dir, clients, broken, req, res)->ignore)
 
   // A port the caller names is the caller's business. A port we remembered is
   // written down the first time, so this site keeps the same address
@@ -408,9 +435,14 @@ let dev = async (options: options, hooks: hooks) => {
     }
     // The port is written before the first build, so the config a build reads
     // already names it — and before the watcher, so writing it is not a change.
-    let trigger = looper(hooks.rebuild, _ =>
-      clients.contents->Array.forEach(r => push(r, "data: reload\n\n")->ignore)
-    )
+    let trigger = looper(hooks.rebuild, failure => {
+      broken := failure
+      let word = switch failure {
+      | None => reload
+      | Some(message) => failed(message)
+      }
+      clients.contents->Array.forEach(r => push(r, word)->ignore)
+    })
     await trigger()
     let watchers = await watching(
       [root, ...options.watch->Option.getOr([])],

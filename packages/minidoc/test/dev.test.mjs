@@ -71,6 +71,18 @@ async function until(server, want, ms = 15000) {
 
 const port = (text) => Number(/port: (\d+)/.exec(text)?.[1]);
 
+/** What a reload stream says, up to and including `want` — or until we give up. */
+async function hear(reader, want, ms = 15000) {
+  const limit = Date.now() + ms;
+  let said = "";
+  while (!said.includes(want) && Date.now() < limit) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    said += new TextDecoder().decode(value);
+  }
+  return said;
+}
+
 /** A request `fetch` would not send, path untouched. */
 const raw = (at, target) =>
   new Promise((resolve) => {
@@ -110,13 +122,27 @@ function standIn() {
       this.onmessage?.(event);
       fire(this.listeners, "message", event);
     }
+    fail(data) {
+      if (this.closed) return;
+      fire(this.listeners, "failed", { type: "failed", data });
+    }
   }
 
+  const elements = {};
   const document = { visibilityState: "visible", hidden: false, listeners: {} };
   document.addEventListener = on(document.listeners);
+  document.getElementById = (id) => elements[id] ?? null;
+  document.createElement = (tag) => ({ tag, style: {}, textContent: "" });
+  document.body = {
+    appendChild(element) {
+      elements[element.id] = element;
+      return element;
+    },
+  };
   const browser = {
     streams,
     reloads: 0,
+    banner: () => elements.__minidoc,
     hide() {
       Object.assign(document, { visibilityState: "hidden", hidden: true });
       fire(document.listeners, "visibilitychange");
@@ -186,15 +212,50 @@ test("dev serves the output and rebuilds what changed", async (t) => {
     const stream = await fetch(`http://127.0.0.1:${server.port}/__minidoc`);
     const reader = stream.body.getReader();
     await writeFile(path.join(root, "content", "home.md"), "Hello *again*.\n");
-    let said = "";
-    while (!said.includes("data: reload")) {
-      const { value, done } = await reader.read();
-      if (done) break;
-      said += new TextDecoder().decode(value);
-    }
+    const said = await hear(reader, "data: reload");
     await reader.cancel();
     assert.match(said, /data: reload/);
     assert.match(await until(server, "Hello *again*."), /Hello \*again\*\./);
+  });
+
+  // A build broken by a thrown transformer, seen through one stream kept
+  // open across the next four tests.
+  const get = async (p = "/") => (await fetch(`http://127.0.0.1:${server.port}${p}`)).text();
+  const broken = { page: "", reader: null };
+
+  await t.test("a failed build keeps the page and reloads nothing", async () => {
+    broken.page = await get();
+    const stream = await fetch(`http://127.0.0.1:${server.port}/__minidoc`);
+    broken.reader = stream.body.getReader();
+
+    await writeFile(path.join(root, "src", "shout.mjs"), 'export function shout() {\n  throw new Error("shout is broken");\n}\n');
+    const said = await hear(broken.reader, "event: failed");
+    assert.doesNotMatch(said, /data: reload/);
+    assert.match(said, /shout is broken/, "the page is told what the build script printed");
+    assert.equal(await get(), broken.page, "the page served before is still served");
+  });
+
+  await t.test("a page opened while the build is broken is told at once", async () => {
+    const late = await fetch(`http://127.0.0.1:${server.port}/__minidoc`);
+    const reader = late.body.getReader();
+    assert.match(await hear(reader, "event: failed", 2000), /shout is broken/);
+    await reader.cancel();
+  });
+
+  await t.test("the injected script shows the failure on the page", async () => {
+    const browser = standIn();
+    vm.runInNewContext(/<script>(.*)<\/script><\/body>/s.exec(broken.page)[1], browser.window);
+    browser.streams[0].fail(JSON.stringify("Error: shout is broken\n    at shout"));
+    assert.equal(browser.banner().textContent, "Error: shout is broken\n    at shout");
+    assert.equal(browser.reloads, 0);
+    browser.streams[0].fail(JSON.stringify("still broken"));
+    assert.equal(browser.banner().textContent, "still broken", "one banner, the latest failure");
+  });
+
+  await t.test("the next build that lands reloads the page", async () => {
+    await writeFile(path.join(root, "src", "shout.mjs"), shout("ONE"));
+    assert.match(await hear(broken.reader, "data: reload"), /data: reload/);
+    await broken.reader.cancel();
   });
 
   await t.test("an edited transformer takes effect — the build is a fresh process", async () => {

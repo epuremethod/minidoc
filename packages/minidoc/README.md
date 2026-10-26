@@ -528,9 +528,18 @@ under. Without `build`, `dev` calls `run` in its own process with
 transformer edit.
 
 The served page carries one injected line, an `EventSource` that reloads it
-when a build lands. The rest is a static host: `/guide/` answers with its
-index, `/guide` with `guide.html` then `guide/index.html`, so the dev site is
-the deployed site.
+when a build lands. A build that fails reloads nothing: the page stays as it
+was and shows the failure at its foot, with what the build script printed,
+until the next build lands. A page opened while the build is broken shows the
+same. The rest is a static host: `/guide/` answers with its index, `/guide`
+with `guide.html` then `guide/index.html`, so the dev site is the deployed
+site.
+
+A build script writes over the old output and never empties the folder
+first: `dev` serves that folder while the script runs, and after a failed
+build it is all there is. A run only writes the outputs it declares, so an
+output no longer declared stays until someone removes it; a deploy builds
+from a fresh checkout and never sees one.
 
 `watch` is the same runner without the server, for a project that serves its
 output some other way:
@@ -596,6 +605,8 @@ stand in for. `pnpm check` runs everything.
 ## Changelog
 
 - Unreleased
+  - `dev` no longer reloads the page after a failed build. The page stays and
+    shows the failure, with the build script's output, until a build lands.
   - **Nested vars.** Var blocks and frontmatter nest (`layouts: { cv: … }`),
     a dotted key being the same var spelled flat. Layers merge leaf by leaf,
     so a page can override `layouts.cv` alone. A group's kind (`file`, `dir`,

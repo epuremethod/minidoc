@@ -301,3 +301,33 @@ so the grouping would draw edges that do not exist.
 
 Costs: one more suffix in the row grammar. A fifth tenant gets the tag and
 no tone of its own.
+
+## 2026-10-11: A hidden page lets go of its reload stream
+
+The script `dev` injects closes the stream when the page is hidden and opens
+one anew when it is shown.
+
+Refused: one stream per page for the page's life. A browser allows a host six
+connections, so tabs left open starved the next page, and an open stream kept
+a page out of the back and forward cache.
+
+## 2026-10-11: A failed build reloads nothing
+
+When a build fails, `dev` leaves every open page as it is and sends it the
+failure, which the page shows at its foot. A page opened while the build is
+broken is told the same. Only a build that lands reloads.
+
+Refused: reloading after every build, which 0.2.0 did. A broken edit then
+reloaded the author's page into whatever the failed build left behind.
+
+## 2026-10-11: A build script never empties the output folder
+
+The docs site's build script, and radif's, wrote `rm -rf dist` before `run`.
+They no longer do: a run writes each output over the old one, as decided
+above, and `dev` serves that folder while the script runs.
+
+Refused: `dev` guarding the folder. It cannot see what a script does, so the
+rule is written in the README and the guide instead.
+
+Costs: an output no longer declared stays until someone removes it. A deploy
+builds from a fresh checkout and never sees one.
