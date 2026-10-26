@@ -22,7 +22,7 @@
 .viewer { width: 100vw; height: 100dvh; max-width: none; max-height: none; margin: 0; padding: 0; border: 0; background: var(--blocks-canvas, #faf9f6); color: var(--blocks-ink, #202a38); }
 .viewer[open] { display: grid; grid-template-rows: auto minmax(0, 1fr); }
 .viewer::backdrop { background: var(--blocks-canvas, #faf9f6); }
-.viewer__bar { display: flex; align-items: center; gap: 1em; padding: .6em 1em; border-bottom: 1px solid var(--blocks-line, #c9ccd0); font: 600 14px/1.4 system-ui, sans-serif; }
+.viewer__bar { display: flex; align-items: center; gap: 1em; padding: .6em 1em; border-bottom: 1px solid var(--blocks-line, #c9ccd0); font-size: 14px; font-weight: 600; line-height: 1.4; }
 .viewer__count { flex: 1; color: var(--blocks-muted, #626770); font-variant-numeric: tabular-nums; }
 .viewer__close, .viewer__step { display: grid; place-items: center; width: 2.4rem; height: 2.4rem; padding: 0; border: 1px solid var(--blocks-line, #c9ccd0); border-radius: 50%; background: var(--blocks-surface, #fff); color: var(--blocks-ink, #202a38); cursor: pointer; }
 .viewer__icon { display: block; width: 1rem; height: 1rem; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
@@ -31,7 +31,8 @@
 .viewer__step--previous { left: 1rem; }
 .viewer__step--next { right: 1rem; }
 .viewer__step[hidden] { display: none; }
-.viewer__stage { display: flex; min-height: 0; padding: 2rem 4.5rem; }
+.viewer__stage { display: flex; min-height: 0; padding: 2rem 4.5rem; cursor: zoom-out; }
+.viewer__stage a { cursor: pointer; }
 .viewer .viewer__stage > * { display: flex; flex-direction: column; flex: 1; min-width: 0; min-height: 0; margin: 0; overflow: visible; }
 .viewer .viewer__stage svg { flex: 1; width: 100%; height: 100%; min-height: 0; max-width: none; max-height: none; }
 @media (max-width: 640px) { .viewer__stage { padding: 1rem 1rem 4.5rem; } .viewer__step { top: auto; bottom: 1rem; translate: none; } }
@@ -109,9 +110,10 @@
       else return
       event.preventDefault()
     })
-    // A click beside the drawing closes it, as a click on the backdrop would.
+    // A click on the drawing or beside it closes it, as a click on the
+    // backdrop would. A link in the drawing still follows.
     stage.addEventListener("click", (event) => {
-      if (event.target === stage) dialog.close()
+      if (!event.target.closest("a")) dialog.close()
     })
     // Closed, the page shows the last drawing viewed.
     dialog.addEventListener("close", () => {

@@ -32,9 +32,10 @@ too, and loads it once in its layout:
 
 A click on a sequence, a state machine or a database model then shows it
 full screen. ‹ and › or the arrow keys step through every drawing of the
-page, and Escape closes it. `data-select` on the script tag names other
-blocks to open, as a CSS selector: `data-select=".states, .model, .chart"`.
-The viewer brings its own styles, in the colours of the blocks theme.
+page. A click on the drawing, or Escape, closes it. `data-select` on the
+script tag names other blocks to open, as a CSS selector:
+`data-select=".states, .model, .chart"`. The viewer brings its own styles,
+in the colours of the blocks theme.
 
 Each plate below is a scenario of the package. The **markdown** is what an
 author writes. The **nodes** are what the package reads in it: a middle
