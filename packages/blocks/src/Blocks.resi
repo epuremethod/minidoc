@@ -39,7 +39,7 @@ type options = {
   markdown?: Markdown.t => unit,
 }
 
-/** Read a document into nodes. Fails on an unknown, unclosed or mismatched block. */
+/** Read a document into nodes. Fails on an unknown, unclosed or mismatched block, and on a name or a reference the page cannot resolve. */
 let read: (string, options) => array<node>
 
 /** The text form of nodes, as the fixtures write them. */

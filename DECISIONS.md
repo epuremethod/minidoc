@@ -332,6 +332,17 @@ rule is written in the README and the guide instead.
 Costs: an output no longer declared stays until someone removes it. A deploy
 builds from a fresh checkout and never sees one.
 
+## 2026-10-12: A callout names its author and date as a quote does
+
+`::: rejected "Ada Lovelace" 1843` names who made the call and when. Quotes
+and callouts read their info with the same rule, and a callout shows it under
+its body, in `callout__by`, as a quote shows it in its `figcaption`.
+
+Refused: the author and date beside the label. The label says what the lines
+are, and a byline there would crowd it on a narrow page.
+
+Costs: text after a callout's name was ignored and is now its date.
+
 ## 2026-10-19: A model draws a subclass as `Parent <- Child`
 
 The `model` block joins two tables in a second way: a parent and its
@@ -356,3 +367,22 @@ Refused: `--blocks-line`, which is black in graphic, so a subclass link
 would look the same as a relation there.
 
 Costs: one more variable in every theme.
+
+## 2026-10-26: A block is named with a hash suffix, and filed with `annexe`
+
+A quote's or callout's line may end with ` #name`, its anchor in the page,
+then ` annexe`, which draws it whole in the page's `::: annexe` and leaves
+its title in its place as a link. `` `(name)` `` in the prose is the same
+link. A name needs a title in double quotes, for the link to show. The
+reader checks the whole page, so a duplicate name, a missing annexe or an
+unknown reference stops the build with its line.
+
+Refused: `{{annexe}}`, a variable for the layout. A transform runs after
+minidoc resolves variables and returns one string, so it cannot give the
+layout a variable. Refused too: a bare `(name)` in the prose, which a typo
+would leave as plain text without a word, and a link from the annexe back to
+the text, which could return to only one of the places that cite a block.
+
+Costs: inline code that is exactly a word in parentheses is a reference,
+and fails when the page has no block of that name. A date that ends in
+`annexe` or in `#word` is read as the filing or the name.

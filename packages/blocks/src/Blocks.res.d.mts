@@ -31,7 +31,7 @@ export type Options = {
   markdown?: (md: MarkdownIt) => void;
 };
 
-/** Read a document into nodes. Fails on an unknown, unclosed or mismatched block. */
+/** Read a document into nodes. Fails on an unknown, unclosed or mismatched block, and on a name or a reference the page cannot resolve. */
 export function read(source: string, options: Options): Node[];
 
 /** The text form of nodes, as the fixtures write them. */

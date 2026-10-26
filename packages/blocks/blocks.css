@@ -8,6 +8,7 @@
 .callout, .quote, .ui-dialog, .ui-flow, .sequence, .states { --tone: var(--blocks-ink); }
 .callout--note { --tone: var(--tone-note); }
 .callout--draft { --tone: var(--tone-draft); }
+.callout--proposed { --tone: var(--tone-proposed); }
 .callout--settled { --tone: var(--tone-settled); }
 .callout--open { --tone: var(--tone-open); }
 .callout--technical { --tone: var(--tone-technical); }
@@ -52,6 +53,8 @@
 .callout__body p { margin: .6em 0; }
 .callout__body ul, .callout__body ol { margin: .4em 0; padding-left: 1.3em; }
 .callout__body li + li { margin-top: .3em; }
+.callout__by { margin: .7em 0 0; color: var(--blocks-muted); font-size: .85em; }
+.callout__by cite { color: var(--blocks-ink); font-style: normal; font-weight: 650; }
 
 /* Quotes */
 

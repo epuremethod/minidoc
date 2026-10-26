@@ -11,6 +11,33 @@ examples:
       callout note "Note"
         | Keep each page **short**.
 
+  - scenario: a callout names its author and its date
+    before: |-
+      ::: rejected "Ada Lovelace" 1843
+      We keep the punched cards.
+      :::
+    after: |-
+      callout rejected "Rejected" author "Ada Lovelace" date "1843"
+        | We keep the punched cards.
+
+  - scenario: a callout may name its author only
+    before: |-
+      ::: note "Grace Hopper"
+      Ask forgiveness.
+      :::
+    after: |-
+      callout note "Note" author "Grace Hopper"
+        | Ask forgiveness.
+
+  - scenario: a callout may name its date only
+    before: |-
+      ::: settled 2026-10-12
+      We keep the format.
+      :::
+    after: |-
+      callout settled "Settled" date "2026-10-12"
+        | We keep the format.
+
   - scenario: an open question holds several paragraphs and a list
     before: |-
       ::: open
@@ -32,6 +59,10 @@ examples:
       A
       :::
 
+      ::: proposed
+      P
+      :::
+
       ::: settled
       B
       :::
@@ -50,6 +81,8 @@ examples:
     after: |-
       callout draft "Draft"
         | A
+      callout proposed "Proposed"
+        | P
       callout settled "Settled"
         | B
       callout technical "Technical"
@@ -85,3 +118,16 @@ examples:
     after: |-
       callout risk "Accepted risk"
         | The cache may serve a stale page for a minute.
+
+  - scenario: a callout is named as a quote is
+    before: |-
+      ::: rejected "Ada Lovelace" 1843 #cards annexe
+      We keep the punched cards.
+      :::
+
+      ::: annexe
+      :::
+    after: |-
+      callout rejected "Rejected" author "Ada Lovelace" date "1843" anchor "cards" annexe
+        | We keep the punched cards.
+      annexe

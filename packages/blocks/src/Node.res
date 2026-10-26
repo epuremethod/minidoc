@@ -85,8 +85,26 @@ type column = {title: option<string>, steps: array<step>}
 
 type rec t =
   | Markdown(string)
-  | Callout({name: string, label: string, children: array<t>})
-  | Quote({author: option<string>, date: option<string>, children: array<t>})
+  | Callout({
+      name: string,
+      label: string,
+      author: option<string>,
+      date: option<string>,
+      anchor: option<string>,
+      annexe: bool,
+      children: array<t>,
+    })
+  | Quote({
+      author: option<string>,
+      date: option<string>,
+      /** The block's name after `#`, its id in the page. */
+      anchor: option<string>,
+      /** Drawn in the annexe, leaving a link to its title in its place. */
+      annexe: bool,
+      children: array<t>,
+    })
+  /** Where the blocks filed in the annexe are drawn. */
+  | Annexe
   | Flow({label: string, columns: array<column>})
   | Dialog({owner: option<(string, string)>, title: option<string>, widgets: array<widget>})
   | Form({owner: option<(string, string)>, title: option<string>, widgets: array<widget>})

@@ -28,3 +28,105 @@ examples:
     after: |-
       quote
         | Less, but better.
+
+  - scenario: a hash suffix names a quote, which keeps its place
+    before: |-
+      ::: quote "Code civil, art. 1240" #cc-1240
+      Tout fait quelconque de l'homme, qui cause à autrui un dommage, oblige
+      celui par la faute duquel il est arrivé à le réparer.
+      :::
+    after: |-
+      quote author "Code civil, art. 1240" anchor "cc-1240"
+        | Tout fait quelconque de l'homme, qui cause à autrui un dommage, oblige
+        | celui par la faute duquel il est arrivé à le réparer.
+
+  - scenario: a named quote goes to the annexe, and its title stays as a link
+    before: |-
+      Le gardien répond du fait de la chose.
+
+      ::: quote "Code civil, art. 1242" 2016 #cc-1242 annexe
+      On est responsable non seulement du dommage que l'on cause par son
+      propre fait, mais encore de celui qui est causé par le fait des choses
+      que l'on a sous sa garde.
+      :::
+
+      ::: annexe
+      :::
+    after: |-
+      | Le gardien répond du fait de la chose.
+      quote author "Code civil, art. 1242" date "2016" anchor "cc-1242" annexe
+        | On est responsable non seulement du dommage que l'on cause par son
+        | propre fait, mais encore de celui qui est causé par le fait des choses
+        | que l'on a sous sa garde.
+      annexe
+
+  - scenario: a name in parentheses and backticks points at its quote, even further down
+    before: |-
+      La victime doit prouver une faute, voir `(cc-1241)`.
+
+      ::: quote "Code civil, art. 1241" #cc-1241
+      Chacun est responsable du dommage qu'il a causé non seulement par son
+      fait, mais encore par sa négligence ou par son imprudence.
+      :::
+    after: |-
+      | La victime doit prouver une faute, voir `(cc-1241)`.
+      quote author "Code civil, art. 1241" anchor "cc-1241"
+        | Chacun est responsable du dommage qu'il a causé non seulement par son
+        | fait, mais encore par sa négligence ou par son imprudence.
+
+  - scenario: a name used twice fails and names both lines
+    before: |-
+      ::: quote "Code civil, art. 1240" #cc-1240
+      Tout fait quelconque de l'homme.
+      :::
+
+      ::: quote "Code civil, art. 1241" #cc-1240
+      Chacun est responsable du dommage.
+      :::
+    error: "Duplicate name on line 5: #cc-1240, first on line 1"
+
+  - scenario: a named quote without a title fails
+    before: |-
+      ::: quote #cc-1240
+      Tout fait quelconque de l'homme.
+      :::
+    error: "Named block without a title on line 1: #cc-1240"
+
+  - scenario: a quote sent to the annexe without a name fails
+    before: |-
+      ::: quote "Code civil, art. 1240" annexe
+      Tout fait quelconque de l'homme.
+      :::
+    error: "Annexe without a name on line 1"
+
+  - scenario: a quote sent to the annexe on a page without one fails
+    before: |-
+      ::: quote "Code civil, art. 1240" #cc-1240 annexe
+      Tout fait quelconque de l'homme.
+      :::
+    error: "No ::: annexe for the block on line 1: #cc-1240"
+
+  - scenario: a second annexe fails
+    before: |-
+      ::: annexe
+      :::
+
+      ::: annexe
+      :::
+    error: "Second annexe on line 4"
+
+  - scenario: an annexe holds nothing of its own
+    before: |-
+      ::: annexe
+      The articles quoted above.
+      :::
+    error: "Annexe with a body on line 1"
+
+  - scenario: a reference to a name the page does not have fails
+    before: |-
+      ::: quote "Code civil, art. 1240" #cc-1240
+      Tout fait quelconque de l'homme.
+      :::
+
+      Voir `(cc-1204)`.
+    error: "Unknown reference on line 5: (cc-1204)"

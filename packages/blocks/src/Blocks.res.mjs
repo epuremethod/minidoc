@@ -25,6 +25,10 @@ let common = [
     "Draft"
   ],
   [
+    "proposed",
+    "Proposed"
+  ],
+  [
     "settled",
     "Settled"
   ],
@@ -69,7 +73,11 @@ let apiLabels = [
   ]
 ];
 
-let quoteInfo = new RegExp("^quote(?:\\s+\"([^\"]*)\")?(?:\\s+(\\S.*?))?\\s*$");
+let byInfo = new RegExp("^(?:\"([^\"]*)\")?(?:\\s*(\\S.*?))?\\s*$");
+
+let annexeTail = new RegExp("^(.*?)(?:^|\\s)annexe$");
+
+let nameTail = new RegExp(`^(.*?)(?:^|\\s)#(` + Markdown.name + `)$`);
 
 function context(options) {
   let callouts = Object.fromEntries(Belt_Array.concatMany([
@@ -94,6 +102,7 @@ function context(options) {
         Object.keys(callouts),
         [
           "quote",
+          "annexe",
           "flow",
           "ui-dialog",
           "ui-form",
@@ -122,7 +131,103 @@ function caption(info) {
   }
 }
 
-function readIn(ctx, source, offset) {
+function by(name, info, line) {
+  let m = byInfo.exec(info.trim());
+  if (m == null) {
+    return Html.fail(`Unknown block on line ` + line.toString() + `: ` + name + ` ` + info);
+  } else {
+    return [
+      Sequence.capture(m, 0),
+      Sequence.capture(m, 1)
+    ];
+  }
+}
+
+function named(page, name, info, line) {
+  let at = line.toString();
+  let info$1 = info.trim();
+  let m = annexeTail.exec(info$1);
+  let match = (m == null) ? [
+      info$1,
+      false
+    ] : [
+      Scan.capture(m, 0).trim(),
+      true
+    ];
+  let annexe = match[1];
+  let info$2 = match[0];
+  let m$1 = nameTail.exec(info$2);
+  let match$1 = (m$1 == null) ? [
+      info$2,
+      undefined
+    ] : [
+      Scan.capture(m$1, 0).trim(),
+      Sequence.capture(m$1, 1)
+    ];
+  let anchor = match$1[1];
+  let match$2 = by(name, match$1[0], line);
+  let author = match$2[0];
+  if (anchor !== undefined) {
+    if (author === undefined) {
+      Html.fail(`Named block without a title on line ` + at + `: #` + anchor);
+    }
+    let first = page.anchors[anchor];
+    if (first !== undefined) {
+      Html.fail(`Duplicate name on line ` + at + `: #` + anchor + `, first on line ` + first.toString());
+    } else {
+      page.anchors[anchor] = line;
+    }
+    if (annexe && page.filed === undefined) {
+      page.filed = [
+        anchor,
+        line
+      ];
+    }
+  } else if (annexe) {
+    Html.fail(`Annexe without a name on line ` + at);
+  }
+  return [
+    author,
+    match$2[1],
+    anchor,
+    annexe
+  ];
+}
+
+function each(nodes, f) {
+  nodes.forEach(node => {
+    f(node);
+    if (typeof node !== "object") {
+      return;
+    }
+    switch (node.TAG) {
+      case "Callout" :
+        return each(node.children, f);
+      case "Quote" :
+        return each(node.children, f);
+      case "Screens" :
+        return each(node.children, f);
+      default:
+        return;
+    }
+  });
+}
+
+function byline(author, date, tag, className) {
+  let parts = Stdlib_Array.keepSome([
+    Stdlib_Option.map(author, a => `<cite>` + Html.escape(a) + `</cite>`),
+    Stdlib_Option.map(date, d => `<span class="` + className + `__date">` + Html.escape(d) + `</span>`)
+  ]);
+  if (Primitive_object.equal(parts, [])) {
+    return "";
+  } else {
+    return `<` + tag + (
+      tag === "p" ? ` class="` + className + `__by"` : ""
+    ) + `>— ` + parts.join(", ") + `</` + tag + `>`;
+  }
+}
+
+function readIn(ctx, page, source, offset) {
   return Scan.scan(source, offset, ctx.names).map(item => {
     if (item.TAG === "Run") {
       return {
@@ -134,8 +239,18 @@ function readIn(ctx, source, offset) {
     let body = item.body;
     let info = item.info;
     let name = item.name;
-    let inner = () => readIn(ctx, body, line + 1 | 0);
+    let inner = () => readIn(ctx, page, body, line + 1 | 0);
     switch (name) {
+      case "annexe" :
+        let at = line.toString();
+        if (page.annexe !== undefined) {
+          Html.fail(`Second annexe on line ` + at);
+        }
+        if (body.trim() !== "") {
+          Html.fail(`Annexe with a body on line ` + at);
+        }
+        page.annexe = line;
+        return "Annexe";
       case "api" :
         return Api.read(info, body, line);
       case "flow" :
@@ -146,17 +261,15 @@ function readIn(ctx, source, offset) {
           _0: Model.read(body, caption(info))
         };
       case "quote" :
-        let m = quoteInfo.exec((`quote ` + info).trim());
-        if (m == null) {
-          return Html.fail(`Unknown block on line ` + line.toString() + `: quote ` + info);
-        } else {
-          return {
-            TAG: "Quote",
-            author: Sequence.capture(m, 0),
-            date: Sequence.capture(m, 1),
-            children: inner()
-          };
-        }
+        let match = named(page, name, info, line);
+        return {
+          TAG: "Quote",
+          author: match[0],
+          date: match[1],
+          anchor: match[2],
+          annexe: match[3],
+          children: inner()
+        };
       case "sequence" :
         return {
           TAG: "Sequence",
@@ -168,12 +281,12 @@ function readIn(ctx, source, offset) {
           _0: States.read(body, caption(info), ctx.statesKinds)
         };
       case "ui-dialog" :
-        let match = Screen.read(info, body, ctx.owners);
+        let match$1 = Screen.read(info, body, ctx.owners);
         return {
           TAG: "Dialog",
-          owner: match[0],
-          title: match[1],
-          widgets: match[2]
+          owner: match$1[0],
+          title: match$1[1],
+          widgets: match$1[2]
         };
       case "ui-flow" :
         return {
@@ -182,23 +295,16 @@ function readIn(ctx, source, offset) {
           children: inner()
         };
       case "ui-form" :
-        let match$1 = Screen.read(info, body, ctx.owners);
+        let match$2 = Screen.read(info, body, ctx.owners);
         return {
           TAG: "Form",
-          owner: match$1[0],
-          title: match$1[1],
-          widgets: match$1[2]
+          owner: match$2[0],
+          title: match$2[1],
+          widgets: match$2[2]
         };
       default:
         let label = ctx.callouts[name];
-        if (label !== undefined) {
-          return {
-            TAG: "Callout",
-            name: name,
-            label: label,
-            children: inner()
-          };
-        } else {
+        if (label === undefined) {
           return {
             TAG: "Extra",
             name: name,
@@ -206,25 +312,57 @@ function readIn(ctx, source, offset) {
             body: body
           };
         }
+        let match$3 = named(page, name, info, line);
+        return {
+          TAG: "Callout",
+          name: name,
+          label: label,
+          author: match$3[0],
+          date: match$3[1],
+          anchor: match$3[2],
+          annexe: match$3[3],
+          children: inner()
+        };
     }
   });
 }
 
-function renderIn(ctx, nodes, env) {
+function id(anchor) {
+  return Stdlib_Option.mapOr(anchor, "", a => ` id="` + a + `"`);
+}
+
+function renderIn(ctx, nodes, env, filed, wholeOpt) {
+  let whole = wholeOpt !== undefined ? wholeOpt : false;
   return nodes.map(node => {
+    let exit = 0;
+    let author;
+    let anchor;
+    if (typeof node !== "object") {
+      if (Primitive_object.equal(filed, [])) {
+        return "";
+      } else {
+        return `<section class="annexe">\n` + filed.map(node => renderIn(ctx, [node], env, filed, true)).join("") + `</section>\n`;
+      }
+    }
     switch (node.TAG) {
       case "Markdown" :
         return ctx.md.render(node._0, env);
       case "Callout" :
-        let label = Html.escape(node.label);
-        return `<aside class="callout callout--` + node.name + `" aria-label="` + label + `"><p class="callout__label">` + label + `</p><div class="callout__body">\n` + renderIn(ctx, node.children, env) + `</div></aside>\n`;
+        let anchor$1 = node.anchor;
+        if (anchor$1 !== undefined && node.annexe) {
+          author = node.author;
+          anchor = anchor$1;
+          exit = 2;
+        }
+        break;
       case "Quote" :
-        let parts = Stdlib_Array.keepSome([
-          Stdlib_Option.map(node.author, a => `<cite>` + Html.escape(a) + `</cite>`),
-          Stdlib_Option.map(node.date, d => `<span class="quote__date">` + Html.escape(d) + `</span>`)
-        ]);
-        let under = Primitive_object.equal(parts, []) ? "" : `<figcaption>— ` + parts.join(", ") + `</figcaption>`;
-        return `<figure class="quote"><blockquote>\n` + renderIn(ctx, node.children, env) + `</blockquote>` + under + `</figure>\n`;
+        let anchor$2 = node.anchor;
+        if (anchor$2 !== undefined && node.annexe) {
+          author = node.author;
+          anchor = anchor$2;
+          exit = 2;
+        }
+        break;
       case "Flow" :
         return Flow.render(ctx.md, node.label, node.columns);
       case "Dialog" :
@@ -232,7 +370,7 @@ function renderIn(ctx, nodes, env) {
       case "Form" :
         return Screen.render(true, ctx.md, node.owner, node.title, node.widgets);
       case "Screens" :
-        return Screen.renderFlow(node.caption, renderIn(ctx, node.children, env));
+        return Screen.renderFlow(node.caption, renderIn(ctx, node.children, env, filed, undefined));
       case "Api" :
         return Api.render(node.method, node.path, node.title, node.parts, ctx.apiLabels);
       case "Sequence" :
@@ -250,16 +388,112 @@ function renderIn(ctx, nodes, env) {
           return "";
         }
     }
+    if (exit === 2 && !whole) {
+      return `<p class="annexe__ref"><a href="#` + anchor + `">` + Html.escape(Stdlib_Option.getOr(author, "")) + `</a></p>\n`;
+    }
+    if (typeof node === "object") {
+      if (node.TAG === "Callout") {
+        let label = Html.escape(node.label);
+        let under = byline(node.author, node.date, "p", "callout");
+        return `<aside class="callout callout--` + node.name + `"` + id(node.anchor) + ` aria-label="` + label + `"><p class="callout__label">` + label + `</p><div class="callout__body">\n` + renderIn(ctx, node.children, env, filed, undefined) + `</div>` + under + `</aside>\n`;
+      }
+      let under$1 = byline(node.author, node.date, "figcaption", "quote");
+      return `<figure class="quote"` + id(node.anchor) + `><blockquote>\n` + renderIn(ctx, node.children, env, filed, undefined) + `</blockquote>` + under$1 + `</figure>\n`;
+    }
   }).join("");
 }
 
+function referenceLine(source, name) {
+  let at = source.indexOf(`\`(` + name + `)\``);
+  let at$1 = at !== -1 ? at : source.indexOf(`(` + name + `)`);
+  return source.slice(0, at$1).split("\n").length;
+}
+
+function readPage(ctx, source) {
+  let page = {
+    anchors: {},
+    filed: undefined,
+    annexe: undefined
+  };
+  let nodes = readIn(ctx, page, source, 1);
+  let match = page.filed;
+  let match$1 = page.annexe;
+  if (match !== undefined && match$1 === undefined) {
+    Html.fail(`No ::: annexe for the block on line ` + match[1].toString() + `: #` + match[0]);
+  }
+  each(nodes, node => {
+    if (typeof node !== "object") {
+      return;
+    }
+    if (node.TAG !== "Markdown") {
+      return;
+    }
+    Markdown.references(ctx.md, node._0).forEach(name => {
+      if (!(name in page.anchors)) {
+        return Html.fail(`Unknown reference on line ` + referenceLine(source, name).toString() + `: (` + name + `)`);
+      }
+    });
+  });
+  return nodes;
+}
+
+function renderPage(ctx, nodes, env) {
+  let titles = {};
+  let filed = [];
+  each(nodes, node => {
+    let title;
+    let anchor;
+    let annexe;
+    if (typeof node !== "object") {
+      return;
+    }
+    switch (node.TAG) {
+      case "Callout" :
+        let title$1 = node.author;
+        if (title$1 === undefined) {
+          return;
+        }
+        let anchor$1 = node.anchor;
+        if (anchor$1 === undefined) {
+          return;
+        }
+        title = title$1;
+        anchor = anchor$1;
+        annexe = node.annexe;
+        break;
+      case "Quote" :
+        let title$2 = node.author;
+        if (title$2 === undefined) {
+          return;
+        }
+        let anchor$2 = node.anchor;
+        if (anchor$2 === undefined) {
+          return;
+        }
+        title = title$2;
+        anchor = anchor$2;
+        annexe = node.annexe;
+        break;
+      default:
+        return;
+    }
+    titles[anchor] = title;
+    if (annexe) {
+      filed.push(node);
+      return;
+    }
+  });
+  Markdown.setTitles(env, titles);
+  return renderIn(ctx, nodes, env, filed, undefined);
+}
+
 function read(source, options) {
-  return readIn(context(options), source, 1);
+  return readPage(context(options), source);
 }
 
 function render(nodes, options) {
   let ctx = context(options);
-  return renderIn(ctx, nodes, Markdown.env());
+  return renderPage(ctx, nodes, Markdown.env());
 }
 
 function blocks(options) {
@@ -267,7 +501,7 @@ function blocks(options) {
   return source => {
     let env = Markdown.env();
     ctx.md.parse(source, env);
-    return renderIn(ctx, readIn(ctx, source, 1), env);
+    return renderPage(ctx, readPage(ctx, source), env);
   };
 }
 
@@ -279,4 +513,4 @@ export {
   render,
   blocks,
 }
-/* quoteInfo Not a pure module */
+/* byInfo Not a pure module */

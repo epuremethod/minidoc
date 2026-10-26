@@ -85,8 +85,18 @@ let rec lines = (node, pad) => {
   let children = nodes => nodes->Array.flatMap(n => lines(n, inner))
   switch node {
   | Markdown(text) => markdown(text, pad)
-  | Callout({name, label, children: c}) => [`${pad}callout ${name} ${quote(label)}`, ...children(c)]
-  | Quote({author, date, children: c}) => [`${pad}quote${field("author", author)}${field("date", date)}`, ...children(c)]
+  | Callout({name, label, author, date, anchor, annexe, children: c}) => [
+      `${pad}callout ${name} ${quote(label)}${field("author", author)}${field("date", date)}${field(
+          "anchor",
+          anchor,
+        )}${flag("annexe", annexe)}`,
+      ...children(c),
+    ]
+  | Quote({author, date, anchor, annexe, children: c}) => [
+      `${pad}quote${field("author", author)}${field("date", date)}${field("anchor", anchor)}${flag("annexe", annexe)}`,
+      ...children(c),
+    ]
+  | Annexe => [`${pad}annexe`]
   | Flow({label, columns}) => [
       `${pad}flow ${quote(label)}`,
       ...columns->Array.flatMap(column => [

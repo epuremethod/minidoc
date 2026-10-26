@@ -12,6 +12,16 @@ examples:
       <p>Keep each page <strong>short</strong>.</p>
       </div></aside>
 
+  - scenario: a callout's author and date sit under its body
+    before: |-
+      ::: rejected "Ada Lovelace" 1843
+      We keep the punched cards.
+      :::
+    after: |-
+      <aside class="callout callout--rejected" aria-label="Rejected"><p class="callout__label">Rejected</p><div class="callout__body">
+      <p>We keep the punched cards.</p>
+      </div><p class="callout__by">— <cite>Ada Lovelace</cite>, <span class="callout__date">1843</span></p></aside>
+
   - scenario: a quote is a figure with its author and date under it
     before: |-
       ::: quote "Ada Lovelace" 1843
@@ -21,6 +31,45 @@ examples:
       <figure class="quote"><blockquote>
       <p>It weaves algebraic patterns.</p>
       </blockquote><figcaption>— <cite>Ada Lovelace</cite>, <span class="quote__date">1843</span></figcaption></figure>
+
+  - scenario: a named quote carries its name as its id
+    before: |-
+      ::: quote "Code civil, art. 1240" #cc-1240
+      Tout fait quelconque de l'homme.
+      :::
+    after: |-
+      <figure class="quote" id="cc-1240"><blockquote>
+      <p>Tout fait quelconque de l'homme.</p>
+      </blockquote><figcaption>— <cite>Code civil, art. 1240</cite></figcaption></figure>
+
+  - scenario: a quote in the annexe leaves a link to its title, as a reference does
+    before: |-
+      ::: quote "Code civil, art. 1240" 2016 #cc-1240 annexe
+      Tout fait quelconque de l'homme.
+      :::
+
+      Voir `(cc-1240)`.
+
+      ::: annexe
+      :::
+    after: |-
+      <p class="annexe__ref"><a href="#cc-1240">Code civil, art. 1240</a></p>
+      <p>Voir <a href="#cc-1240">Code civil, art. 1240</a>.</p>
+      <section class="annexe">
+      <figure class="quote" id="cc-1240"><blockquote>
+      <p>Tout fait quelconque de l'homme.</p>
+      </blockquote><figcaption>— <cite>Code civil, art. 1240</cite>, <span class="quote__date">2016</span></figcaption></figure>
+      </section>
+
+  - scenario: a named callout carries its name as its id
+    before: |-
+      ::: rejected "Ada Lovelace" #cards
+      We keep the punched cards.
+      :::
+    after: |-
+      <aside class="callout callout--rejected" id="cards" aria-label="Rejected"><p class="callout__label">Rejected</p><div class="callout__body">
+      <p>We keep the punched cards.</p>
+      </div><p class="callout__by">— <cite>Ada Lovelace</cite></p></aside>
 
   - scenario: a flow is a callout holding columns of steps
     before: |-

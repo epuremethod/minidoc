@@ -196,17 +196,20 @@ function widget(w, pad) {
 function lines(node, pad) {
   let inner = pad + `  `;
   let children = nodes => nodes.flatMap(n => lines(n, inner));
+  if (typeof node !== "object") {
+    return [pad + `annexe`];
+  }
   switch (node.TAG) {
     case "Markdown" :
       return markdown(node._0, pad);
     case "Callout" :
       return Belt_Array.concatMany([
-        [pad + `callout ` + node.name + ` ` + quote(node.label)],
+        [pad + `callout ` + node.name + ` ` + quote(node.label) + field("author", node.author) + field("date", node.date) + field("anchor", node.anchor) + flag("annexe", node.annexe)],
         children(node.children)
       ]);
     case "Quote" :
       return Belt_Array.concatMany([
-        [pad + `quote` + field("author", node.author) + field("date", node.date)],
+        [pad + `quote` + field("author", node.author) + field("date", node.date) + field("anchor", node.anchor) + flag("annexe", node.annexe)],
         children(node.children)
       ]);
     case "Flow" :
