@@ -12,8 +12,8 @@
     "test": "exit 0"
   },
   "dependencies": {
-    "@epure/minidoc": "workspace:*",
-    "@epure/minidoc-blocks": "workspace:*",
+    "@minidoc/core": "workspace:*",
+    "@minidoc/blocks": "workspace:*",
     "marked": "^18.0.7",
     "prismjs": "^1.30.0",
     "yaml": "^2.8.0"

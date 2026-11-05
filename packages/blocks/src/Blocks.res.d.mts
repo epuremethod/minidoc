@@ -1,4 +1,4 @@
-// @epure/minidoc-blocks — common `:::` blocks for minidoc sites.
+// @minidoc/blocks — common `:::` blocks for minidoc sites.
 // Hand-written; kept parallel to Blocks.resi.
 
 /** The middle language: what a block means. Read it with `write`. */

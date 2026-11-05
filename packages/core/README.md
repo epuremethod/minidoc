@@ -14,7 +14,7 @@ build:
 ```
 
 ```ts
-import { run } from "@epure/minidoc"
+import { run } from "@minidoc/core"
 
 await run({ glob: "content/**/config.yaml" })
 ```
@@ -23,14 +23,14 @@ Documentation: [minidoc.dev](https://minidoc.dev). For LLMs and agents:
 [llms.txt](https://minidoc.dev/llms.txt) (index) and
 [llms-full.txt](https://minidoc.dev/llms-full.txt) (the full guide, one
 markdown file) — both also ship in the package, at
-`node_modules/@epure/minidoc/dist/llms.txt` and `dist/llms-full.txt`.
+`node_modules/@minidoc/core/dist/llms.txt` and `dist/llms-full.txt`.
 
 ## Starting a documentation website
 
 1. **Design.** Find a design, or vibe-code one. The look is yours — HTML,
    CSS, fonts. minidoc fills in the content. Start from a base `index.html`
    layout — one HTML shell, shared by every page.
-2. **Install.** Add `@epure/minidoc`, write a config and a `run`, as above.
+2. **Install.** Add `@minidoc/core`, write a config and a `run`, as above.
 3. **Ask an agent to write the docs.** At minimum give it the list of pages
    you want, and how the markdown sources should be organised — one file
    per concept, one file per method, one file per chapter. Fix the shape
@@ -75,7 +75,7 @@ build:
 
 ```ts
 // build.mjs
-import { run } from "@epure/minidoc"
+import { run } from "@minidoc/core"
 
 await run({ glob: "content/**/config.yaml" })
 ```
@@ -439,7 +439,7 @@ await run({ glob: "content/**/config.yaml", inlineErrors: dev })
 ## API
 
 ```ts
-import { run } from "@epure/minidoc"
+import { run } from "@minidoc/core"
 import { apiMd, typescript } from "./transforms.ts"
 
 await run({
@@ -467,7 +467,7 @@ the outside world. Inject one for a browser, test, or other non-Node
 environment; the Node adapter loads lazily only when `fs` is omitted:
 
 ```ts
-import { run, nodeFs, makeMemoryFileSystem } from "@epure/minidoc"
+import { run, nodeFs, makeMemoryFileSystem } from "@minidoc/core"
 
 await run({ fs: makeMemoryFileSystem(files), glob: "**/config.yaml" })
 await run({ fs: nodeFs(new URL("./content/", import.meta.url)), glob: "**/config.yaml" })
@@ -498,7 +498,7 @@ own `allow`.
 the output with live reload:
 
 ```ts
-import { dev } from "@epure/minidoc"
+import { dev } from "@minidoc/core"
 
 await dev({ glob: "content/**/config.yaml", build: "src/build.ts" })
 ```
@@ -605,6 +605,8 @@ stand in for. `pnpm check` runs everything.
 ## Changelog
 
 - Unreleased
+  - **Breaking:** the package is `@minidoc/core`, and the blocks are
+    `@minidoc/blocks`. `@epure/minidoc` is deprecated.
   - The `model` block draws a subclass: `Parent <- Child` is a line from the
     child to its parent, with a hollow triangle at the parent.
   - `dev` no longer reloads the page after a failed build. The page stays and

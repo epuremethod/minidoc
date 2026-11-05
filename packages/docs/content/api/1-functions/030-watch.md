@@ -48,7 +48,7 @@ A [`Watcher`](#watcher): `stop()`.
 #### Example
 
 ```js
-import { watch } from "@epure/minidoc"
+import { watch } from "@minidoc/core"
 
 const watcher = await watch({ glob: "content/**/config.yaml", build: "src/build.mjs" })
 // later

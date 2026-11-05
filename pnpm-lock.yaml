@@ -39,25 +39,7 @@ importers:
         specifier: ^3.2.3
         version: 3.2.7(@types/node@24.13.6)(yaml@2.9.1)
 
-  packages/docs:
-    dependencies:
-      '@epure/minidoc':
-        specifier: workspace:*
-        version: link:../minidoc
-      '@epure/minidoc-blocks':
-        specifier: workspace:*
-        version: link:../blocks
-      marked:
-        specifier: ^18.0.7
-        version: 18.0.14
-      prismjs:
-        specifier: ^1.30.0
-        version: 1.30.0
-      yaml:
-        specifier: ^2.8.0
-        version: 2.9.1
-
-  packages/minidoc:
+  packages/core:
     dependencies:
       '@rescript/runtime':
         specifier: 12.3.0
@@ -93,6 +75,24 @@ importers:
       vitest:
         specifier: ^3.2.3
         version: 3.2.7(@types/node@24.13.6)(yaml@2.9.1)
+
+  packages/docs:
+    dependencies:
+      '@minidoc/blocks':
+        specifier: workspace:*
+        version: link:../blocks
+      '@minidoc/core':
+        specifier: workspace:*
+        version: link:../core
+      marked:
+        specifier: ^18.0.7
+        version: 18.0.14
+      prismjs:
+        specifier: ^1.30.0
+        version: 1.30.0
+      yaml:
+        specifier: ^2.8.0
+        version: 2.9.1
 
 packages:
 

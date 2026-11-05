@@ -16,7 +16,7 @@ serves the output with live reload:
 
 ```js
 // dev.mjs
-import { dev } from "@epure/minidoc"
+import { dev } from "@minidoc/core"
 
 await dev({ glob: "content/**/config.yaml", build: "build.mjs" })
 ```

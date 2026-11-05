@@ -18,8 +18,8 @@ This project follows the [épure](https://epuremethod.com) method.
 
 One pnpm workspace. The root holds no code.
 
-- `packages/minidoc/` is the generator, package `@epure/minidoc`.
-- `packages/blocks/` is the common `:::` blocks, package `@epure/minidoc-blocks`:
+- `packages/core/` is the generator, package `@minidoc/core`.
+- `packages/blocks/` is the common `:::` blocks, package `@minidoc/blocks`:
   a line scanner, readers into nodes, the nodes' text form, renderers to
   HTML, `blocks.css`, two themes, and `viewer.js`, which opens a drawing full
   screen. Its scenarios are `packages/blocks/test/*.test.yaml`, and the site
@@ -32,12 +32,12 @@ the site with minidoc's own dev server.
 
 ## Scenarios
 
-The scenarios are YAML fixtures in `packages/minidoc/test/*.test.yaml`, run by
+The scenarios are YAML fixtures in `packages/core/test/*.test.yaml`, run by
 `@epure/vitest`. A fixture is a `feature` with a `background` naming its
 `given`, and `examples`, one `scenario` each. A scenario has a `source`
 filesystem, optional run `options`, and either a `target`, the expected
 outputs, or the `error` the run must reject with. The steps file,
-`packages/minidoc/test/steps.ts`, binds the `given`. It runs the public API against
+`packages/core/test/steps.ts`, binds the `given`. It runs the public API against
 the in-memory filesystem.
 
 Two things cannot run on the in-memory filesystem, and they have plain
@@ -47,14 +47,14 @@ Two things cannot run on the in-memory filesystem, and they have plain
   a real socket.
 - `test/package.test.mjs` checks the packed package.
 
-`pnpm check` at the root is the standing check. In `packages/minidoc/` it runs the
+`pnpm check` at the root is the standing check. In `packages/core/` it runs the
 fixtures, the dev tests and the package test; in `packages/blocks/` the scenarios;
 in `packages/docs/` the site's build, which fails when a plate cannot be drawn.
 
 ## Architecture
 
 ```
-packages/minidoc/src/
+packages/core/src/
   Schema.res         config and frontmatter schemas, path anchoring, the port
   Minidoc.res        contexts, rendering, the filesystems, run
   Minidoc.resi       the public interface
@@ -89,14 +89,14 @@ and clear `SESSION.md`. The scenarios remain.
 
 ## Documentation
 
-The reference lives twice: in `packages/minidoc/README.md` and in the site's API,
+The reference lives twice: in `packages/core/README.md` and in the site's API,
 `packages/docs/content/api/`, one file per entry. The site's guide,
 `packages/docs/content/guide/`, tells the same features as one story, one file
 per chapter. A change to behavior changes all three where it shows. The build
 writes `llms.txt` and `llms-full.txt` from the guide and the API.
 
 Every change a user can see gets a line under "Unreleased" in the changelog
-of `packages/minidoc/README.md`. A change that breaks an existing config, a custom
+of `packages/core/README.md`. A change that breaks an existing config, a custom
 filesystem or a caller starts with **Breaking:**.
 
 ## Writing

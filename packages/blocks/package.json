@@ -1,9 +1,15 @@
 {
-  "name": "@epure/minidoc-blocks",
+  "name": "@minidoc/blocks",
   "version": "0.1.0",
   "description": "Common ::: blocks for minidoc sites: callouts, quotes, flows, screens, sequences, state machines, database models and API calls",
   "author": "Gaspard Anna Bucher <g.a.bucher@midasum.com>",
   "license": "MIT",
+  "homepage": "https://minidoc.dev/blocks.html",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/epuremethod/minidoc.git",
+    "directory": "packages/blocks"
+  },
   "type": "module",
   "files": [
     "src",

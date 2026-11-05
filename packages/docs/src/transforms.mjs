@@ -3,7 +3,7 @@
 // static HTML.
 import Prism from "prismjs";
 import loadLanguages from "prismjs/components/index.js";
-import { blocks } from "@epure/minidoc-blocks";
+import { blocks } from "@minidoc/blocks";
 
 loadLanguages(["yaml", "typescript", "bash", "markdown"]);
 

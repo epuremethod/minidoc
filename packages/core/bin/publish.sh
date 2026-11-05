@@ -67,4 +67,4 @@ if [ "$mode" = "stable" ]; then
   git tag "v$version"
 fi
 
-echo "Published @epure/minidoc at $version ($tag)."
+echo "Published @minidoc/core at $version ($tag)."

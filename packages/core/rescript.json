@@ -1,5 +1,5 @@
 {
-  "name": "@epure/minidoc",
+  "name": "@minidoc/core",
   "namespace": false,
   "sources": [
     {

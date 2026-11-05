@@ -4,18 +4,18 @@ nav: The package
 title: The package
 fixture: ""
 ---
-`@epure/minidoc-blocks` gives every minidoc site the same `:::` blocks:
+`@minidoc/blocks` gives every minidoc site the same `:::` blocks:
 callouts, quotes, flows, screen mockups, sequences, state machines and
 database models. A site passes one transform to `run`, and its pages can use
 them all.
 
 ```sh
-pnpm add -D @epure/minidoc-blocks
+pnpm add -D @minidoc/blocks
 ```
 
 ```js
-import { run } from "@epure/minidoc"
-import { blocks } from "@epure/minidoc-blocks"
+import { run } from "@minidoc/core"
+import { blocks } from "@minidoc/blocks"
 
 await run({ glob: "content/config.yaml", transform: { md: blocks({}) } })
 ```

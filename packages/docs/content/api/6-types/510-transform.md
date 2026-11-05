@@ -32,7 +32,7 @@ signature: |-
 #### Example
 
 ```js
-import { run } from "@epure/minidoc"
+import { run } from "@minidoc/core"
 import { Marked } from "marked"
 
 const md = (text) => new Marked({ gfm: true }).parse(text)

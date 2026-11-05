@@ -1,5 +1,5 @@
 import { fileURLToPath } from "node:url";
-import { nodeFs, run } from "@epure/minidoc";
+import { nodeFs, run } from "@minidoc/core";
 import { plates } from "./plates.mjs";
 import { md } from "./transforms.mjs";
 

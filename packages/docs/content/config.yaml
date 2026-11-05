@@ -1,5 +1,5 @@
 # llms.txt and llms-full.txt templates live in llms.yaml, shared with the
-# package build (minidoc/llms.yaml) so the site and the npm package ship the
+# package build (core/llms.yaml) so the site and the npm package ship the
 # same files.
 base: llms.yaml
 var:

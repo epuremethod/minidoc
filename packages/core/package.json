@@ -1,9 +1,15 @@
 {
-  "name": "@epure/minidoc",
+  "name": "@minidoc/core",
   "version": "0.2.0",
   "description": "Small documentation website generator",
   "author": "Gaspard Anna Bucher <g.a.bucher@midasum.com>",
   "license": "MIT",
+  "homepage": "https://minidoc.dev",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/epuremethod/minidoc.git",
+    "directory": "packages/core"
+  },
   "type": "module",
   "files": [
     "src",

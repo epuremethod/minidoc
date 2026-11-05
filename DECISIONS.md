@@ -400,3 +400,18 @@ Refused: pointing `(name)` references and the annexe's link at the source.
 They lead to the block in the page, which shows its source in turn.
 
 Costs: a date that ends in `<word>` is read as the source.
+
+## 2026-11-04: The packages live in the `@minidoc` scope
+
+`@epure/minidoc` becomes `@minidoc/core`, in `packages/core`, and
+`@epure/minidoc-blocks` becomes `@minidoc/blocks`. The product, its site,
+minidoc.dev, and its npm scope now share one name. `core` because the
+package is a library, `run`, `dev` and `watch`, that blocks plug into.
+
+Refused: staying in `@epure`, beside `@epure/vitest` and `@epure/editor`,
+which names the method rather than the product. Refused too: the bare
+`minidoc`, which is another author's package, and `gen`, `site` or `doc`,
+which say less than the package does or name the docs site.
+
+Costs: `@epure/minidoc` 0.1.1 stays on npm and is deprecated, and every
+site that imports it renames its dependency.

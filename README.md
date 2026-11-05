@@ -10,7 +10,7 @@ markdown file).
 
 This is a pnpm workspace:
 
-- [`packages/minidoc/`](packages/minidoc/README.md) — the `@epure/minidoc` package: model, API, reference.
+- [`packages/core/`](packages/core/README.md) — the `@minidoc/core` package: model, API, reference.
 - [`packages/docs/`](packages/docs) — the documentation site, built with minidoc (tilia all the
   way down), deployed to GitHub Pages on every push to `main`.
 

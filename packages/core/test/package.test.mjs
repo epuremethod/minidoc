@@ -16,7 +16,7 @@ test("packages typed ESM for Node, Bun, and file dependencies", async () => {
       JSON.stringify({
         private: true,
         type: "module",
-        dependencies: { "@epure/minidoc": `file:${root}` },
+        dependencies: { "@minidoc/core": `file:${root}` },
       }),
     );
     exec("pnpm", ["install", "--ignore-scripts"], temp);
@@ -28,7 +28,7 @@ test("packages typed ESM for Node, Bun, and file dependencies", async () => {
     await writeFile(
       path.join(temp, "run.mjs"),
       [
-        'import { run, nodeFs } from "@epure/minidoc";',
+        'import { run, nodeFs } from "@minidoc/core";',
         'await run({ fs: nodeFs(process.cwd()), glob: "config.yaml" });',
       ].join("\n"),
     );
@@ -38,7 +38,7 @@ test("packages typed ESM for Node, Bun, and file dependencies", async () => {
     await writeFile(
       path.join(temp, "run.ts"),
       [
-        'import { dev, run, watch } from "@epure/minidoc";',
+        'import { dev, run, watch } from "@minidoc/core";',
         "const build: typeof run = run;",
         "const serve: (root: string) => Promise<number> = async (root) =>",
         '  (await dev({ glob: "config.yaml", build: "src/build.mjs", root, serve: "dist" })).port;',

@@ -1,6 +1,6 @@
 # The llms.txt index and llms-full.txt, rendered from the guide and the API
 # folders. Base of the site config (docs/content/config.yaml) and of the
-# package build (minidoc/llms.yaml): each declares its own outputs.
+# package build (core/llms.yaml): each declares its own outputs.
 var:
   blurb: >-
     minidoc is a small documentation website generator from the épure toolset.
