@@ -32,9 +32,9 @@ enough for a site with no transforms of its own.
 ### When a build breaks
 
 Mara saves a page with a bad fence. The build fails. The page she was
-reading stays in the browser, and the failure appears at its foot, with
-what the build script printed. She fixes the fence, and the next build
-reloads the page as before. A page she opens while the build is broken
+reading stays in the browser, and the failure appears at its foot, in one
+line: the page, the file and what is wrong. She can close it to read on. She
+fixes the fence, and the next build reloads the page as before. A page she opens while the build is broken
 shows the same failure.
 
 That works because the output folder keeps the last good site. A build

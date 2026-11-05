@@ -15,6 +15,7 @@ let import_: string => promise<'a> = %raw(`(name) => import(name)`)
 
 @scope("process") @val external cwd: unit => string = "cwd"
 @scope("process") @val external execPath: string = "execPath"
+@val external encodeURIComponent: string => string = "encodeURIComponent"
 
 type timer
 @val external later: (unit => unit, int) => timer = "setTimeout"
@@ -68,11 +69,24 @@ let changed = (skip, exts, name) => {
 
 type failure = {message: string, stack: string}
 
+// A plain Error says what is wrong with the content: its message is all
+// there is to read. Any other kind, such as a TypeError, is a bug in a
+// transform or in minidoc, and its stack is what helps.
 let attempt: (unit => promise<unit>) => promise<Nullable.t<failure>> = %raw(`async (fn) => {
   try { await fn(); return null } catch (e) {
-    return {message: String((e && e.message) || e), stack: e && typeof e.stack === "string" ? e.stack : String(e)}
+    const message = String((e && e.message) || e)
+    const content = e instanceof Error && e.name === "Error"
+    return {message, stack: !content && e && typeof e.stack === "string" ? e.stack : message}
   }
 }`)
+
+// Loaded into a build script before it runs, so that an error the script
+// does not catch prints as `attempt` prints it, without Node's excerpt.
+let report = "data:text/javascript," ++ encodeURIComponent(`process.on("uncaughtException", (e) => {
+  const content = e instanceof Error && e.name === "Error"
+  process.stderr.write((content ? e.message : (e && e.stack) || String(e)) + "\\n")
+  process.exit(1)
+})`)
 
 /** Fail with a message the terminal has already seen: no stack to print. */
 let quiet: string => 'a = %raw(`(message) => { const e = new Error(message); e.stack = ""; throw e }`)
@@ -126,12 +140,17 @@ let rawSpawn: (spawner, string, array<string>, string) => promise<(int, string)>
 /** Run a build script in a fresh process, so its transformers are fresh too. */
 let script = async (path, at) => {
   let cp: cpmod = await import_("node:child_process")
-  let (code, said) = await rawSpawn(cp.spawn, execPath, [path], at)
+  let (code, said) = await rawSpawn(cp.spawn, execPath, ["--import", report, path], at)
   if code != 0 {
-    let exit = `build script ${path} exited with code ${Int.toString(code)}`
-    Console.error(exit)
-    let said = String.trim(said)
-    quiet(said == "" ? exit : `${said}\n${exit}`)
+    // What the script printed is the failure; the exit code is news only
+    // when it printed nothing.
+    switch String.trim(said) {
+    | "" =>
+      let exit = `build script ${path} exited with code ${Int.toString(code)}`
+      Console.error(exit)
+      quiet(exit)
+    | said => quiet(said)
+    }
   }
 }
 
@@ -264,8 +283,10 @@ let failed = message => `event: failed\ndata: ${stringify(message)}\n\n`
 // hidden page lets go of it: a browser allows a host six connections, so
 // tabs left open would starve the next one, and an open stream keeps a page
 // out of the back and forward cache. Shown again, it opens one anew.
-let banner = "position:fixed;left:0;right:0;bottom:0;max-height:50vh;overflow:auto;margin:0;padding:12px 16px;background:#3b0a0a;color:#ffd9d9;font:12px/1.4 ui-monospace,monospace;white-space:pre-wrap;z-index:2147483647"
-let live = `<script>(()=>{let s=null;const fail=e=>{let b=document.getElementById("__minidoc");if(!b){b=document.body.appendChild(Object.assign(document.createElement("pre"),{id:"__minidoc"}));b.style.cssText="${banner}"}b.textContent=JSON.parse(e.data)};const open=()=>{if(s)return;s=new EventSource("${channel}");s.addEventListener("message",()=>location.reload());s.addEventListener("failed",fail)};const close=()=>{if(s){s.close();s=null}};open();addEventListener("pagehide",close);addEventListener("pageshow",open);document.addEventListener("visibilitychange",()=>document.hidden?close():open())})()</script>`
+let banner = "position:fixed;left:0;right:0;bottom:0;max-height:50vh;overflow:auto;padding:12px 16px;background:#3b0a0a;color:#ffd9d9;font:12px/1.4 ui-monospace,monospace;z-index:2147483647"
+let closer = "float:right;margin:-4px -8px 0 12px;padding:0 6px;border:0;background:none;color:inherit;font:16px/1 ui-monospace,monospace;cursor:pointer"
+// Closing the failure hides it; the next failure opens a new one.
+let live = `<script>(()=>{let s=null,b=null,m=null;const fail=e=>{if(!b){b=document.createElement("div");b.id="__minidoc";b.style.cssText="${banner}";const x=document.createElement("button");x.type="button";x.title="Close";x.textContent="\\u00d7";x.style.cssText="${closer}";x.onclick=()=>{b.remove();b=null};m=document.createElement("pre");m.style.cssText="margin:0;white-space:pre-wrap";b.append(x,m);document.body.appendChild(b)}m.textContent=JSON.parse(e.data)};const open=()=>{if(s)return;s=new EventSource("${channel}");s.addEventListener("message",()=>location.reload());s.addEventListener("failed",fail)};const close=()=>{if(s){s.close();s=null}};open();addEventListener("pagehide",close);addEventListener("pageshow",open);document.addEventListener("visibilitychange",()=>document.hidden?close():open())})()</script>`
 
 let inject = html =>
   switch String.lastIndexOf(html, "</body>") {

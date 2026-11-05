@@ -415,3 +415,19 @@ which say less than the package does or name the docs site.
 
 Costs: `@epure/minidoc` 0.1.1 stays on npm and is deprecated, and every
 site that imports it renames its dependency.
+
+## 2026-11-05: A plain `Error` is a content error, any other kind a bug
+
+`dev` and `watch` print a plain `Error` as its message, on one line. They
+print any other kind, such as a `TypeError`, with its stack. A build script
+that `dev` runs gets the same rule through a handler loaded before it, so an
+error it does not catch skips Node's source excerpt. An error met while
+writing an output starts with the output and its page, because that is what
+the author opens to fix it.
+
+Refused: a mark that a transform sets on its errors, which every transform
+would have to learn. Refused too: dropping the site after the lead, such as
+`in build[3].var.content`, which still says which var of the config failed.
+
+Costs: a transform that throws a plain `Error` for a bug loses its stack,
+and one that throws a `TypeError` for a content error shows one.

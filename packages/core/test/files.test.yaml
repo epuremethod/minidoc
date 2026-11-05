@@ -139,7 +139,7 @@ examples:
         build:
           - output: out.html
             input: "{{body}}"
-    error: "Content file not found: content/nowhere.md (declared at var (config.yaml).body)"
+    error: "out.html: Content file not found: content/nowhere.md (declared at var (config.yaml).body)"
 
   - scenario: it should fail loud when no transform can be inferred
     source:
@@ -152,7 +152,7 @@ examples:
             input: "{{notes}}"
       notes.txt: |-
         plain text
-    error: 'var (config.yaml).notes: cannot infer a transform for notes.txt'
+    error: "out.html: var (config.yaml).notes: cannot infer a transform for notes.txt"
 
   - scenario: it should fail loud on an unknown transform name
     source:
@@ -166,7 +166,7 @@ examples:
             input: "{{body}}"
       content/intro.md: |-
         Hello
-    error: 'var (config.yaml).body: unknown transform "nope" (available: md, none)'
+    error: 'out.html: var (config.yaml).body: unknown transform "nope" (available: md, none)'
 
   - scenario: it should let two file vars share a frontmatter name, each under its own var
     source:
@@ -206,7 +206,7 @@ examples:
       content/intro.md: |-
         ---
         title: X
-    error: "content/intro.md: unterminated frontmatter"
+    error: "out.html: content/intro.md: unterminated frontmatter"
 
   - scenario: it should detect a cycle running through a file body
     source:
@@ -219,7 +219,7 @@ examples:
             input: "{{body}}"
       content/intro.md: |-
         {{body}}
-    error: "Variable cycle in file content/intro.md: body -> body"
+    error: "out.html: Variable cycle in file content/intro.md: body -> body"
 
   - scenario: it should fail loud on an undefined variable inside a file body
     source:
@@ -232,7 +232,7 @@ examples:
             input: "{{body}}"
       content/intro.md: |-
         {{missing}}
-    error: "Undefined variable {{missing}} in file content/intro.md"
+    error: "out.html: Undefined variable {{missing}} in file content/intro.md"
 
   - scenario: it should name the file when a frontmatter list holds a map
     source:

@@ -92,7 +92,7 @@ examples:
         ---
         a
       cvs/b.md: b
-    error: "Undefined variable {{title}} in build[0] input (page cvs/b.md)"
+    error: "b.txt (cvs/b.md): Undefined variable {{title}} in build[0] input"
 
   - scenario: it should accept a file input as the page template
     source:
@@ -157,7 +157,7 @@ examples:
         Hello
 
         {{missing}}
-    error: "Undefined variable {{missing}} at line 6 in file cvs/b.md"
+    error: "b.html (cvs/b.md): Undefined variable {{missing}} at line 6 in file cvs/b.md"
 
   - scenario: it should label an output path error with its page
     source:

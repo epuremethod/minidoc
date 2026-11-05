@@ -118,16 +118,17 @@ let capture: (unit => promise<unknown>) => promise<outcome> = %raw(`async (load)
 }`)
 let rethrow: unknown => 'a = %raw(`(e) => { throw e }`)
 
-// An error whose message already names its site.
+// An error whose message already names its site. The mark is not
+// enumerable, so it stays out of what Node prints for an uncaught error.
 let loud: string => 'a = %raw(`(message) => {
-  const e = new Error(message); e.minidocSited = true; throw e
+  const e = new Error(message); Object.defineProperty(e, "minidocSited", {value: true}); throw e
 }`)
 
 // Decorate an error with its render site; the innermost site wins.
 let rawSite: (string, unit => unknown) => unknown = %raw(`(at, fn) => {
   try { return fn() } catch (e) {
     if (e && e.message && !e.minidocSited) {
-      e.minidocSited = true
+      Object.defineProperty(e, "minidocSited", {value: true})
       e.message = e.message.startsWith("Variable cycle:")
         ? "Variable cycle in " + at + ":" + e.message.slice(15)
         : e.message + " in " + at
@@ -136,6 +137,18 @@ let rawSite: (string, unit => unknown) => unknown = %raw(`(at, fn) => {
   }
 }`)
 let site = (at, fn: unit => 'a): 'a => magic(rawSite(at, magic(fn)))
+
+// An error met while writing an output leads with that output and the page
+// it was made from, whatever site it names after.
+let about: (string, unit => promise<unit>) => promise<unit> = %raw(`async (lead, fn) => {
+  try { return await fn() } catch (e) {
+    if (e && typeof e.message === "string" && !e.minidocAbout) {
+      Object.defineProperty(e, "minidocAbout", {value: true, enumerable: false})
+      try { e.message = lead + ": " + e.message } catch {}
+    }
+    throw e
+  }
+}`)
 
 // A failed render surfaces as an error box at its place in the page; the
 // cycle stack unwinds to the box boundary so sibling renders keep going.
@@ -823,27 +836,29 @@ let exec = async (fs: filesystem, transforms, inline, entry) => {
           }
           make(env, inline, merge(merge(merge(front, shared), layer), own))
         }
-        let job = async (layer, page) => {
+        let job = async (layer, from) => {
+          let page = from->Option.mapOr("", p => ` (page ${p})`)
           let output = await settle(env, () =>
             top(`${at} output${page}`, () => render(b.output, context(layer).get))
           )
-          let write = async () => {
+          let lead = output ++ from->Option.mapOr("", p => ` (${p})`)
+          let write = () => about(lead, async () => {
             // Content errors can turn into boxes; output path errors never do —
             // a file cannot be written without a path.
             let out = await settle(env, () =>
               boxed(inline, () =>
-                switch top(`${at} input${page}`, () => eval(node, "input", context(layer))) {
+                switch top(`${at} input`, () => eval(node, "input", context(layer))) {
                 | One(s) => s
                 | Many(a) => a->Array.join("")
                 }
               )
             )
             await fs.writeFile(output, out)
-          }
+          })
           {output, by: `${at}${page}`, copy: false, write}
         }
         switch pages {
-        | None => [await job(Dict.make(), "")]
+        | None => [await job(Dict.make(), None)]
         | Some(src) =>
           // One output per file. A page layers like a file input's
           // frontmatter — over the shared templates, under the entry's own
@@ -858,7 +873,7 @@ let exec = async (fs: filesystem, transforms, inline, entry) => {
               let transform = transformOf(transforms, c.path, src.transform, `${at}.pages`)
               job(
                 merge(merge(naming(c), c.front), Dict.fromArray([("page", Body(c, transform))])),
-                ` (page ${c.path})`,
+                Some(c.path),
               )
             }),
           )

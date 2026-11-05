@@ -150,7 +150,7 @@ examples:
         build:
           - output: out.txt
             input: "{{layouts}}"
-    error: "{{layouts}} is a group (cv, letter), not a value in build[0] input"
+    error: "out.txt: {{layouts}} is a group (cv, letter), not a value in build[0] input"
 
   - scenario: it should fail loud on a group with two kinds
     source:
@@ -162,4 +162,4 @@ examples:
         build:
           - output: out.txt
             input: "{{both}}"
-    error: "{{both}} has several kinds (file, dir): keep one"
+    error: "out.txt: {{both}} has several kinds (file, dir): keep one"

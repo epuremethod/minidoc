@@ -36,7 +36,7 @@ examples:
         build:
           - output: out.html
             input: "{{rendered}}"
-    error: 'var (config.yaml).rendered: unknown transform "missing" (available: md, none)'
+    error: 'out.html: var (config.yaml).rendered: unknown transform "missing" (available: md, none)'
 
   - scenario: it should report an undefined reference inside a transform value
     source:
@@ -48,7 +48,7 @@ examples:
         build:
           - output: out.html
             input: "{{rendered}}"
-    error: "Undefined variable {{missing}} in var (config.yaml).rendered"
+    error: "out.html: Undefined variable {{missing}} in var (config.yaml).rendered"
 
   - scenario: it should detect a cycle through a transform value
     source:
@@ -60,4 +60,4 @@ examples:
         build:
           - output: out.html
             input: "{{rendered}}"
-    error: "Variable cycle in var (config.yaml).rendered: rendered -> rendered"
+    error: "out.html: Variable cycle in var (config.yaml).rendered: rendered -> rendered"

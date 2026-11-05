@@ -15,7 +15,7 @@ examples:
         # Title
 
         Hello {{missing}} !
-    error: "Undefined variable {{missing}} at line 3 in file content/intro.md"
+    error: "out.html: Undefined variable {{missing}} at line 3 in file content/intro.md"
 
   - scenario: it should count transform error lines from the top of the document, frontmatter included
     options:
@@ -38,7 +38,7 @@ examples:
         ::: draft
         Hello
         :::
-    error: "Unknown container at line 6: draft in file content/guide.md"
+    error: "out.html: Unknown container at line 6: draft in file content/guide.md"
 
   - scenario: it should render an undefined variable as an error box at its place in the page
     options:
@@ -143,3 +143,24 @@ examples:
           - output: "{{missing}}.html"
             input: "hi"
     error: "Undefined variable {{missing}} in build[0] output"
+
+  - scenario: it should lead a transform error in a page var with the output and the page
+    options:
+      containers: true
+    source:
+      config.yaml:
+        build:
+          - pages: { dir: brief, transform: none }
+            output: "brief-{{file.stem}}.html"
+            input: "<main>{{content}}</main>"
+            var:
+              content:
+                value: "{{page}}"
+                transform: containers
+      brief/steward.md: |-
+        Intro
+
+        ::: draft
+        Hello
+        :::
+    error: "brief-steward.html (brief/steward.md): Unknown container at line 3: draft in build[0].var.content"

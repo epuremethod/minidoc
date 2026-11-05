@@ -164,7 +164,7 @@ examples:
         title: Hidden
         ---
         a
-    error: "Undefined variable {{title}} in build[0] input"
+    error: "out.txt: Undefined variable {{title}} in build[0] input"
 
   - scenario: it should fail loud when no files match the glob
     source:
@@ -176,7 +176,7 @@ examples:
         build:
           - output: out.txt
             input: "{{entries}}"
-    error: 'No files matching "*.md" in content (declared at var (config.yaml).entries)'
+    error: 'out.txt: No files matching "*.md" in content (declared at var (config.yaml).entries)'
 
   - scenario: it should default each to the bare body
     source:
@@ -208,7 +208,7 @@ examples:
             input: "{{entries}}"
       content/a.md: |-
         a
-    error: "Variable cycle in dir content (var (config.yaml).entries): entries -> entries"
+    error: "out.txt: Variable cycle in dir content (var (config.yaml).entries): entries -> entries"
 
   - scenario: it should expose each item's file name and stem
     source:

@@ -66,9 +66,17 @@ function changed(skip, exts, name) {
 
 let attempt = (async (fn) => {
   try { await fn(); return null } catch (e) {
-    return {message: String((e && e.message) || e), stack: e && typeof e.stack === "string" ? e.stack : String(e)}
+    const message = String((e && e.message) || e)
+    const content = e instanceof Error && e.name === "Error"
+    return {message, stack: !content && e && typeof e.stack === "string" ? e.stack : message}
   }
 });
+
+let report = "data:text/javascript," + encodeURIComponent(`process.on("uncaughtException", (e) => {
+  const content = e instanceof Error && e.name === "Error"
+  process.stderr.write((content ? e.message : (e && e.stack) || String(e)) + "\\n")
+  process.exit(1)
+})`);
 
 let quiet = ((message) => { const e = new Error(message); e.stack = ""; throw e });
 
@@ -117,15 +125,22 @@ let rawSpawn = ((spawn, bin, args, cwd) =>
 
 async function script(path, at) {
   let cp = await import_("node:child_process");
-  let match = await rawSpawn(cp.spawn, process.execPath, [path], at);
+  let match = await rawSpawn(cp.spawn, process.execPath, [
+    "--import",
+    report,
+    path
+  ], at);
   let code = match[0];
   if (code === 0) {
     return;
   }
+  let said = match[1].trim();
+  if (said !== "") {
+    return quiet(said);
+  }
   let exit = `build script ` + path + ` exited with code ` + code.toString();
   console.error(exit);
-  let said = match[1].trim();
-  return quiet(said === "" ? exit : said + `\n` + exit);
+  return quiet(exit);
 }
 
 async function folder(path) {
@@ -291,9 +306,11 @@ function failed(message) {
   return `event: failed\ndata: ` + JSON.stringify(message) + `\n\n`;
 }
 
-let banner = "position:fixed;left:0;right:0;bottom:0;max-height:50vh;overflow:auto;margin:0;padding:12px 16px;background:#3b0a0a;color:#ffd9d9;font:12px/1.4 ui-monospace,monospace;white-space:pre-wrap;z-index:2147483647";
+let banner = "position:fixed;left:0;right:0;bottom:0;max-height:50vh;overflow:auto;padding:12px 16px;background:#3b0a0a;color:#ffd9d9;font:12px/1.4 ui-monospace,monospace;z-index:2147483647";
 
-let live = `<script>(()=>{let s=null;const fail=e=>{let b=document.getElementById("__minidoc");if(!b){b=document.body.appendChild(Object.assign(document.createElement("pre"),{id:"__minidoc"}));b.style.cssText="` + banner + `"}b.textContent=JSON.parse(e.data)};const open=()=>{if(s)return;s=new EventSource("` + channel + `");s.addEventListener("message",()=>location.reload());s.addEventListener("failed",fail)};const close=()=>{if(s){s.close();s=null}};open();addEventListener("pagehide",close);addEventListener("pageshow",open);document.addEventListener("visibilitychange",()=>document.hidden?close():open())})()</script>`;
+let closer = "float:right;margin:-4px -8px 0 12px;padding:0 6px;border:0;background:none;color:inherit;font:16px/1 ui-monospace,monospace;cursor:pointer";
+
+let live = `<script>(()=>{let s=null,b=null,m=null;const fail=e=>{if(!b){b=document.createElement("div");b.id="__minidoc";b.style.cssText="` + banner + `";const x=document.createElement("button");x.type="button";x.title="Close";x.textContent="\\u00d7";x.style.cssText="` + closer + `";x.onclick=()=>{b.remove();b=null};m=document.createElement("pre");m.style.cssText="margin:0;white-space:pre-wrap";b.append(x,m);document.body.appendChild(b)}m.textContent=JSON.parse(e.data)};const open=()=>{if(s)return;s=new EventSource("` + channel + `");s.addEventListener("message",()=>location.reload());s.addEventListener("failed",fail)};const close=()=>{if(s){s.close();s=null}};open();addEventListener("pagehide",close);addEventListener("pageshow",open);document.addEventListener("visibilitychange",()=>document.hidden?close():open())})()</script>`;
 
 function inject(html) {
   let at = html.lastIndexOf("</body>");
@@ -512,6 +529,7 @@ export {
   extensions,
   changed,
   attempt,
+  report,
   quiet,
   looper,
   rawSpawn,
@@ -526,6 +544,7 @@ export {
   reload,
   failed,
   banner,
+  closer,
   live,
   inject,
   candidates,

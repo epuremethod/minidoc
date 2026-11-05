@@ -24,7 +24,7 @@ examples:
         build:
           - output: out.txt
             input: "[{{email}}]"
-    error: "Content file not found: email.md (declared at var (config.yaml).email)"
+    error: "out.txt: Content file not found: email.md (declared at var (config.yaml).email)"
 
   - scenario: it should wrap a present file in its template, with its frontmatter
     source:
@@ -90,7 +90,7 @@ examples:
           - output: out.txt
             input: "{{email}}"
       email.md: hi
-    error: "Undefined variable {{missing}} in var (config.yaml).email template"
+    error: "out.txt: Undefined variable {{missing}} in var (config.yaml).email template"
 
   - scenario: it should refuse optional and template on a file input
     source:

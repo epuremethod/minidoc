@@ -132,7 +132,18 @@ function standIn() {
   const document = { visibilityState: "visible", hidden: false, listeners: {} };
   document.addEventListener = on(document.listeners);
   document.getElementById = (id) => elements[id] ?? null;
-  document.createElement = (tag) => ({ tag, style: {}, textContent: "" });
+  document.createElement = (tag) => ({
+    tag,
+    style: {},
+    textContent: "",
+    children: [],
+    append(...children) {
+      this.children.push(...children);
+    },
+    remove() {
+      delete elements[this.id];
+    },
+  });
   document.body = {
     appendChild(element) {
       elements[element.id] = element;
@@ -143,6 +154,9 @@ function standIn() {
     streams,
     reloads: 0,
     banner: () => elements.__minidoc,
+    /** The failure the banner shows, or undefined when there is none. */
+    shown: () => elements.__minidoc?.children.find((c) => c.tag === "pre").textContent,
+    close: () => elements.__minidoc.children.find((c) => c.tag === "button").onclick(),
     hide() {
       Object.assign(document, { visibilityState: "hidden", hidden: true });
       fire(document.listeners, "visibilitychange");
@@ -231,7 +245,8 @@ test("dev serves the output and rebuilds what changed", async (t) => {
     await writeFile(path.join(root, "src", "shout.mjs"), 'export function shout() {\n  throw new Error("shout is broken");\n}\n');
     const said = await hear(broken.reader, "event: failed");
     assert.doesNotMatch(said, /data: reload/);
-    assert.match(said, /shout is broken/, "the page is told what the build script printed");
+    const message = JSON.parse(/^data: (.*)$/m.exec(said.slice(said.indexOf("event: failed")))[1]);
+    assert.equal(message, "dist/index.html: shout is broken in file content/home.md", "one line, led by the output");
     assert.equal(await get(), broken.page, "the page served before is still served");
   });
 
@@ -246,10 +261,27 @@ test("dev serves the output and rebuilds what changed", async (t) => {
     const browser = standIn();
     vm.runInNewContext(/<script>(.*)<\/script><\/body>/s.exec(broken.page)[1], browser.window);
     browser.streams[0].fail(JSON.stringify("Error: shout is broken\n    at shout"));
-    assert.equal(browser.banner().textContent, "Error: shout is broken\n    at shout");
+    assert.equal(browser.shown(), "Error: shout is broken\n    at shout");
     assert.equal(browser.reloads, 0);
     browser.streams[0].fail(JSON.stringify("still broken"));
-    assert.equal(browser.banner().textContent, "still broken", "one banner, the latest failure");
+    assert.equal(browser.shown(), "still broken", "one banner, the latest failure");
+  });
+
+  await t.test("the failure on the page can be closed, and the next one shows", () => {
+    const browser = standIn();
+    vm.runInNewContext(/<script>(.*)<\/script><\/body>/s.exec(broken.page)[1], browser.window);
+    browser.streams[0].fail(JSON.stringify("broken"));
+    browser.close();
+    assert.equal(browser.banner(), undefined);
+    browser.streams[0].fail(JSON.stringify("broken again"));
+    assert.equal(browser.shown(), "broken again");
+  });
+
+  await t.test("a bug in a transform keeps its stack", async () => {
+    await writeFile(path.join(root, "src", "shout.mjs"), 'export function shout(text) {\n  return text.nope.trim();\n}\n');
+    const said = await hear(broken.reader, "TypeError");
+    assert.match(said, /TypeError: dist\/index.html: Cannot read properties of undefined/);
+    assert.match(said, /\\n    at shout/, "the stack is printed");
   });
 
   await t.test("the next build that lands reloads the page", async () => {

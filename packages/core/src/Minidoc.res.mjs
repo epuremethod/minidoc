@@ -50,16 +50,26 @@ let capture = (async (load) => {
 let rethrow = ((e) => { throw e });
 
 let loud = ((message) => {
-  const e = new Error(message); e.minidocSited = true; throw e
+  const e = new Error(message); Object.defineProperty(e, "minidocSited", {value: true}); throw e
 });
 
 let rawSite = ((at, fn) => {
   try { return fn() } catch (e) {
     if (e && e.message && !e.minidocSited) {
-      e.minidocSited = true
+      Object.defineProperty(e, "minidocSited", {value: true})
       e.message = e.message.startsWith("Variable cycle:")
         ? "Variable cycle in " + at + ":" + e.message.slice(15)
         : e.message + " in " + at
+    }
+    throw e
+  }
+});
+
+let about = (async (lead, fn) => {
+  try { return await fn() } catch (e) {
+    if (e && typeof e.message === "string" && !e.minidocAbout) {
+      Object.defineProperty(e, "minidocAbout", {value: true, enumerable: false})
+      try { e.message = lead + ": " + e.message } catch {}
     }
     throw e
   }
@@ -1031,11 +1041,13 @@ async function exec(fs, transforms, inline, entry) {
       }
       return make(env, inline, merge(merge(merge(front, shared), layer), own));
     };
-    let job = async (layer, page) => {
+    let job = async (layer, from) => {
+      let page = Stdlib_Option.mapOr(from, "", p => ` (page ` + p + `)`);
       let output = await settle(env, () => top(at + ` output` + page, () => render(b.output, context(layer).get)));
-      let write = async () => {
+      let lead = output + Stdlib_Option.mapOr(from, "", p => ` (` + p + `)`);
+      let write = () => about(lead, async () => {
         let out = await settle(env, () => rawBoxed(stack, inline, () => {
-          let s = top(at + ` input` + page, () => $$eval(node, "input", context(layer)));
+          let s = top(at + ` input`, () => $$eval(node, "input", context(layer)));
           if (s.TAG === "One") {
             return s._0;
           } else {
@@ -1043,7 +1055,7 @@ async function exec(fs, transforms, inline, entry) {
           }
         }));
         return await fs.writeFile(output, out);
-      };
+      });
       return {
         output: output,
         by: at + page,
@@ -1052,7 +1064,7 @@ async function exec(fs, transforms, inline, entry) {
       };
     };
     if (match$1 === undefined) {
-      return [await job({}, "")];
+      return [await job({}, undefined)];
     }
     let items = await settle(env, () => {
       let dir = top(at + `.pages dir`, () => render(match$1.dir, entryCtx().get));
@@ -1068,7 +1080,7 @@ async function exec(fs, transforms, inline, entry) {
             _0: c,
             _1: transform
           }
-        ]])), ` (page ` + c.path + `)`);
+        ]])), c.path);
     }));
   }));
   let jobs = plans.flat();

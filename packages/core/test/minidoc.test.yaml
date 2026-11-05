@@ -198,7 +198,7 @@ examples:
             output: home.html
             input: |-
               Hello {{missing}} !
-    error: 'Undefined variable {{missing}} in build[0] input'
+    error: "home.html: Undefined variable {{missing}} in build[0] input"
 
   - scenario: it should detect a variable reference cycle
     source:
@@ -210,7 +210,7 @@ examples:
           - output: cycle.html
             input: |-
               {{a}}
-    error: "Variable cycle in build[0] input: a -> b -> a"
+    error: "cycle.html: Variable cycle in build[0] input: a -> b -> a"
 
   - scenario: it should keep an escaped reference literal through a transform var
     source:

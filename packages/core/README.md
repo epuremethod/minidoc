@@ -410,12 +410,21 @@ came from — and undefined references in multi-line templates carry a line
 number:
 
 ```
-Undefined variable {{missing}} at line 3 in file content/intro.md
-Variable cycle in file content/intro.md: intro -> intro
-Undefined variable {{missing}} in build[0] output
+out.html: Undefined variable {{missing}} at line 3 in file content/intro.md
+out.html: Variable cycle in file content/intro.md: intro -> intro
+cvs/b.html (cvs/b.md): Undefined variable {{title}} in build[0] input
+out.html: Undefined variable {{role}} in folder candidatures/acme (var (config.yaml).applications)
 Undefined variable {{slug}} in build[0] output (page cvs/b.md)
-Undefined variable {{role}} in folder candidatures/acme (var (config.yaml).applications)
 ```
+
+An error met while writing an output starts with that output, and with the
+page it is made from. An error in an output path has no output yet: it names
+the build entry and the page.
+
+A plain `Error` is a content error: `dev` and `watch` print its message
+alone, on one line, and so does a build script that `dev` runs, even when the
+script does not catch it. Any other kind, such as a `TypeError` in a
+transform, is a bug, and they print its stack.
 
 The innermost site wins: an error is labeled once, where it happened, and not
 again on the way out. Line numbers count from the top of the document — the
@@ -530,7 +539,7 @@ transformer edit.
 The served page carries one injected line, an `EventSource` that reloads it
 when a build lands. A build that fails reloads nothing: the page stays as it
 was and shows the failure at its foot, with what the build script printed,
-until the next build lands. A page opened while the build is broken shows the
+until the next build lands. The failure has a close button. A page opened while the build is broken shows the
 same. The rest is a static host: `/guide/` answers with its index, `/guide`
 with `guide.html` then `guide/index.html`, so the dev site is the deployed
 site.
@@ -605,6 +614,13 @@ stand in for. `pnpm check` runs everything.
 ## Changelog
 
 - Unreleased
+  - An error met while writing an output starts with the output and the
+    page it is made from: `brief-steward.html (brief/steward.md): …`.
+  - `dev` and `watch` print a content error, a plain `Error`, as one line,
+    without Node's source excerpt or the stack, in the terminal and on the
+    page. This holds for a build script too. A `TypeError` or another bug
+    keeps its stack.
+  - The failure on a dev page has a close button.
   - **Breaking:** the package is `@minidoc/core`, and the blocks are
     `@minidoc/blocks`. `@epure/minidoc` is deprecated.
   - The `model` block draws a subclass: `Parent <- Child` is a line from the

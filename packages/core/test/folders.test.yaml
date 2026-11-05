@@ -91,7 +91,7 @@ examples:
         ---
         a
       jobs/b/cv.md: b
-    error: "Undefined variable {{cv.title}} in folder jobs/b (var (config.yaml).rows)"
+    error: "out.txt: Undefined variable {{cv.title}} in folder jobs/b (var (config.yaml).rows)"
 
   - scenario: it should read the same frontmatter name from two files of one folder
     source:
@@ -133,7 +133,7 @@ examples:
             input: "{{rows}}"
       jobs/a/cv.md: a
       jobs/b/lettre.md: b
-    error: "Content file not found: jobs/b/cv.md (declared at var (config.yaml).rows.var.cv)"
+    error: "out.txt: Content file not found: jobs/b/cv.md (declared at var (config.yaml).rows.var.cv)"
 
   - scenario: it should fail loud on a missing or empty folder
     source:
@@ -145,7 +145,7 @@ examples:
         build:
           - output: out.txt
             input: "{{rows}}"
-    error: "No folders in jobs (declared at var (config.yaml).rows)"
+    error: "out.txt: No folders in jobs (declared at var (config.yaml).rows)"
 
   - scenario: it should render nothing for an optional missing folder
     source:
@@ -172,7 +172,7 @@ examples:
           - output: out.txt
             input: "{{rows}}"
       jobs/a/cv.md: a
-    error: "Undefined variable {{missing}} in folder jobs/a (var (config.yaml).rows)"
+    error: "out.txt: Undefined variable {{missing}} in folder jobs/a (var (config.yaml).rows)"
 
   - scenario: it should box a failing folder and still render the others
     options:
