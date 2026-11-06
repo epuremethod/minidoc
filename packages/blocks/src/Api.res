@@ -11,6 +11,8 @@
 // a list of plain values is written on one line, a list of objects holds
 // one card per item, and an empty list says so.
 
+@@jsxConfig({version: 4, module_: "Draw"})
+
 open Node
 
 @module("yaml") external parseYaml: string => Nullable.t<JSON.t> = "parse"
@@ -90,27 +92,51 @@ let scalar = (v: JSON.t) =>
   | _ => None
   }
 
-let render = (method, path, title, parts: array<apiPart>, labels: dict<string>) => {
-  let escape = Html.escape
+let text = Draw.string
+let nl = Draw.string("\n")
+
+let draw = (method, path, title, parts: array<apiPart>, labels: dict<string>) => {
   let label = name => labels->Dict.get(name)->Option.getOr(name)
-  let rec value = (v: JSON.t) =>
+  let plain = (key, value) => Draw.field(~key, ~value, text(value))
+  // A value's key is its part's, then each name or item number on the way to it.
+  let rec value = (v: JSON.t, ~at) =>
     switch v {
     | Object(fields) =>
-      `<dl class="api__fields">${fields
+      <dl className="api__fields">
+        {fields
         ->Dict.toArray
-        ->Array.map(((key, v)) => `<div class="api__field"><dt>${escape(key)}</dt><dd>${value(v)}</dd></div>`)
-        ->Array.join("")}</dl>`
-    | Array([]) => `<p class="api__empty">${escape(label("empty"))} <code>[]</code></p>`
+        ->Array.map(((key, v)) =>
+          <div className="api__field">
+            <dt> {text(key)} </dt>
+            <dd> {value(v, ~at=`${at} ${key}`)} </dd>
+          </div>
+        )
+        ->Draw.array}
+      </dl>
+    | Array([]) =>
+      <p className="api__empty">
+        {text(label("empty"))}
+        {text(" ")}
+        <code> {text("[]")} </code>
+      </p>
     | Array(items) if items->Array.every(i => scalar(i)->Option.isSome) =>
-      `<span class="api__inline">${items->Array.map(value)->Array.join(", ")}</span>`
+      <span className="api__inline">
+        {items
+        ->Array.mapWithIndex((item, i) => value(item, ~at=`${at} ${Int.toString(i + 1)}`))
+        ->Draw.joined(", ")}
+      </span>
     | Array(items) =>
-      `<ol class="api__items">${items
-        ->Array.map(item => `<li class="api__item">${value(item)}</li>`)
-        ->Array.join("")}</ol>`
-    | String(s) => `<span class="api__string">${escape(s)}</span>`
-    | Number(n) => `<span class="api__number">${Float.toString(n)}</span>`
-    | Boolean(b) => `<span class="api__literal">${b ? "true" : "false"}</span>`
-    | Null => `<span class="api__literal">null</span>`
+      <ol className="api__items">
+        {items
+        ->Array.mapWithIndex((item, i) =>
+          <li className="api__item"> {value(item, ~at=`${at} ${Int.toString(i + 1)}`)} </li>
+        )
+        ->Draw.array}
+      </ol>
+    | String(s) => <span className="api__string"> {plain(at, s)} </span>
+    | Number(n) => <span className="api__number"> {plain(at, Float.toString(n))} </span>
+    | Boolean(b) => <span className="api__literal"> {plain(at, b ? "true" : "false")} </span>
+    | Null => <span className="api__literal"> {plain(at, "null")} </span>
     }
   // A query of plain values is also written out after the path.
   let search =
@@ -119,27 +145,63 @@ let render = (method, path, title, parts: array<apiPart>, labels: dict<string>) 
     ->Option.flatMap(p =>
       switch p.value {
       | Object(fields) =>
-        let pairs = fields->Dict.toArray->Array.map(((k, v)) => scalar(v)->Option.map(s => `${k}=${s}`))
+        let pairs =
+          fields->Dict.toArray->Array.map(((k, v)) => scalar(v)->Option.map(s => `${k}=${s}`))
         pairs->Array.every(Option.isSome) && pairs != []
           ? Some("?" ++ pairs->Array.keepSome->Array.join("&"))
           : None
       | _ => None
       }
     )
-  let part = (p: apiPart) => {
-    let status = p.status->Option.mapOr("", s =>
-      ` <span class="api__status api__status--${String.startsWith(s, "2") ? "ok" : "error"}">${escape(s)}</span>`
-    )
-    let caption = p.caption->Option.mapOr("", c => ` <span class="api__caption">${escape(c)}</span>`)
-    let inner = p.value == Null ? "" : value(p.value)
-    `<div class="api__part api__part--${p.name}"><p class="api__label">${escape(label(p.name))}${status}${caption}</p>${inner}</div>\n`
-  }
-  let call = `${escape(method)} ${path}${search->Option.getOr("")}`
-  `<figure class="api" role="group" aria-label="${escape(title->Option.getOr(call))}"><div class="api__call"><span class="api__method">${escape(
-      method,
-    )}</span><code class="api__path">${escape(path)}${search->Option.mapOr("", s =>
-      `<span class="api__search">${escape(s)}</span>`
-    )}</code>${title->Option.mapOr("", t => `<span class="api__title">${escape(t)}</span>`)}</div>\n${parts
-    ->Array.map(part)
-    ->Array.join("")}</figure>\n`
+  let part = (p: apiPart, index) => <>
+    <div className={`api__part api__part--${p.name}`}>
+      <p className="api__label">
+        {text(label(p.name))}
+        {switch p.status {
+        | Some(s) =>
+          <>
+            {text(" ")}
+            <span
+              className={`api__status api__status--${String.startsWith(s, "2") ? "ok" : "error"}`}
+            >
+              {text(s)}
+            </span>
+          </>
+        | None => Draw.null
+        }}
+        {switch p.caption {
+        | Some(c) =>
+          <>
+            {text(" ")}
+            <span className="api__caption"> {text(c)} </span>
+          </>
+        | None => Draw.null
+        }}
+      </p>
+      {p.value == Null ? Draw.null : value(p.value, ~at=`part ${Int.toString(index + 1)}`)}
+    </div>
+    nl
+  </>
+  let call = `${method} ${path}${search->Option.getOr("")}`
+  <>
+    <figure className="api" role="group" ariaLabel={title->Option.getOr(call)}>
+      <div className="api__call">
+        <span className="api__method"> {plain("method", method)} </span>
+        <code className="api__path">
+          {plain("path", path)}
+          {switch search {
+          | Some(s) => <span className="api__search"> {text(s)} </span>
+          | None => Draw.null
+          }}
+        </code>
+        {switch title {
+        | Some(t) => <span className="api__title"> {plain("title", t)} </span>
+        | None => Draw.null
+        }}
+      </div>
+      nl
+      {parts->Array.mapWithIndex(part)->Draw.array}
+    </figure>
+    nl
+  </>
 }

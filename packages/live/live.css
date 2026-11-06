@@ -1,0 +1,31 @@
+/* @minidoc/live — the refusal and the pane. Like blocks.css, they read the
+   theme's variables only, under [data-blocks-theme]. A refusal takes the
+   colour of a rejected callout. */
+
+.refused, .pane__reason { --tone: var(--tone-rejected); }
+
+.refused {
+  margin: 1.25em 0;
+  padding: var(--callout-padding);
+  border-left: var(--callout-rule) solid var(--tone);
+  background: color-mix(in srgb, var(--tone) var(--fill-amount), var(--blocks-surface));
+}
+.refused__reason, .pane__reason { margin: 0 0 .4em; color: var(--tone); font-family: ui-monospace, "SFMono-Regular", Consolas, monospace; font-size: .85em; }
+.refused__source { margin: 0; color: var(--blocks-muted); font-family: ui-monospace, "SFMono-Regular", Consolas, monospace; font-size: .85em; white-space: pre-wrap; }
+
+.pane { display: grid; gap: .8em; }
+.pane__source {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  padding: .5em .6em;
+  border: 1px solid var(--blocks-line);
+  border-radius: var(--callout-radius);
+  background: var(--blocks-surface);
+  color: var(--blocks-ink);
+  font-family: ui-monospace, "SFMono-Regular", Consolas, monospace;
+  font-size: .9em;
+  line-height: 1.5;
+  resize: vertical;
+}
+.pane__source:focus { outline: 0; border-color: var(--blocks-stroke); }

@@ -1,6 +1,6 @@
 {
   "name": "@minidoc/blocks",
-  "namespace": false,
+  "namespace": "MinidocBlocks",
   "sources": [
     {
       "dir": "src",
@@ -13,5 +13,9 @@
       "in-source": true
     }
   ],
-  "suffix": ".res.mjs"
+  "suffix": ".res.mjs",
+  "jsx": {
+    "version": 4,
+    "module": "Draw"
+  }
 }

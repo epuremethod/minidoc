@@ -614,6 +614,12 @@ stand in for. `pnpm check` runs everything.
 ## Changelog
 
 - Unreleased
+  - `@minidoc/live` draws the blocks as React elements, exactly as a static
+    page draws them, with a pane that shows a block's source above a live
+    preview. `@minidoc/blocks` gains `draw`, the tree that both write, and
+    marks the fields a person may edit in plans, flows, screens and API
+    calls. A label in a sequence, a state machine or a model now writes
+    `text-anchor` after `x` and `y`.
   - The `plan` block shows where a piece of work stands: its stages as a
     band, done, in progress or not started, with a message beside each,
     and the todos under each stage. A plan of more than four stages lists

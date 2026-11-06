@@ -2,6 +2,8 @@
 // grid of cells, a blank line, then the moves. The grid makes the layout.
 // Ported from SWISSID's scripts/states.mjs, itself from sylva.
 
+@@jsxConfig({version: 4, module_: "Draw"})
+
 open Node
 open StatesOp
 
@@ -151,34 +153,53 @@ let read = (text, caption, kinds: dict<string>): drawing<StatesOp.t> => {
 let n = Float.toString
 
 // A kind of the project's reads its colour from `--tone-<kind>`.
-let tone = kind => kind == defaultKind ? "" : ` style="--tone: var(--tone-${kind}, var(--blocks-ink))"`
-let escape = Html.escape
+let tone = kind =>
+  kind == defaultKind ? None : Some(`--tone: var(--tone-${kind}, var(--blocks-ink))`)
+let text = Draw.string
 
 // An arrowhead takes no colour from the line that uses it, so a marked move
 // gets an arrowhead of its own kind. At the start of a two-way move, the same
 // tip turns round.
 let marker = kind =>
-  `<marker id="states-tip${kind->Option.mapOr("", k => `-${k}`)}"${kind->Option.mapOr("", tone)} viewBox="0 0 14 10" refX="13" refY="5" markerWidth="14" markerHeight="10" markerUnits="userSpaceOnUse" orient="auto-start-reverse"><path class="states__tip" d="M 0 0 L 14 5 L 0 10 L 3.8 5 z" /></marker>`
+  <marker
+    id={`states-tip${kind->Option.mapOr("", k => `-${k}`)}`}
+    style=?{kind->Option.flatMap(tone)}
+    viewBox="0 0 14 10"
+    refX="13"
+    refY="5"
+    markerWidth="14"
+    markerHeight="10"
+    markerUnits="userSpaceOnUse"
+    orient="auto-start-reverse"
+  >
+    <path className="states__tip" d="M 0 0 L 14 5 L 0 10 L 3.8 5 z" />
+  </marker>
 
 /** The SVG of a state machine, painted from its operations. */
-let render = (drawing: drawing<StatesOp.t>) => {
-  let pick = f => drawing.ops->Array.filterMap(f)->Array.join("")
-  let frame = drawing.ops->Array.findMap(op =>
-    switch op {
-    | Frame(f) => Some(f)
-    | _ => None
-    }
-  )->Option.getOrThrow
+let draw = (drawing: drawing<StatesOp.t>) => {
+  let pick = f => drawing.ops->Array.filterMap(f)->Draw.array
+  let frame =
+    drawing.ops
+    ->Array.findMap(op =>
+      switch op {
+      | Frame(f) => Some(f)
+      | _ => None
+      }
+    )
+    ->Option.getOrThrow
   let paths = pick(op =>
     switch op {
     | Move({kind, both, points: [x0, y0, x1, y1, x2, y2, x3, y3], label}) =>
-      let text = label->Option.mapOr("", ((l, _)) => l.text)
-      let modifier = kind->Option.mapOr("", k => ` states__move--${k}`)
-      let colour = kind->Option.mapOr("", tone)
-      let tip = kind->Option.mapOr("states-tip", k => `states-tip-${k}`)
-      let start = both ? ` marker-start="url(#${tip})"` : ""
+      let tip = `url(#${kind->Option.mapOr("states-tip", k => `states-tip-${k}`)})`
       Some(
-        `<path class="states__move${modifier}"${colour}${start} marker-end="url(#${tip})" d="M ${n(x0)} ${n(y0)} C ${n(x1)} ${n(y1)}, ${n(x2)} ${n(y2)}, ${n(x3)} ${n(y3)}" data-move="${escape(text)}" />`,
+        <path
+          className={`states__move${kind->Option.mapOr("", k => ` states__move--${k}`)}`}
+          style=?{kind->Option.flatMap(tone)}
+          markerStart=?{both ? Some(tip) : None}
+          markerEnd=tip
+          d={`M ${n(x0)} ${n(y0)} C ${n(x1)} ${n(y1)}, ${n(x2)} ${n(y2)}, ${n(x3)} ${n(y3)}`}
+          dataMove={label->Option.mapOr("", ((l, _)) => l.text)}
+        />,
       )
     | _ => None
     }
@@ -187,35 +208,77 @@ let render = (drawing: drawing<StatesOp.t>) => {
     switch op {
     | Box({kind, x, y, width, height, name}) =>
       Some(
-        `<g class="states__box states__box--${kind}"${tone(kind)}><rect x="${n(x)}" y="${n(y)}" width="${n(width)}" height="${n(height)}" rx="7" /><text x="${n(x +. width /. 2.)}" y="${n(y +. height /. 2. +. 4.)}" text-anchor="middle">${escape(name)}</text></g>`,
+        <g className={`states__box states__box--${kind}`} style=?{tone(kind)}>
+          <rect x={n(x)} y={n(y)} width={n(width)} height={n(height)} rx="7" />
+          <text x={n(x +. width /. 2.)} y={n(y +. height /. 2. +. 4.)} textAnchor="middle">
+            {text(name)}
+          </text>
+        </g>,
       )
     | _ => None
     }
   )
   let notes = pick(op =>
     switch op {
-    | Move({kind, label: Some(({x, y, text}, anchor))}) =>
-      Some(`<text class="states__label"${kind->Option.mapOr("", tone)} text-anchor="${anchor}" x="${n(x)}" y="${n(y)}">${escape(text)}</text>`)
+    | Move({kind, label: Some(({x, y, text: said}, anchor))}) =>
+      Some(
+        <text
+          className="states__label"
+          style=?{kind->Option.flatMap(tone)}
+          x={n(x)}
+          y={n(y)}
+          textAnchor=anchor
+        >
+          {text(said)}
+        </text>,
+      )
     | _ => None
     }
   )
-  let label = drawing.caption->Option.getOr("A state machine")
-  let title = drawing.caption->Option.mapOr("", c => `<span class="states__title">${escape(c)}</span>`)
+  let title = drawing.caption->Option.map(c => <span className="states__title"> {text(c)} </span>)
   let keyed =
     drawing.keys == []
-      ? ""
-      : `<span class="states__keys">${drawing.keys
-          ->Array.map(({kind, text, move}) =>
-            `<span class="states__key states__key--${kind}${move ? " states__key--move" : ""}"${tone(kind)}>${escape(text)}</span>`
-          )
-          ->Array.join("")}</span>`
-  let under = title ++ keyed == "" ? "" : `<figcaption class="states__caption">${title}${keyed}</figcaption>`
-  let kinds = drawing.ops->Array.filterMap(op =>
-    switch op {
-    | Move({kind}) => kind
-    | _ => None
-    }
-  )->Sequence.unique
-  let tips = `<defs>${[None, ...kinds->Array.map(k => Some(k))]->Array.map(marker)->Array.join("")}</defs>`
-  `<figure class="states"><svg class="states__svg" viewBox="${n(frame.left)} ${n(frame.top)} ${n(frame.width)} ${n(frame.height)}" width="${n(frame.width)}" height="${n(frame.height)}" role="img" aria-label="${escape(label)}">${tips}${paths}${shapes}${notes}</svg>${under}</figure>`
+      ? None
+      : Some(
+          <span className="states__keys">
+            {drawing.keys
+            ->Array.map(({kind, text: said, move}) =>
+              <span
+                className={`states__key states__key--${kind}${move ? " states__key--move" : ""}`}
+                style=?{tone(kind)}
+              >
+                {text(said)}
+              </span>
+            )
+            ->Draw.array}
+          </span>,
+        )
+  let under = [title, keyed]->Array.keepSome
+  let kinds =
+    drawing.ops
+    ->Array.filterMap(op =>
+      switch op {
+      | Move({kind}) => kind
+      | _ => None
+      }
+    )
+    ->Sequence.unique
+  <figure className="states">
+    <svg
+      className="states__svg"
+      viewBox={`${n(frame.left)} ${n(frame.top)} ${n(frame.width)} ${n(frame.height)}`}
+      width={n(frame.width)}
+      height={n(frame.height)}
+      role="img"
+      ariaLabel={drawing.caption->Option.getOr("A state machine")}
+    >
+      <defs> {[None, ...kinds->Array.map(k => Some(k))]->Array.map(marker)->Draw.array} </defs>
+      paths
+      shapes
+      notes
+    </svg>
+    {under == []
+      ? Draw.null
+      : <figcaption className="states__caption"> {Draw.array(under)} </figcaption>}
+  </figure>
 }

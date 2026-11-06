@@ -20,10 +20,15 @@ One pnpm workspace. The root holds no code.
 
 - `packages/core/` is the generator, package `@minidoc/core`.
 - `packages/blocks/` is the common `:::` blocks, package `@minidoc/blocks`:
-  a line scanner, readers into nodes, the nodes' text form, renderers to
-  HTML, `blocks.css`, two themes, and `viewer.js`, which opens a drawing full
-  screen. Its scenarios are `packages/blocks/test/*.test.yaml`, and the site
-  draws them on its Blocks page.
+  a line scanner, readers into nodes, the nodes' text form, each block's
+  drawing in a JSX of its own, `Draw`, written as HTML, `blocks.css`, two
+  themes, and `viewer.js`, which opens a drawing full screen. Its scenarios
+  are `packages/blocks/test/*.test.yaml`, and the site draws them on its
+  Blocks page.
+- `packages/live/` is `@minidoc/live`: the same drawings as React
+  elements, a block's source read into a value that keeps a refusal, and a
+  pane with the source above a live preview. It runs in jsdom, its own
+  scenarios and the blocks' `html.test.yaml`.
 - `packages/deprecated/` is `@epure/minidoc`, the former name. It
   re-exports `@minidoc/core` and is published deprecated.
 - `packages/docs/` is the documentation site, package `minidoc-docs`, private. It is
@@ -57,6 +62,7 @@ Two things cannot run on the in-memory filesystem, and they have plain
 
 `pnpm check` at the root is the standing check. In `packages/core/` it runs the
 fixtures, the dev tests and the package test; in `packages/blocks/` the scenarios;
+in `packages/live/` its scenarios and the blocks' HTML contract, drawn live;
 in `packages/docs/` the site's build, which fails when a plate cannot be drawn.
 
 ## Architecture

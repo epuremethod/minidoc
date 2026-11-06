@@ -347,3 +347,42 @@ examples:
       <div class="api__part api__part--body"><p class="api__label">Body</p><dl class="api__fields"><div class="api__field"><dt>queries</dt><dd><span class="api__inline"><span class="api__string">certificate</span>, <span class="api__string">status</span></span></dd></div></dl></div>
       </figure>
 
+
+  - scenario: a sequence is a figure holding an SVG, with its parties, their lives and the messages between them
+    before: |-
+      ```sequence
+      browser app
+      browser -> app  sign in
+      app -> browser  token
+      ```
+    after: |-
+      <figure class="sequence"><svg class="sequence__svg" viewBox="-10 -10 252 134" width="252" height="134" role="img" aria-label="A sequence"><defs><marker id="sequence-tip" viewBox="0 0 14 10" refX="13" refY="5" markerWidth="14" markerHeight="10" markerUnits="userSpaceOnUse" orient="auto"><path class="sequence__tip" d="M 0 0 L 14 5 L 0 10 L 3.8 5 z" /></marker><marker id="sequence-cross" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="10" markerHeight="10" markerUnits="userSpaceOnUse" orient="auto"><path class="sequence__cross" d="M 1.5 1.5 L 8.5 8.5 M 8.5 1.5 L 1.5 8.5" /></marker></defs><line class="sequence__life" x1="42" y1="26" x2="42" y2="114" /><line class="sequence__life" x1="190" y1="26" x2="190" y2="114" /><g class="sequence__head sequence__head--party"><rect x="0" y="0" width="84" height="26" rx="7" /><text x="42" y="17" text-anchor="middle">browser</text></g><g class="sequence__head sequence__head--party"><rect x="148" y="0" width="84" height="26" rx="7" /><text x="190" y="17" text-anchor="middle">app</text></g><path class="sequence__message" marker-end="url(#sequence-tip)" d="M 42 50 L 190 50" data-step="sign in" /><path class="sequence__message" marker-end="url(#sequence-tip)" d="M 190 82 L 42 82" data-step="token" /><text class="sequence__label" x="116" y="45" text-anchor="middle">sign in</text><text class="sequence__label" x="116" y="77" text-anchor="middle">token</text></svg></figure>
+
+  - scenario: a state machine is a figure holding an SVG, with its boxes and the moves between them
+    before: |-
+      ```states
+      draft review published
+
+      draft -> review  submit
+      review -> published  approve
+      ```
+    after: |-
+      <figure class="states"><svg class="states__svg" viewBox="-10 -25 320 65" width="320" height="65" role="img" aria-label="A state machine"><defs><marker id="states-tip" viewBox="0 0 14 10" refX="13" refY="5" markerWidth="14" markerHeight="10" markerUnits="userSpaceOnUse" orient="auto-start-reverse"><path class="states__tip" d="M 0 0 L 14 5 L 0 10 L 3.8 5 z" /></marker></defs><path class="states__move" marker-end="url(#states-tip)" d="M 55 15 C 89 15, 67 15, 101 15" data-move="submit" /><path class="states__move" marker-end="url(#states-tip)" d="M 170 15 C 204 15, 182 15, 216 15" data-move="approve" /><g class="states__box states__box--step"><rect x="0" y="0" width="55" height="30" rx="7" /><text x="27.5" y="19" text-anchor="middle">draft</text></g><g class="states__box states__box--step"><rect x="101" y="0" width="69" height="30" rx="7" /><text x="135.5" y="19" text-anchor="middle">review</text></g><g class="states__box states__box--step"><rect x="216" y="0" width="84" height="30" rx="7" /><text x="258" y="19" text-anchor="middle">published</text></g><text class="states__label" x="78" y="-3" text-anchor="middle">submit</text><text class="states__label" x="193" y="-3" text-anchor="middle">approve</text></svg></figure>
+
+  - scenario: a model is a figure holding an SVG, with its tables and the relations between them
+    before: |-
+      ```model
+      Project Site
+
+      Project
+        id     uuid  p-0412
+        title  text  School A
+
+      Site
+        id       uuid
+        project  ref   p-0412
+
+      Project --o< Site  sites
+      ```
+    after: |-
+      <figure class="model"><svg class="model__svg" viewBox="-10 -10 418 100" width="418" height="100" role="img" aria-label="A database schema"><defs><marker id="model-any" viewBox="0 0 20 16" refX="20" refY="8" markerWidth="20" markerHeight="16" markerUnits="userSpaceOnUse" orient="auto-start-reverse"><circle class="model__ring" cx="5.5" cy="8" r="3.5" /><path class="model__end" d="M 10 8 L 20 1 M 10 8 L 20 15" /></marker></defs><path class="model__link" marker-end="url(#model-any)" d="M 149 40 L 149 40 C 192.2 40, 201.8 40, 232.4 40 L 245 40" data-ends="one any" /><g class="model__table"><rect x="0" y="0" width="149" height="80" /><text class="model__name" x="12" y="19">Project</text><line class="model__rule" x1="0" y1="30" x2="149" y2="30" /><text class="model__column" x="12" y="45">id</text><text class="model__type" x="50.12" y="45">uuid</text><text class="model__value" x="87.64" y="45">p-0412</text><text class="model__column" x="12" y="67">title</text><text class="model__type" x="50.12" y="67">text</text><text class="model__value" x="87.64" y="67">School A</text></g><g class="model__table"><rect x="245" y="0" width="153" height="80" /><text class="model__name" x="257" y="19">Site</text><line class="model__rule" x1="245" y1="30" x2="398" y2="30" /><text class="model__column" x="257" y="45">id</text><text class="model__type" x="309.76" y="45">uuid</text><text class="model__column" x="257" y="67">project</text><text class="model__type" x="309.76" y="67">ref</text><text class="model__value" x="347.28" y="67">p-0412</text></g><text class="model__label" x="197" y="22" text-anchor="middle">sites</text></svg></figure>

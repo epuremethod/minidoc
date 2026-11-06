@@ -3,6 +3,8 @@
 // list under a step holds its details. A flat numbered list is one column
 // with no title.
 
+@@jsxConfig({version: 4, module_: "Draw"})
+
 open Node
 
 type rec list = {ordered: bool, items: array<item>}
@@ -78,23 +80,62 @@ let read = (md, body, label) => {
   Flow({label, columns})
 }
 
-let render = (md, label, columns) => {
-  let inline = text => Markdown.renderInline(md, text, Markdown.env())
-  let step = (s: step) => {
-    let details =
-      s.details == []
-        ? ""
-        : `\n<ul class="flow__details">\n${s.details
-            ->Array.map(d => `<li>${inline(d)}</li>`)
-            ->Array.join("\n")}\n</ul>`
-    `<li class="flow__step"><p class="flow__text">${inline(s.text)}</p>${details}\n</li>`
+let text = Draw.string
+let nl = Draw.string("\n")
+
+let draw = (md, label, columns) => {
+  let inline = (key, source) =>
+    Draw.field(~key, ~value=source, Draw.raw(Markdown.renderInline(md, source, Markdown.env())))
+  let step = (s: step, ~at) =>
+    <li className="flow__step">
+      <p className="flow__text"> {inline(at, s.text)} </p>
+      {s.details == []
+        ? Draw.null
+        : <>
+            nl
+            <ul className="flow__details">
+              nl
+              {s.details
+              ->Array.mapWithIndex((d, i) =>
+                <li> {inline(`${at} detail ${Int.toString(i + 1)}`, d)} </li>
+              )
+              ->Draw.joined("\n")}
+              nl
+            </ul>
+          </>}
+      nl
+    </li>
+  let column = (c: column, index) => {
+    let at = `column ${Int.toString(index + 1)}`
+    <li className="flow__column">
+      {switch c.title {
+      | Some(t) => <p className="flow__title"> {inline(`${at} title`, t)} </p>
+      | None => Draw.null
+      }}
+      nl
+      <ol className="flow__steps">
+        nl
+        {c.steps
+        ->Array.mapWithIndex((s, i) => step(s, ~at=`${at} step ${Int.toString(i + 1)}`))
+        ->Draw.joined("\n")}
+        nl
+      </ol>
+      nl
+    </li>
   }
-  let column = (c: column) =>
-    `<li class="flow__column">${c.title->Option.mapOr("", t =>
-        `<p class="flow__title">${inline(t)}</p>`
-      )}\n<ol class="flow__steps">\n${c.steps->Array.map(step)->Array.join("\n")}\n</ol>\n</li>`
-  let label = Html.escape(label)
-  `<aside class="callout callout--flow" aria-label="${label}"><p class="callout__label">${label}</p><div class="callout__body">\n<ol class="flow">\n${columns
-    ->Array.map(column)
-    ->Array.join("\n")}\n</ol>\n</div></aside>\n`
+  <>
+    <aside className="callout callout--flow" ariaLabel=label>
+      <p className="callout__label"> {text(label)} </p>
+      <div className="callout__body">
+        nl
+        <ol className="flow">
+          nl
+          {columns->Array.mapWithIndex(column)->Draw.joined("\n")}
+          nl
+        </ol>
+        nl
+      </div>
+    </aside>
+    nl
+  </>
 }

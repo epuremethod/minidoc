@@ -1,6 +1,7 @@
 import { Given } from "@epure/vitest";
 import { expect } from "vitest";
-import { blocks, read, write } from "../src/Blocks.res.mjs";
+import { blocks, draw, read, write } from "../src/Blocks.res.mjs";
+import { fields } from "../src/Draw.res.mjs";
 
 /**
  * A reader scenario: the `before` is read into nodes, and the nodes are
@@ -25,6 +26,19 @@ Given("a page", (_steps, data) => {
   const { before, after, error, options } = readScenario(data);
   if (error !== undefined) throw new Error(`A page scenario has no "error": it checks HTML`);
   expect(trimEnd(blocks(options)(before))).toBe(trimEnd(after ?? ""));
+});
+
+/**
+ * A fields scenario: the `before` is read and drawn, and the `after` lists
+ * the drawing's fields, one `key: value` a line, an empty value as `""`.
+ */
+Given("a block's fields", (_steps, data) => {
+  const { before, after, error, options } = readScenario(data);
+  if (error !== undefined) throw new Error(`A fields scenario has no "error": it lists fields`);
+  const listed = fields(draw(read(before, options), options))
+    .map(([key, value]: [string, string]) => `${key}: ${value === "" ? '""' : value}`)
+    .join("\n");
+  expect(listed).toBe(trimEnd(after ?? ""));
 });
 
 type Scenario = {

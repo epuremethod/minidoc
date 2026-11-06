@@ -1,6 +1,8 @@
 // Common `:::` blocks for minidoc sites. A block is read into nodes, the
-// middle language, and the nodes are rendered to HTML. `blocks` joins the
-// two into a minidoc transform.
+// middle language, and the nodes are drawn as a tree that `Draw` writes as
+// HTML. `blocks` joins the two into a minidoc transform.
+
+@@jsxConfig({version: 4, module_: "Draw"})
 
 open Node
 
@@ -166,14 +168,33 @@ let rec each = (nodes, f) =>
     }
   })
 
+let text = Draw.string
+let nl = Draw.string("\n")
+
 /** The author and date under a quote or callout, or nothing when it names neither. A source makes the author a link. */
-let byline = (author, date, url, ~tag, ~className) => {
-  let title = a => url->Option.mapOr(Html.escape(a), u => `<a href="${Html.escape(u)}">${Html.escape(a)}</a>`)
-  let parts = [
-    author->Option.map(a => `<cite>${title(a)}</cite>`),
-    date->Option.map(d => `<span class="${className}__date">${Html.escape(d)}</span>`),
-  ]->Array.keepSome
-  parts == [] ? "" : `<${tag}${tag == "p" ? ` class="${className}__by"` : ""}>— ${parts->Array.join(", ")}</${tag}>`
+let byline = (author, date, url, ~figure) => {
+  let title = a =>
+    switch url {
+    | Some(href) => <a href> {text(a)} </a>
+    | None => text(a)
+    }
+  let parts =
+    [
+      author->Option.map(a => <cite> {title(a)} </cite>),
+      date->Option.map(d =>
+        <span className={figure ? "quote__date" : "callout__date"}> {text(d)} </span>
+      ),
+    ]->Array.keepSome
+  let inner =
+    <>
+      {text("— ")}
+      {parts->Draw.joined(", ")}
+    </>
+  parts == []
+    ? Draw.null
+    : figure
+    ? <figcaption> inner </figcaption>
+    : <p className="callout__by"> inner </p>
 }
 
 let rec readIn = (ctx, page, source, offset) =>
@@ -221,61 +242,93 @@ let rec readIn = (ctx, page, source, offset) =>
   )
 
 /** The link a block filed in the annexe leaves in its place. */
-let filedLink = (anchor, author) =>
-  `<p class="annexe__ref"><a href="#${anchor}">${Html.escape(author->Option.getOr(""))}</a></p>\n`
-
-let id = anchor => anchor->Option.mapOr("", a => ` id="${a}"`)
+let filedLink = (anchor, author) => <>
+  <p className="annexe__ref">
+    <a href={`#${anchor}`}> {text(author->Option.getOr(""))} </a>
+  </p>
+  nl
+</>
 
 // `filed` is the page's blocks filed in the annexe, in order. A filed block
-// is drawn whole only in the annexe, where `whole` is set.
-let rec renderIn = (ctx, nodes, env, filed, ~whole=false) =>
+// is drawn whole only in the annexe, where `whole` is set. The fields of
+// the blocks inside a callout, a quote or a flow of screens are keyed under
+// their place there, so that each keeps keys of its own.
+let rec drawIn = (ctx, nodes, env, filed, ~whole=false) =>
   nodes
-  ->Array.map(node =>
+  ->Array.mapWithIndex((node, index) => {
+    let inner = children =>
+      drawIn(ctx, children, env, filed)->Draw.under(`block ${Int.toString(index + 1)} `)
     switch node {
-    | Markdown(text) => Markdown.render(ctx.md, text, env)
-    | Callout({anchor: Some(anchor), author, annexe: true}) | Quote({anchor: Some(anchor), author, annexe: true})
-      if !whole =>
+    | Markdown(source) => Draw.raw(Markdown.render(ctx.md, source, env))
+    | Callout({anchor: Some(anchor), author, annexe: true})
+    | Quote({anchor: Some(anchor), author, annexe: true}) if !whole =>
       filedLink(anchor, author)
     | Callout({name, label, author, date, url, anchor, children}) =>
-      let label = Html.escape(label)
-      let under = byline(author, date, url, ~tag="p", ~className="callout")
-      `<aside class="callout callout--${name}"${id(anchor)} aria-label="${label}"><p class="callout__label">${label}</p><div class="callout__body">\n${renderIn(
-          ctx,
-          children,
-          env,
-          filed,
-        )}</div>${under}</aside>\n`
+      <>
+        <aside className={`callout callout--${name}`} id=?anchor ariaLabel=label>
+          <p className="callout__label"> {text(label)} </p>
+          <div className="callout__body">
+            nl
+            {inner(children)}
+          </div>
+          {byline(author, date, url, ~figure=false)}
+        </aside>
+        nl
+      </>
     | Quote({author, date, url, anchor, children}) =>
-      let under = byline(author, date, url, ~tag="figcaption", ~className="quote")
-      `<figure class="quote"${id(anchor)}><blockquote>\n${renderIn(ctx, children, env, filed)}</blockquote>${under}</figure>\n`
+      <>
+        <figure className="quote" id=?anchor>
+          <blockquote>
+            nl
+            {inner(children)}
+          </blockquote>
+          {byline(author, date, url, ~figure=true)}
+        </figure>
+        nl
+      </>
     | Annexe =>
       filed == []
-        ? ""
-        : `<section class="annexe">\n${filed
-            ->Array.map(node => renderIn(ctx, [node], env, filed, ~whole=true))
-            ->Array.join("")}</section>\n`
-    | Flow({label, columns}) => Flow.render(ctx.md, label, columns)
+        ? Draw.null
+        : <>
+            <section className="annexe">
+              nl
+              {filed->Array.map(node => drawIn(ctx, [node], env, filed, ~whole=true))->Draw.array}
+            </section>
+            nl
+          </>
+    | Flow({label, columns}) => Flow.draw(ctx.md, label, columns)
     | Plan({title, stages, todos}) =>
-      let long = Plan.long(stages)
-      if long {
+      if Plan.long(stages) {
         ctx.plans = ctx.plans + 1
       }
-      Plan.render(ctx.md, title, stages, todos, ~name=`plan-${Int.toString(ctx.plans)}`)
-    | Dialog({owner, title, widgets}) => Screen.render(ctx.md, owner, title, widgets)
-    | Form({owner, title, widgets}) => Screen.render(~form=true, ctx.md, owner, title, widgets)
-    | Screens({caption, children}) => Screen.renderFlow(caption, renderIn(ctx, children, env, filed))
-    | Api({method, path, title, parts}) => Api.render(method, path, title, parts, ctx.apiLabels)
-    | Sequence(drawing) => Sequence.render(drawing) ++ "\n"
-    | States(drawing) => States.render(drawing) ++ "\n"
-    | Model(drawing) => Model.render(drawing) ++ "\n"
+      Plan.draw(ctx.md, title, stages, todos, ~name=`plan-${Int.toString(ctx.plans)}`)
+    | Dialog({owner, title, widgets}) => Screen.draw(ctx.md, owner, title, widgets)
+    | Form({owner, title, widgets}) => Screen.draw(~form=true, ctx.md, owner, title, widgets)
+    | Screens({caption, children}) => Screen.drawFlow(caption, inner(children))
+    | Api({method, path, title, parts}) => Api.draw(method, path, title, parts, ctx.apiLabels)
+    | Sequence(drawing) =>
+      <>
+        {Sequence.draw(drawing)}
+        nl
+      </>
+    | States(drawing) =>
+      <>
+        {States.draw(drawing)}
+        nl
+      </>
+    | Model(drawing) =>
+      <>
+        {Model.draw(drawing)}
+        nl
+      </>
     | Extra({name, info, body}) =>
       switch ctx.extras->Array.find(e => e.name == name) {
-      | Some(e) => e.render(info, body)
-      | None => ""
+      | Some(e) => Draw.raw(e.render(info, body))
+      | None => Draw.null
       }
     }
-  )
-  ->Array.join("")
+  })
+  ->Draw.array
 
 // The first line of the page that holds a reference to `name`.
 let referenceLine = (source, name) => {
@@ -309,8 +362,8 @@ let readPage = (ctx, source) => {
   nodes
 }
 
-/** Render a whole page: references get their block's title, and filed blocks go to the annexe. */
-let renderPage = (ctx, nodes, env) => {
+/** Draw a whole page: references get their block's title, and filed blocks go to the annexe. */
+let drawPage = (ctx, nodes, env) => {
   ctx.plans = 0
   let titles = Dict.make()
   let filed = []
@@ -326,17 +379,16 @@ let renderPage = (ctx, nodes, env) => {
     }
   )
   Markdown.setTitles(env, titles)
-  renderIn(ctx, nodes, env, filed)
+  drawIn(ctx, nodes, env, filed)
 }
 
 let read = (source, options) => readPage(context(options), source)
 
 let write = Write.write
 
-let render = (nodes, options) => {
-  let ctx = context(options)
-  renderPage(ctx, nodes, Markdown.env())
-}
+let draw = (nodes, options) => drawPage(context(options), nodes, Markdown.env())
+
+let render = (nodes, options) => Draw.write(draw(nodes, options))
 
 let blocks = options => {
   let ctx = context(options)
@@ -345,6 +397,6 @@ let blocks = options => {
     // one run resolves in every other.
     let env = Markdown.env()
     Markdown.parse(ctx.md, source, env)->ignore
-    renderPage(ctx, readPage(ctx, source), env)
+    Draw.write(drawPage(ctx, readPage(ctx, source), env))
   }
 }

@@ -37,7 +37,22 @@ export function read(source: string, options: Options): Node[];
 /** The text form of nodes, as the fixtures write them. */
 export function write(nodes: Node[]): string;
 
-/** The HTML of nodes. */
+/**
+ * A drawing: elements, text, the HTML markdown-it gives for prose, and
+ * fields, the values a person may edit. `Nothing` is drawn as nothing.
+ */
+export type Drawing =
+  | { readonly TAG: "Element"; readonly tag: string; readonly attributes: Record<string, string | boolean>; readonly children: Drawing[] }
+  | { readonly TAG: "Text"; readonly _0: string }
+  | { readonly TAG: "Raw"; readonly _0: string }
+  | { readonly TAG: "Field"; readonly key: string; readonly value: string; readonly shown: Drawing }
+  | { readonly TAG: "Many"; readonly _0: Drawing[] }
+  | "Nothing";
+
+/** The drawing of nodes: elements, text, prose and the fields a person may edit. */
+export function draw(nodes: Node[], options: Options): Drawing;
+
+/** The HTML of nodes: their drawing, written. */
 export function render(nodes: Node[], options: Options): string;
 
 /** A minidoc transform: markdown in, HTML out, blocks included. */

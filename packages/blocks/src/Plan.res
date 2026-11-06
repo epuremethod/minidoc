@@ -3,6 +3,8 @@
 // started, then its bold title and a message. The bullets under a stage are
 // its todos, `[x]` or `[ ]`. A bullet list alone is todos only.
 
+@@jsxConfig({version: 4, module_: "Draw"})
+
 open Node
 
 let mark = RegExp.fromString("^\\[([ xX/])\\]\\s+(\\S.*)$")
@@ -82,59 +84,126 @@ let shown = stages =>
   | index => index
   }
 
-let render = (md, title, stages, todos, ~name) => {
-  let inline = text => Markdown.renderInline(md, text, Markdown.env())
-  let number = index => `<span class="plan__number">${Int.toString(index + 1)}</span>`
-  let list = todos =>
-    `<ul class="plan__list">\n${todos
-      ->Array.map(t => `<li class="plan__todo${t.done ? " plan__todo--done" : ""}">${inline(t.text)}</li>`)
-      ->Array.join("\n")}\n</ul>\n`
+let text = Draw.string
+let nl = Draw.string("\n")
+
+let draw = (md, title, stages, todos, ~name) => {
+  let inline = (key, source) =>
+    Draw.field(~key, ~value=source, Draw.raw(Markdown.renderInline(md, source, Markdown.env())))
+  let stageKey = index => `stage ${Int.toString(index + 1)}`
+  let number = index => <span className="plan__number"> {text(Int.toString(index + 1))} </span>
+  let list = (todos, ~at) => <>
+    <ul className="plan__list">
+      nl
+      {todos
+      ->Array.mapWithIndex((t, i) =>
+        <li className={`plan__todo${t.done ? " plan__todo--done" : ""}`}>
+          {inline(`${at}todo ${Int.toString(i + 1)}`, t.text)}
+        </li>
+      )
+      ->Draw.joined("\n")}
+      nl
+    </ul>
+    nl
+  </>
   let state = (index, s) => {
-    let message = s.message->Option.mapOr("", m => `<span class="plan__message">${inline(m)}</span>`)
     let done = s.todos->Array.filter(t => t.done)->Array.length
-    let count =
-      s.todos == []
-        ? ""
-        : `<span class="plan__count">${Int.toString(done)}/${Int.toString(Array.length(s.todos))}</span>`
-    `${number(index)}${message}${count}`
+    <>
+      {number(index)}
+      {switch s.message {
+      | Some(m) =>
+        <span className="plan__message"> {inline(`${stageKey(index)} message`, m)} </span>
+      | None => Draw.null
+      }}
+      {s.todos == []
+        ? Draw.null
+        : <span className="plan__count">
+            {text(`${Int.toString(done)}/${Int.toString(Array.length(s.todos))}`)}
+          </span>}
+    </>
   }
+  let name' = (index, s) => inline(`${stageKey(index)} title`, s.title)
   let stageItem = (index, s) =>
-    `<li class="plan__stage${modifier("plan__stage", s.state)}"><p class="plan__state">${state(
-        index,
-        s,
-      )}</p><p class="plan__name">${inline(s.title)}</p></li>`
-  let heading = (index, s) => `<p class="plan__heading">${number(index)} ${inline(s.title)}</p>\n`
+    <li className={`plan__stage${modifier("plan__stage", s.state)}`}>
+      <p className="plan__state"> {state(index, s)} </p>
+      <p className="plan__name"> {name'(index, s)} </p>
+    </li>
+  let heading = (index, s) => <>
+    <p className="plan__heading">
+      {number(index)}
+      {text(" ")}
+      {name'(index, s)}
+    </p>
+    nl
+  </>
+  let todosOf = (index, s) => list(s.todos, ~at=`${stageKey(index)} `)
   let group = (index, s) =>
     s.todos == []
       ? None
-      : Some(`<section class="plan__group${modifier("plan__group", s.state)}">${heading(index, s)}${list(s.todos)}</section>`)
+      : Some(
+          <section className={`plan__group${modifier("plan__group", s.state)}`}>
+            {heading(index, s)}
+            {todosOf(index, s)}
+          </section>,
+        )
   let first = shown(stages)
   let pick = (index, s) =>
-    `<li class="plan__item"><label class="plan__stage${modifier(
-        "plan__stage",
-        s.state,
-      )}"><input class="plan__pick" type="radio" name="${name}"${index == first
-        ? " checked"
-        : ""}><span class="plan__state">${state(index, s)}</span><span class="plan__name">${inline(
-        s.title,
-      )}</span></label>\n<section class="plan__group${modifier("plan__group", s.state)}">${heading(
-        index,
-        s,
-      )}${s.todos == [] ? "" : list(s.todos)}</section></li>`
-  let caption = title->Option.mapOr("", t => `<figcaption class="plan__title">${inline(t)}</figcaption>\n`)
+    <li className="plan__item">
+      <label className={`plan__stage${modifier("plan__stage", s.state)}`}>
+        <input className="plan__pick" type_="radio" name checked={index == first} />
+        <span className="plan__state"> {state(index, s)} </span>
+        <span className="plan__name"> {name'(index, s)} </span>
+      </label>
+      nl
+      <section className={`plan__group${modifier("plan__group", s.state)}`}>
+        {heading(index, s)}
+        {s.todos == [] ? Draw.null : todosOf(index, s)}
+      </section>
+    </li>
   let groups = stages->Array.mapWithIndex((s, i) => group(i, s))->Array.keepSome
   let body = if stages == [] {
-    list(todos)
+    list(todos, ~at="")
   } else if long(stages) {
-    `<ol class="plan__stages" style="--plan-rows: ${Int.toString(Array.length(stages))}">\n${stages
-      ->Array.mapWithIndex((s, i) => pick(i, s))
-      ->Array.join("\n")}\n</ol>\n`
+    <>
+      <ol className="plan__stages" style={`--plan-rows: ${Int.toString(Array.length(stages))}`}>
+        nl
+        {stages->Array.mapWithIndex((s, i) => pick(i, s))->Draw.joined("\n")}
+        nl
+      </ol>
+      nl
+    </>
   } else {
-    `<ol class="plan__stages">\n${stages
-      ->Array.mapWithIndex((s, i) => stageItem(i, s))
-      ->Array.join("\n")}\n</ol>\n${groups == []
-        ? ""
-        : `<div class="plan__todos">\n${groups->Array.join("\n")}\n</div>\n`}`
+    <>
+      <ol className="plan__stages">
+        nl
+        {stages->Array.mapWithIndex((s, i) => stageItem(i, s))->Draw.joined("\n")}
+        nl
+      </ol>
+      nl
+      {groups == []
+        ? Draw.null
+        : <>
+            <div className="plan__todos">
+              nl
+              {groups->Draw.joined("\n")}
+              nl
+            </div>
+            nl
+          </>}
+    </>
   }
-  `<figure class="plan${long(stages) ? " plan--long" : ""}">${caption == "" ? "\n" : caption}${body}</figure>\n`
+  <>
+    <figure className={`plan${long(stages) ? " plan--long" : ""}`}>
+      {switch title {
+      | Some(t) =>
+        <>
+          <figcaption className="plan__title"> {inline("title", t)} </figcaption>
+          nl
+        </>
+      | None => nl
+      }}
+      body
+    </figure>
+    nl
+  </>
 }

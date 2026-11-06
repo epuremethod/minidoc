@@ -37,6 +37,12 @@ script tag names other blocks to open, as a CSS selector:
 `data-select=".states, .model, .chart"`. The viewer brings its own styles,
 in the colours of the blocks theme.
 
+An app that shows blocks in React, such as an editor, uses
+`@minidoc/live`. It reads a block's source, keeping minidoc's reason when
+it refuses it, draws the block exactly as a static page does, and gives a
+pane: the source above a live preview. The app loads `blocks.css`, a theme
+and `live.css`.
+
 Each plate below is a scenario of the package. The **markdown** is what an
 author writes. The **nodes** are what the package reads in it: a middle
 language between the markdown and the HTML, which a live editor can redraw

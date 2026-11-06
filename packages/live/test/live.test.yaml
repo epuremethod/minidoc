@@ -1,0 +1,27 @@
+feature: Blocks drawn live
+background:
+  given: a block drawn live
+examples:
+  - scenario: a project's own block draws from the HTML its render gives
+    options:
+      extra:
+        - name: shout
+          html: <p class="shout">{body}</p>
+    before: |-
+      ::: shout
+      Hello
+      :::
+    after: |-
+      <p class="shout">Hello</p>
+
+  - scenario: a block minidoc refuses shows the reason above its source
+    before: |-
+      ::: plan
+      1. [x] **Draw the band**
+         - [ ] Pick the tones
+      :::
+    after: |-
+      <div class="refused"><p class="refused__reason">plan: an open todo in a done stage, line 3: Pick the tones</p><pre class="refused__source">::: plan
+      1. [x] **Draw the band**
+         - [ ] Pick the tones
+      :::</pre></div>

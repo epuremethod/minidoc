@@ -1,0 +1,71 @@
+feature: The fields of a block
+background:
+  given: a block's fields
+examples:
+  - scenario: a plan's fields are its title, each stage's message and title, and each todo's text
+    before: |-
+      ::: plan Release
+      1. [x] **Publish** released
+      2. [/] **Ship** building
+         - [x] Push the tags
+         - [ ] Install in a scratch project
+      :::
+    after: |-
+      title: Release
+      stage 1 message: released
+      stage 1 title: Publish
+      stage 2 message: building
+      stage 2 title: Ship
+      stage 2 todo 1: Push the tags
+      stage 2 todo 2: Install in a scratch project
+
+  - scenario: a flow's fields are its column titles, its steps and their details
+    before: |-
+      ::: flow
+      1. **Upload**
+         1. The file arrives
+            - the original file
+      :::
+    after: |-
+      column 1 title: Upload
+      column 1 step 1: The file arrives
+      column 1 step 1 detail 1: the original file
+
+  - scenario: a screen's fields are its title, each option, each field's label and value, and each button
+    before: |-
+      ::: ui-dialog Sign in
+      Choose an account.
+
+      ( ) Work
+      (x) Personal
+
+      Password : ____
+
+      [Cancel] [[Sign in]]*
+      :::
+    after: |-
+      title: Sign in
+      widget 2 option 1: Work
+      widget 2 option 2: Personal
+      widget 3 label: Password
+      widget 3 value: ""
+      widget 4 button 1: Cancel
+      widget 4 button 2: Sign in
+
+  - scenario: an API call's fields are its method, its path, its title, and each value of its parts
+    before: |-
+      ::: api POST /apps Register an app
+      body
+        name: Portal
+        scopes:
+          - read
+      response 201
+        id: 7
+      :::
+    after: |-
+      method: POST
+      path: /apps
+      title: Register an app
+      part 1 name: Portal
+      part 1 scopes 1: read
+      part 2 id: 7

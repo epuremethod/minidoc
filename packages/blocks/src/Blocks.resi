@@ -45,7 +45,10 @@ let read: (string, options) => array<node>
 /** The text form of nodes, as the fixtures write them. */
 let write: array<node> => string
 
-/** The HTML of nodes. */
+/** The drawing of nodes: elements, text, prose and the fields a person may edit. */
+let draw: (array<node>, options) => Draw.element
+
+/** The HTML of nodes: their drawing, written. */
 let render: (array<node>, options) => string
 
 /** A minidoc transform: markdown in, HTML out, blocks included. */

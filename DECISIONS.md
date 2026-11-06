@@ -499,3 +499,104 @@ clean-tree check and `pnpm check`. Refused too: a script in each package,
 three copies of the same guards.
 
 Costs: a publish runs the whole workspace's `pnpm check`, not one package's.
+
+## 2026-11-06: A block is drawn once, as a tree, by a JSX of the blocks' own
+
+Each block's drawing is ReScript JSX against `Draw`, through ReScript's
+generic JSX. It makes a plain tree: elements, text, the HTML markdown-it
+gives for prose, and fields. `Draw.write` writes the tree as HTML for a
+static page, and `@minidoc/live` writes the same tree as React elements.
+Each file that draws names `Draw` with `@@jsxConfig` besides
+`rescript.json`, because a project that builds the blocks as a dependency
+gives them its own JSX.
+
+Refused: React components as the one source, with the static HTML from
+React's server render. Every static site would install React. Refused too:
+the HTML strings and React components side by side, checked equal, where
+every look is changed twice, and a functor over an element module, whose
+types are heavier than a tree for no gain.
+
+Costs: an attribute that one block alone uses joins the one props record,
+and a file that draws repeats the JSX setting.
+
+## 2026-11-06: A drawing marks the fields a person may edit, keyed by their place
+
+A field holds a value's source text and how it shows. Its key names its
+place, counting from 1: `stage 2 todo 1`, `column 1 step 1 detail 1`,
+`widget 3 value`, `part 1 scopes 1`. Plans, flows, screens and API calls
+mark theirs. `Draw.fields` lists them once each, in the order they are
+drawn, and the fields of a block inside a callout, a quote or a flow of
+screens are keyed under `block N`. A static page writes a field as its
+text.
+
+Refused: drawing an editable copy of each block beside its drawing. The
+flows, screens and API calls would be drawn twice. Refused too: keys from
+the node's own structure, such as array indexes from 0, which an author
+does not see.
+
+Costs: a field drawn in two places, such as a stage's title, is one key,
+and a check, such as a todo being done, is not a field yet.
+
+## 2026-11-06: Live prose beside other children is split into its top-level nodes
+
+`@minidoc/live` gives HTML that is an element's only child as its inner
+HTML. HTML beside other children is parsed by the browser into its
+top-level nodes, and each element keeps its tag and attributes and takes
+its own inner HTML. So a block drawn live has the static page's DOM, and
+`@minidoc/live` runs the blocks' `html.test.yaml` and compares the DOM.
+
+Refused: a wrapper element around such prose, which breaks
+`.callout__body > :first-child` and the contract. Refused too: one inner
+HTML for every part with no editable field, which would leave live's
+React path untested until fields become inputs.
+
+Costs: live needs a browser's parser, so it does not render on a server.
+
+## 2026-11-06: A live block reads any source, and keeps a refusal as its value
+
+`Live.read` gives `{source, read}`, where `read` holds the nodes or the
+reason minidoc refuses them. One rule serves every block: the host's
+parse accepts any string through it, and a refused block draws its reason
+above its source and keeps its editor and its pane.
+
+Refused: a parse that fails on a refused source. The editor would draw
+the block as invalid and drop its pane, so a typo in the pane would close
+it. Refused too: a rule for each kind of block, which would leave an atom
+under the wrong rule when its first line changes from `plan` to `flow`.
+
+Costs: a refused block passes through a save like any other.
+
+## 2026-11-06: The blocks and live packages carry ReScript namespaces
+
+`@minidoc/blocks` is `MinidocBlocks`, and `@minidoc/live` is
+`MinidocLive`. Their compiled files and JS exports keep their names.
+
+Refused: no namespace. A host that builds them as dependencies, as maia
+does, already has a `Node` and a `Plan` of its own. Refused too: maia
+binding to live's JS, which loses the types.
+
+Costs: a ReScript host writes `MinidocLive.Live` and lists
+`@minidoc/blocks` beside `@minidoc/live` to name its options.
+
+## 2026-11-06: An element writes its attributes in one order
+
+The drawing writes attributes in the order `Draw.Elements.props` declares
+them. The blocks wrote a label's `text-anchor` before `x` and `y`, and a
+box's after, so a label in a sequence, a state machine or a model now
+writes it after them. Every other attribute keeps its place.
+
+Refused: an order kept per element. ReScript writes a record's keys in
+the order its type declares.
+
+Costs: a site that compares its HTML as text sees the labels change once.
+
+## 2026-11-06: maia opens a block's source in place until fields become inputs
+
+maia draws its notes' blocks with `@minidoc/live`, in its shadow root. A
+click still replaces a block with its source above a live preview, as it
+did with HTML strings, so the person sees no change.
+
+Refused, for now: the editor's pane under a selected block, the final
+shape. It comes with stage 5, when the drawing itself holds inputs.
+
+Costs: maia keeps its own click-to-edit editor until then.

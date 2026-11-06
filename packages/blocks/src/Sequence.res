@@ -4,6 +4,8 @@
 // to another, a refusal, or a party's state. The order of the lines makes the
 // layout. Ported from SWISSID's scripts/sequence.mjs, itself from sylva.
 
+@@jsxConfig({version: 4, module_: "Draw"})
+
 open Node
 open SequenceOp
 
@@ -275,24 +277,54 @@ let read = (text, caption, kinds: dict<string>): drawing<SequenceOp.t> => {
 let n = Float.toString
 
 // A kind of the project's reads its colour from `--tone-<kind>`.
-let tone = kind => kind == defaultKind ? "" : ` style="--tone: var(--tone-${kind}, var(--blocks-ink))"`
-let escape = Html.escape
+let tone = kind =>
+  kind == defaultKind ? None : Some(`--tone: var(--tone-${kind}, var(--blocks-ink))`)
+let text = Draw.string
 
-let tips = `<defs><marker id="sequence-tip" viewBox="0 0 14 10" refX="13" refY="5" markerWidth="14" markerHeight="10" markerUnits="userSpaceOnUse" orient="auto"><path class="sequence__tip" d="M 0 0 L 14 5 L 0 10 L 3.8 5 z" /></marker><marker id="sequence-cross" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="10" markerHeight="10" markerUnits="userSpaceOnUse" orient="auto"><path class="sequence__cross" d="M 1.5 1.5 L 8.5 8.5 M 8.5 1.5 L 1.5 8.5" /></marker></defs>`
+let tips =
+  <defs>
+    <marker
+      id="sequence-tip"
+      viewBox="0 0 14 10"
+      refX="13"
+      refY="5"
+      markerWidth="14"
+      markerHeight="10"
+      markerUnits="userSpaceOnUse"
+      orient="auto"
+    >
+      <path className="sequence__tip" d="M 0 0 L 14 5 L 0 10 L 3.8 5 z" />
+    </marker>
+    <marker
+      id="sequence-cross"
+      viewBox="0 0 10 10"
+      refX="5"
+      refY="5"
+      markerWidth="10"
+      markerHeight="10"
+      markerUnits="userSpaceOnUse"
+      orient="auto"
+    >
+      <path className="sequence__cross" d="M 1.5 1.5 L 8.5 8.5 M 8.5 1.5 L 1.5 8.5" />
+    </marker>
+  </defs>
 
 /** The SVG of a sequence, painted from its operations. */
-let render = (drawing: drawing<SequenceOp.t>) => {
-  let pick = f => drawing.ops->Array.filterMap(f)->Array.join("")
-  let frame = drawing.ops->Array.findMap(op =>
-    switch op {
-    | Frame(f) => Some(f)
-    | _ => None
-    }
-  )->Option.getOrThrow
+let draw = (drawing: drawing<SequenceOp.t>) => {
+  let pick = f => drawing.ops->Array.filterMap(f)->Draw.array
+  let frame =
+    drawing.ops
+    ->Array.findMap(op =>
+      switch op {
+      | Frame(f) => Some(f)
+      | _ => None
+      }
+    )
+    ->Option.getOrThrow
   let lives = pick(op =>
     switch op {
     | Life({x, top, bottom}) =>
-      Some(`<line class="sequence__life" x1="${n(x)}" y1="${n(top)}" x2="${n(x)}" y2="${n(bottom)}" />`)
+      Some(<line className="sequence__life" x1={n(x)} y1={n(top)} x2={n(x)} y2={n(bottom)} />)
     | _ => None
     }
   )
@@ -300,7 +332,12 @@ let render = (drawing: drawing<SequenceOp.t>) => {
     switch op {
     | Head({kind, x, y, width, height, name}) =>
       Some(
-        `<g class="sequence__head sequence__head--${kind}"${tone(kind)}><rect x="${n(x)}" y="${n(y)}" width="${n(width)}" height="${n(height)}" rx="7" /><text x="${n(x +. width /. 2.)}" y="${n(y +. height /. 2. +. 4.)}" text-anchor="middle">${escape(name)}</text></g>`,
+        <g className={`sequence__head sequence__head--${kind}`} style=?{tone(kind)}>
+          <rect x={n(x)} y={n(y)} width={n(width)} height={n(height)} rx="7" />
+          <text x={n(x +. width /. 2.)} y={n(y +. height /. 2. +. 4.)} textAnchor="middle">
+            {text(name)}
+          </text>
+        </g>,
       )
     | _ => None
     }
@@ -308,39 +345,84 @@ let render = (drawing: drawing<SequenceOp.t>) => {
   let lines = pick(op =>
     switch op {
     | Message({from, to, y, refused, label}) =>
-      let text = label->Option.mapOr("", l => l.text)
       Some(
-        `<path class="sequence__message${refused ? " sequence__message--refused" : ""}" marker-end="url(#${refused ? "sequence-cross" : "sequence-tip"})" d="M ${n(from)} ${n(y)} L ${n(to)} ${n(y)}" data-step="${escape(text)}" />`,
+        <path
+          className={`sequence__message${refused ? " sequence__message--refused" : ""}`}
+          markerEnd={`url(#${refused ? "sequence-cross" : "sequence-tip"})`}
+          d={`M ${n(from)} ${n(y)} L ${n(to)} ${n(y)}`}
+          dataStep={label->Option.mapOr("", l => l.text)}
+        />,
       )
     | _ => None
     }
   )
   let boxes = pick(op =>
     switch op {
-    | State({x, y, width, height, text}) =>
+    | State({x, y, width, height, text: said}) =>
       Some(
-        `<g class="sequence__state"><rect x="${n(x)}" y="${n(y)}" width="${n(width)}" height="${n(height)}" rx="6" /><text x="${n(x +. width /. 2.)}" y="${n(y +. height /. 2. +. 4.)}" text-anchor="middle">${escape(text)}</text></g>`,
+        <g className="sequence__state">
+          <rect x={n(x)} y={n(y)} width={n(width)} height={n(height)} rx="6" />
+          <text x={n(x +. width /. 2.)} y={n(y +. height /. 2. +. 4.)} textAnchor="middle">
+            {text(said)}
+          </text>
+        </g>,
       )
     | _ => None
     }
   )
   let notes = pick(op =>
     switch op {
-    | Message({refused, label: Some({x, y, text})}) =>
+    | Message({refused, label: Some({x, y, text: said})}) =>
       Some(
-        `<text class="sequence__label${refused ? " sequence__label--refused" : ""}" text-anchor="middle" x="${n(x)}" y="${n(y)}">${escape(text)}</text>`,
+        <text
+          className={`sequence__label${refused ? " sequence__label--refused" : ""}`}
+          x={n(x)}
+          y={n(y)}
+          textAnchor="middle"
+        >
+          {text(said)}
+        </text>,
       )
     | _ => None
     }
   )
-  let label = drawing.caption->Option.getOr("A sequence")
-  let title = drawing.caption->Option.mapOr("", c => `<span class="sequence__title">${escape(c)}</span>`)
+  let title = drawing.caption->Option.map(c => <span className="sequence__title"> {text(c)} </span>)
   let keyed =
     drawing.keys == []
-      ? ""
-      : `<span class="sequence__keys">${drawing.keys
-          ->Array.map(({kind, text}) => `<span class="sequence__key sequence__key--${kind}"${lineKeys->Array.some(((k, _)) => k == kind) ? "" : tone(kind)}>${escape(text)}</span>`)
-          ->Array.join("")}</span>`
-  let under = title ++ keyed == "" ? "" : `<figcaption class="sequence__caption">${title}${keyed}</figcaption>`
-  `<figure class="sequence"><svg class="sequence__svg" viewBox="${n(frame.left)} ${n(frame.top)} ${n(frame.width)} ${n(frame.height)}" width="${n(frame.width)}" height="${n(frame.height)}" role="img" aria-label="${escape(label)}">${tips}${lives}${heads}${lines}${boxes}${notes}</svg>${under}</figure>`
+      ? None
+      : Some(
+          <span className="sequence__keys">
+            {drawing.keys
+            ->Array.map(({kind, text: said}) =>
+              <span
+                className={`sequence__key sequence__key--${kind}`}
+                style=?{lineKeys->Array.some(((k, _)) => k == kind) ? None : tone(kind)}
+              >
+                {text(said)}
+              </span>
+            )
+            ->Draw.array}
+          </span>,
+        )
+  let under = [title, keyed]->Array.keepSome
+  <figure className="sequence">
+    <svg
+      className="sequence__svg"
+      viewBox={`${n(frame.left)} ${n(frame.top)} ${n(frame.width)} ${n(frame.height)}`}
+      width={n(frame.width)}
+      height={n(frame.height)}
+      role="img"
+      ariaLabel={drawing.caption->Option.getOr("A sequence")}
+    >
+      tips
+      lives
+      heads
+      lines
+      boxes
+      notes
+    </svg>
+    {under == []
+      ? Draw.null
+      : <figcaption className="sequence__caption"> {Draw.array(under)} </figcaption>}
+  </figure>
 }

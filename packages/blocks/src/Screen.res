@@ -15,6 +15,8 @@
 //   Format : "JSON" ▾       a list to pick from
 //   Token : "a1b2" [Copy]   buttons beside a field
 
+@@jsxConfig({version: 4, module_: "Draw"})
+
 open Node
 
 let buttonLine = RegExp.fromString("^(?:(?:\\[\\[[^\\[\\]]+\\]\\]|\\[[^\\[\\]]+\\])\\*?\\s*)+$")
@@ -112,48 +114,103 @@ let read = (info, body, owners: dict<string>) => {
 }
 
 // A form is a screen too: it shares the dialog's parts and adds `ui-form`.
-let render = (~form=false, md, owner, title, widgets) => {
-  let escape = Html.escape
-  let inline = text => Markdown.renderInline(md, text, Markdown.env())
-  let button = (b: button) =>
-    `<span class="ui-dialog__button${b.primary ? " ui-dialog__button--primary" : ""}${b.clicked
-        ? " ui-dialog__button--clicked"
-        : ""}">${escape(b.text)}</span>`
-  let part = w =>
+let text = Draw.string
+let nl = Draw.string("\n")
+
+let draw = (~form=false, md, owner, title, widgets) => {
+  let inline = (key, source) =>
+    Draw.field(~key, ~value=source, Draw.raw(Markdown.renderInline(md, source, Markdown.env())))
+  let plain = (key, value) => Draw.field(~key, ~value, text(value))
+  let button = (b: button, ~key) =>
+    <span
+      className={`ui-dialog__button${b.primary ? " ui-dialog__button--primary" : ""}${b.clicked
+          ? " ui-dialog__button--clicked"
+          : ""}`}
+    >
+      {plain(key, b.text)}
+    </span>
+  let buttons = (list, ~at) =>
+    list
+    ->Array.mapWithIndex((b, i) => button(b, ~key=`${at} button ${Int.toString(i + 1)}`))
+    ->Draw.array
+  let part = (w, index) => {
+    let at = `widget ${Int.toString(index + 1)}`
     switch w {
-    | Text(text) => Markdown.render(md, text, Markdown.env())
-    | Actions(buttons) =>
-      `<div class="ui-dialog__actions">${buttons->Array.map(button)->Array.join("")}</div>\n`
+    | Text(source) => Draw.raw(Markdown.render(md, source, Markdown.env()))
+    | Actions(list) =>
+      <>
+        <div className="ui-dialog__actions"> {buttons(list, ~at)} </div>
+        nl
+      </>
     | Options(choices) =>
-      let row = choices->Array.map(c =>
-        `<div class="ui-dialog__option ui-dialog__option--${c.radio ? "radio" : "check"}${c.on
-            ? " ui-dialog__option--on"
-            : ""}">${inline(c.text)}</div>`
-      )
-      `<div class="ui-dialog__options">${row->Array.join("")}</div>\n`
-    | Field({label, value, select, buttons}) =>
-      let input = `<span class="ui-dialog__input${select ? " ui-dialog__input--select" : ""}">${value->Option.mapOr("", escape)}</span>`
-      let control = buttons == []
-        ? input
-        : `<span class="ui-dialog__control">${input}${buttons->Array.map(button)->Array.join("")}</span>`
-      `<div class="ui-dialog__field"><span class="ui-dialog__field-label">${inline(label)}</span>${control}</div>\n`
+      <>
+        <div className="ui-dialog__options">
+          {choices
+          ->Array.mapWithIndex((c, i) =>
+            <div
+              className={`ui-dialog__option ui-dialog__option--${c.radio ? "radio" : "check"}${c.on
+                  ? " ui-dialog__option--on"
+                  : ""}`}
+            >
+              {inline(`${at} option ${Int.toString(i + 1)}`, c.text)}
+            </div>
+          )
+          ->Draw.array}
+        </div>
+        nl
+      </>
+    | Field({label, value, select, buttons: list}) =>
+      let input =
+        <span className={`ui-dialog__input${select ? " ui-dialog__input--select" : ""}`}>
+          {plain(`${at} value`, value->Option.getOr(""))}
+        </span>
+      <>
+        <div className="ui-dialog__field">
+          <span className="ui-dialog__field-label"> {inline(`${at} label`, label)} </span>
+          {list == []
+            ? input
+            : <span className="ui-dialog__control">
+                input
+                {buttons(list, ~at)}
+              </span>}
+        </div>
+        nl
+      </>
     }
+  }
   let kind = form ? "Form mockup" : "Screen mockup"
-  let label = title->Option.mapOr(kind, t => `${kind}: ${t}`)
-  let bar = [
-    owner->Option.map(((_, label)) => `<span class="ui-dialog__owner">${escape(label)}</span>`),
-    title->Option.map(t => `<span class="ui-dialog__title">${escape(t)}</span>`),
-  ]->Array.keepSome->Array.join("")
-  `<div class="ui-dialog${form ? " ui-form" : ""}${owner->Option.mapOr("", ((key, _)) =>
-      ` ui-dialog--${key}" style="--tone: var(--tone-${key}, var(--blocks-ink))`
-    )}" role="group" aria-label="${escape(label)}">${bar == ""
-      ? ""
-      : `<div class="ui-dialog__bar">${bar}</div>`}<div class="ui-dialog__body">\n${widgets
-    ->Array.map(part)
-    ->Array.join("")}</div></div>\n`
+  let className = `ui-dialog${form ? " ui-form" : ""}${owner->Option.mapOr("", ((key, _)) =>
+      ` ui-dialog--${key}`
+    )}`
+  let style = owner->Option.map(((key, _)) => `--tone: var(--tone-${key}, var(--blocks-ink))`)
+  let bar =
+    [
+      owner->Option.map(((_, label)) => <span className="ui-dialog__owner"> {text(label)} </span>),
+      title->Option.map(t => <span className="ui-dialog__title"> {plain("title", t)} </span>),
+    ]->Array.keepSome
+  <>
+    <div className ?style role="group" ariaLabel={title->Option.mapOr(kind, t => `${kind}: ${t}`)}>
+      {bar == [] ? Draw.null : <div className="ui-dialog__bar"> {Draw.array(bar)} </div>}
+      <div className="ui-dialog__body">
+        nl
+        {widgets->Array.mapWithIndex(part)->Draw.array}
+      </div>
+    </div>
+    nl
+  </>
 }
 
-let renderFlow = (caption, inner) =>
-  `<figure class="ui-flow">${caption->Option.mapOr("", c =>
-      `<figcaption class="ui-flow__caption">${Html.escape(c)}</figcaption>`
-    )}<div class="ui-flow__steps">\n${inner}</div></figure>\n`
+/** A flow of screens: its caption, then the screens drawn by `inner`. */
+let drawFlow = (caption, inner) => <>
+  <figure className="ui-flow">
+    {switch caption {
+    | Some(c) => <figcaption className="ui-flow__caption"> {text(c)} </figcaption>
+    | None => Draw.null
+    }}
+    <div className="ui-flow__steps">
+      nl
+      inner
+    </div>
+  </figure>
+  nl
+</>

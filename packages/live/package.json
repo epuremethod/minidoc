@@ -1,0 +1,56 @@
+{
+  "name": "@minidoc/live",
+  "version": "0.1.0",
+  "description": "minidoc's ::: blocks drawn as React, each with a pane that shows its source and a live preview",
+  "author": "Gaspard Anna Bucher <g.a.bucher@midasum.com>",
+  "license": "MIT",
+  "homepage": "https://minidoc.dev/blocks.html",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/epuremethod/minidoc.git",
+    "directory": "packages/live"
+  },
+  "type": "module",
+  "files": [
+    "src",
+    "live.css",
+    "rescript.json",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "rescript build",
+    "check": "pnpm test",
+    "test": "rescript build && vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@minidoc/blocks": "workspace:^",
+    "@rescript/runtime": "12.3.0"
+  },
+  "peerDependencies": {
+    "@rescript/react": "^0.15.0",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0"
+  },
+  "devDependencies": {
+    "@epure/vitest": "^1.1.0",
+    "@rescript/react": "0.15.0",
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "@types/node": "^24.0.3",
+    "jsdom": "^30.1.1",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "rescript": "12.3.0",
+    "typescript": "5.8.3",
+    "vitest": "^3.2.3",
+    "yaml": "^2.8.0"
+  },
+  "main": "./src/Live.res.mjs"
+}

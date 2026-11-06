@@ -4,6 +4,8 @@
 // as it does for `states`. An end of a relation is drawn in crow's foot
 // notation.
 
+@@jsxConfig({version: 4, module_: "Draw"})
+
 open Node
 
 let fail = Html.fail
@@ -241,19 +243,23 @@ let read = (text, caption): drawing<ModelOp.t> => {
 }
 
 let n = Float.toString
-let escape = Html.escape
+let text = Draw.string
 
 // An end is a marker drawn toward its table, which sits at x = 20. At the
 // start of a line the same marker turns round. `reach` below is how far
 // each one stands from the table: 20 less its leftmost point.
 let shapes = (arity: ModelOp.arity) => {
-  let crow = from => `<path class="model__end" d="M ${from} 8 L 20 1 M ${from} 8 L 20 15" />`
-  let ring = x => `<circle class="model__ring" cx="${x}" cy="8" r="3.5" />`
+  let crow = from => <path className="model__end" d={`M ${from} 8 L 20 1 M ${from} 8 L 20 15`} />
+  let ring = x => <circle className="model__ring" cx=x cy="8" r="3.5" />
   switch arity {
-  | ModelOp.One => ""
+  | ModelOp.One => Draw.null
   | ModelOp.Optional => ring("13")
   | ModelOp.More => crow("8")
-  | ModelOp.Any => ring("5.5") ++ crow("10")
+  | ModelOp.Any =>
+    <>
+      {ring("5.5")}
+      {crow("10")}
+    </>
   }
 }
 
@@ -287,29 +293,57 @@ let markerId = arity => `model-${arityName(arity)}`
 // stands as far from its table as the longest crow's foot.
 let parentId = "model-parent"
 let parentReach = 14.
-let parentMarker = `<marker id="${parentId}" viewBox="0 0 20 16" refX="20" refY="8" markerWidth="20" markerHeight="16" markerUnits="userSpaceOnUse" orient="auto"><path class="model__parent" d="M 6 1 L 20 8 L 6 15 z" /></marker>`
+let parentMarker =
+  <marker
+    id=parentId
+    viewBox="0 0 20 16"
+    refX="20"
+    refY="8"
+    markerWidth="20"
+    markerHeight="16"
+    markerUnits="userSpaceOnUse"
+    orient="auto"
+  >
+    <path className="model__parent" d="M 6 1 L 20 8 L 6 15 z" />
+  </marker>
 
 let marker = arity =>
-  `<marker id="${markerId(arity)}" viewBox="0 0 20 16" refX="20" refY="8" markerWidth="20" markerHeight="16" markerUnits="userSpaceOnUse" orient="auto-start-reverse">${shapes(
-      arity,
-    )}</marker>`
+  <marker
+    id={markerId(arity)}
+    viewBox="0 0 20 16"
+    refX="20"
+    refY="8"
+    markerWidth="20"
+    markerHeight="16"
+    markerUnits="userSpaceOnUse"
+    orient="auto-start-reverse"
+  >
+    {shapes(arity)}
+  </marker>
 
 /** The SVG of a database schema, painted from its operations. */
-let render = (drawing: drawing<ModelOp.t>) => {
-  let pick = f => drawing.ops->Array.filterMap(f)->Array.join("")
-  let frame = drawing.ops->Array.findMap(op =>
-    switch op {
-    | ModelOp.Frame(f) => Some(f)
-    | _ => None
-    }
-  )->Option.getOrThrow
-  let used = drawing.ops->Array.flatMap(op =>
-    switch op {
-    | ModelOp.Link({from, to}) => [from, to]
-    | _ => []
-    }
-  )->Array.filter(a => a != ModelOp.One)
-  let used = [ModelOp.Optional, ModelOp.More, ModelOp.Any]->Array.filter(a => used->Array.includes(a))
+let draw = (drawing: drawing<ModelOp.t>) => {
+  let pick = f => drawing.ops->Array.filterMap(f)->Draw.array
+  let frame =
+    drawing.ops
+    ->Array.findMap(op =>
+      switch op {
+      | ModelOp.Frame(f) => Some(f)
+      | _ => None
+      }
+    )
+    ->Option.getOrThrow
+  let used =
+    drawing.ops
+    ->Array.flatMap(op =>
+      switch op {
+      | ModelOp.Link({from, to}) => [from, to]
+      | _ => []
+      }
+    )
+    ->Array.filter(a => a != ModelOp.One)
+  let used =
+    [ModelOp.Optional, ModelOp.More, ModelOp.Any]->Array.filter(a => used->Array.includes(a))
   let parents = drawing.ops->Array.some(op =>
     switch op {
     | ModelOp.Parent(_) => true
@@ -318,21 +352,39 @@ let render = (drawing: drawing<ModelOp.t>) => {
   )
   let tips =
     used == [] && !parents
-      ? ""
-      : `<defs>${used->Array.map(marker)->Array.join("")}${parents ? parentMarker : ""}</defs>`
-  let end = (attribute, arity) => arity == ModelOp.One ? "" : ` ${attribute}="url(#${markerId(arity)})"`
+      ? Draw.null
+      : <defs>
+          {used->Array.map(marker)->Draw.array}
+          {parents ? parentMarker : Draw.null}
+        </defs>
+  let end = arity => arity == ModelOp.One ? None : Some(`url(#${markerId(arity)})`)
   let links = pick(op =>
     switch op {
     | ModelOp.Link({from, to, points: [x0, y0, x1, y1, x2, y2, x3, y3]}) =>
       let (s0x, s0y) = stub(x0, y0, x1, y1, reach(from) *. straight)
       let (s3x, s3y) = stub(x3, y3, x2, y2, reach(to) *. straight)
       Some(
-        `<path class="model__link"${end("marker-start", from)}${end("marker-end", to)} d="M ${n(x0)} ${n(y0)} L ${n(s0x)} ${n(s0y)} C ${n(x1)} ${n(y1)}, ${n(x2)} ${n(y2)}, ${n(s3x)} ${n(s3y)} L ${n(x3)} ${n(y3)}" data-ends="${arityName(from)} ${arityName(to)}" />`,
+        <path
+          className="model__link"
+          markerStart=?{end(from)}
+          markerEnd=?{end(to)}
+          d={`M ${n(x0)} ${n(y0)} L ${n(s0x)} ${n(s0y)} C ${n(x1)} ${n(y1)}, ${n(x2)} ${n(y2)}, ${n(
+              s3x,
+            )} ${n(s3y)} L ${n(x3)} ${n(y3)}`}
+          dataEnds={`${arityName(from)} ${arityName(to)}`}
+        />,
       )
     | ModelOp.Parent({points: [x0, y0, x1, y1, x2, y2, x3, y3]}) =>
       let (s3x, s3y) = stub(x3, y3, x2, y2, parentReach *. straight)
       Some(
-        `<path class="model__link" marker-end="url(#${parentId})" d="M ${n(x0)} ${n(y0)} C ${n(x1)} ${n(y1)}, ${n(x2)} ${n(y2)}, ${n(s3x)} ${n(s3y)} L ${n(x3)} ${n(y3)}" data-parent="" />`,
+        <path
+          className="model__link"
+          markerEnd={`url(#${parentId})`}
+          d={`M ${n(x0)} ${n(y0)} C ${n(x1)} ${n(y1)}, ${n(x2)} ${n(y2)}, ${n(s3x)} ${n(s3y)} L ${n(
+              x3,
+            )} ${n(y3)}`}
+          dataParent=""
+        />,
       )
     | _ => None
     }
@@ -348,41 +400,86 @@ let render = (drawing: drawing<ModelOp.t>) => {
     switch op {
     | ModelOp.Table({x, y, width, height, name, tenant, kindX, valueX, columns}) =>
       let left = x +. pad
-      let (tone, tag) = switch tenant {
-      | Some(t) => (
-          ` model__table--tenant-${Int.toString(tenants->Array.indexOf(t))}`,
-          `<text class="model__tenant" text-anchor="end" x="${n(x +. width -. pad)}" y="${n(y +. headHeight /. 2. +. 4.)}">${escape(t)}</text>`,
+      let modifier =
+        tenant->Option.mapOr("", t =>
+          ` model__table--tenant-${Int.toString(tenants->Array.indexOf(t))}`
         )
-      | None => ("", "")
-      }
-      let rule =
-        columns == []
-          ? ""
-          : `<line class="model__rule" x1="${n(x)}" y1="${n(y +. headHeight)}" x2="${n(x +. width)}" y2="${n(y +. headHeight)}" />`
-      let rows = columns->Array.map(c =>
-        [
-          `<text class="model__column" x="${n(left)}" y="${n(c.y)}">${escape(c.name)}</text>`,
-          c.kind->Option.mapOr("", k => `<text class="model__type" x="${n(kindX)}" y="${n(c.y)}">${escape(k)}</text>`),
-          c.value->Option.mapOr("", v => `<text class="model__value" x="${n(valueX)}" y="${n(c.y)}">${escape(v)}</text>`),
-        ]->Array.join("")
-      )->Array.join("")
       Some(
-        `<g class="model__table${tone}"><rect x="${n(x)}" y="${n(y)}" width="${n(width)}" height="${n(height)}" /><text class="model__name" x="${n(left)}" y="${n(y +. headHeight /. 2. +. 4.)}">${escape(name)}</text>${tag}${rule}${rows}</g>`,
+        <g className={`model__table${modifier}`}>
+          <rect x={n(x)} y={n(y)} width={n(width)} height={n(height)} />
+          <text className="model__name" x={n(left)} y={n(y +. headHeight /. 2. +. 4.)}>
+            {text(name)}
+          </text>
+          {switch tenant {
+          | Some(t) =>
+            <text
+              className="model__tenant"
+              x={n(x +. width -. pad)}
+              y={n(y +. headHeight /. 2. +. 4.)}
+              textAnchor="end"
+            >
+              {text(t)}
+            </text>
+          | None => Draw.null
+          }}
+          {columns == []
+            ? Draw.null
+            : <line
+                className="model__rule"
+                x1={n(x)}
+                y1={n(y +. headHeight)}
+                x2={n(x +. width)}
+                y2={n(y +. headHeight)}
+              />}
+          {columns
+          ->Array.map(c =>
+            <>
+              <text className="model__column" x={n(left)} y={n(c.y)}> {text(c.name)} </text>
+              {switch c.kind {
+              | Some(k) => <text className="model__type" x={n(kindX)} y={n(c.y)}> {text(k)} </text>
+              | None => Draw.null
+              }}
+              {switch c.value {
+              | Some(v) =>
+                <text className="model__value" x={n(valueX)} y={n(c.y)}> {text(v)} </text>
+              | None => Draw.null
+              }}
+            </>
+          )
+          ->Draw.array}
+        </g>,
       )
     | _ => None
     }
   )
   let notes = pick(op =>
     switch op {
-    | ModelOp.Link({label: Some(({x, y, text}, anchor))})
-    | ModelOp.Parent({label: Some(({x, y, text}, anchor))}) =>
-      Some(`<text class="model__label" text-anchor="${anchor}" x="${n(x)}" y="${n(y)}">${escape(text)}</text>`)
+    | ModelOp.Link({label: Some(({x, y, text: said}, anchor))})
+    | ModelOp.Parent({label: Some(({x, y, text: said}, anchor))}) =>
+      Some(<text className="model__label" x={n(x)} y={n(y)} textAnchor=anchor> {text(said)} </text>)
     | _ => None
     }
   )
-  let label = drawing.caption->Option.getOr("A database schema")
-  let under = drawing.caption->Option.mapOr("", c =>
-    `<figcaption class="model__caption"><span class="model__title">${escape(c)}</span></figcaption>`
-  )
-  `<figure class="model"><svg class="model__svg" viewBox="${n(frame.left)} ${n(frame.top)} ${n(frame.width)} ${n(frame.height)}" width="${n(frame.width)}" height="${n(frame.height)}" role="img" aria-label="${escape(label)}">${tips}${links}${tables}${notes}</svg>${under}</figure>`
+  <figure className="model">
+    <svg
+      className="model__svg"
+      viewBox={`${n(frame.left)} ${n(frame.top)} ${n(frame.width)} ${n(frame.height)}`}
+      width={n(frame.width)}
+      height={n(frame.height)}
+      role="img"
+      ariaLabel={drawing.caption->Option.getOr("A database schema")}
+    >
+      tips
+      links
+      tables
+      notes
+    </svg>
+    {switch drawing.caption {
+    | Some(c) =>
+      <figcaption className="model__caption">
+        <span className="model__title"> {text(c)} </span>
+      </figcaption>
+    | None => Draw.null
+    }}
+  </figure>
 }
