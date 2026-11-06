@@ -1,0 +1,35 @@
+{
+  "name": "@epure/minidoc",
+  "version": "0.2.0",
+  "description": "Renamed to @minidoc/core. This package re-exports it.",
+  "author": "Gaspard Anna Bucher <g.a.bucher@midasum.com>",
+  "license": "MIT",
+  "homepage": "https://minidoc.dev",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/epuremethod/minidoc.git",
+    "directory": "packages/deprecated"
+  },
+  "type": "module",
+  "files": [
+    "index.mjs",
+    "index.d.ts",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "check": "node --test test/*.test.mjs",
+    "test": "node --test test/*.test.mjs"
+  },
+  "dependencies": {
+    "@minidoc/core": "workspace:^"
+  },
+  "main": "./index.mjs",
+  "types": "./index.d.ts"
+}

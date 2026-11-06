@@ -621,8 +621,9 @@ stand in for. `pnpm check` runs everything.
     page. This holds for a build script too. A `TypeError` or another bug
     keeps its stack.
   - The failure on a dev page has a close button.
-  - **Breaking:** the package is `@minidoc/core`, and the blocks are
-    `@minidoc/blocks`. `@epure/minidoc` is deprecated.
+  - The package is `@minidoc/core`, and the blocks are `@minidoc/blocks`.
+    `@epure/minidoc` 0.2.0 re-exports `@minidoc/core`, so existing code
+    keeps working, and is deprecated.
   - The `model` block draws a subclass: `Parent <- Child` is a line from the
     child to its parent, with a hollow triangle at the parent.
   - `dev` no longer reloads the page after a failed build. The page stays and

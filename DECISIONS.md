@@ -431,3 +431,18 @@ would have to learn. Refused too: dropping the site after the lead, such as
 
 Costs: a transform that throws a plain `Error` for a bug loses its stack,
 and one that throws a `TypeError` for a content error shows one.
+
+## 2026-11-05: `@epure/minidoc` lives on as a re-export
+
+`packages/deprecated` publishes `@epure/minidoc` 0.2.0, which depends on
+`@minidoc/core` and re-exports it, and npm marks it deprecated. A site on
+the former name keeps building and gets the fixes of `@minidoc/core` 0.2.x,
+with a warning at each install. This supersedes the cost named on
+2026-11-04: a site renames its dependency when it wants to, not at once.
+
+Refused: deprecating 0.1.1 alone, which leaves the former name behind every
+fix. Refused too: a ReScript module, as `vitest-bdd` had. No ReScript
+project uses the former name, and a second `Minidoc` module would clash
+with core's.
+
+Costs: a third package to publish while it lives.

@@ -24,6 +24,8 @@ One pnpm workspace. The root holds no code.
   HTML, `blocks.css`, two themes, and `viewer.js`, which opens a drawing full
   screen. Its scenarios are `packages/blocks/test/*.test.yaml`, and the site
   draws them on its Blocks page.
+- `packages/deprecated/` is `@epure/minidoc`, the former name. It
+  re-exports `@minidoc/core` and is published deprecated.
 - `packages/docs/` is the documentation site, package `minidoc-docs`, private. It is
   built with minidoc and deployed to GitHub Pages on every push to `main`.
 
