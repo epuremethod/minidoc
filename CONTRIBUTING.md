@@ -32,6 +32,12 @@ One pnpm workspace. The root holds no code.
 `pnpm build` at the root builds the package, then the site. `pnpm docs:dev` serves
 the site with minidoc's own dev server.
 
+`pnpm pub <core|blocks|deprecated>` at the root publishes a package at the
+version in its `package.json`, from a clean tree, after `pnpm check`. It tags
+core `v0.2.0` and blocks `blocks-v0.1.0`; `@epure/minidoc` gets no tag and
+is marked deprecated on npm. `--beta` publishes a dated beta and tags
+nothing. Publish core before `@epure/minidoc`, which depends on it.
+
 ## Scenarios
 
 The scenarios are YAML fixtures in `packages/core/test/*.test.yaml`, run by

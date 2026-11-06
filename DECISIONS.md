@@ -486,3 +486,16 @@ summary.
 
 Costs: two long plans rendered on one page by separate calls share
 `plan-1`, and a browser without `:has()` shows no todos.
+
+## 2026-11-06: One publish script for the three packages
+
+`bin/publish.sh` at the root publishes core, blocks or `@epure/minidoc`,
+named as its first argument, with the guards core's script had. Core keeps
+its `v0.2.0` tags, blocks takes `blocks-v0.1.0`, and `@epure/minidoc`,
+which only re-exports core, takes none.
+
+Refused: publishing blocks and `@epure/minidoc` by hand, which skips the
+clean-tree check and `pnpm check`. Refused too: a script in each package,
+three copies of the same guards.
+
+Costs: a publish runs the whole workspace's `pnpm check`, not one package's.
