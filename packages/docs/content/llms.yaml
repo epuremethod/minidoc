@@ -1,5 +1,5 @@
-# The llms.txt index and llms-full.txt, rendered from the guide and the API
-# folders. Base of the site config (docs/content/config.yaml) and of the
+# The llms.txt index and llms-full.txt, rendered from the guide, the API and
+# the blocks folders. Base of the site config (docs/content/config.yaml) and of the
 # package build (core/llms.yaml): each declares its own outputs.
 var:
   blurb: >-
@@ -17,6 +17,11 @@ var:
     glob: "*/*.md"
     transform: none
     each: "- [{{name}}](https://minidoc.dev/api.html#{{slug}}): {{summary}}"
+  # A blocks page has no summary of its own: its title says what it draws.
+  llmsBlocksLinks:
+    dir: blocks
+    transform: none
+    each: "- [{{title}}](https://minidoc.dev/blocks.html#{{slug}})"
   llmsGuide:
     dir: guide
     transform: none
@@ -40,14 +45,25 @@ var:
 
       {{body}}
     join: "\n\n"
+  # The prose of each blocks page; its plates are the package's fixtures, in
+  # packages/blocks/test, and stay out.
+  llmsBlocks:
+    dir: blocks
+    transform: none
+    each: |-
+      ## {{title}}
+
+      {{body}}
+    join: "\n\n"
   llmsTxt: |-
     # minidoc
 
     > {{blurb}}
 
     The guide tells minidoc as one story, in order; the API reference has one
-    entry for each function, config key, var kind, build entry, rule and type.
-    The complete documentation as one markdown file is in
+    entry for each function, config key, var kind, build entry, rule and type;
+    the blocks pages describe `@minidoc/blocks`, the `:::` blocks a site
+    adds with one transform. The complete documentation as one markdown file is in
     [llms-full.txt](https://minidoc.dev/llms-full.txt).
 
     ## Guide
@@ -58,10 +74,15 @@ var:
 
     {{llmsApiLinks}}
 
+    ## Blocks
+
+    {{llmsBlocksLinks}}
+
     ## Optional
 
     - [Example setup](https://github.com/epuremethod/minidoc/tree/main/packages/docs): this site's source — layout, config, build, dev
-    - [llms-full.txt](https://minidoc.dev/llms-full.txt): the full guide and API, one markdown file
+    - [llms-full.txt](https://minidoc.dev/llms-full.txt): the full guide, API and blocks, one markdown file
+    - [Blocks scenarios](https://github.com/epuremethod/minidoc/tree/main/packages/blocks/test): each block's markdown and what it reads and draws
     - [GitHub](https://github.com/epuremethod/minidoc): source, issues, releases
   llmsFullTxt: |-
     # minidoc — full documentation
@@ -75,3 +96,7 @@ var:
     # API
 
     {{llmsApi}}
+
+    # Blocks
+
+    {{llmsBlocks}}
