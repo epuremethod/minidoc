@@ -4,9 +4,10 @@ Read `CONTRIBUTING.md` and `DECISIONS.md` first.
 
 ## Commits
 
-Commit only when asked. A commit message is one line, with no body and no
-trailer, in the present tense and affirmative: "Add a plan block", not
-"Added a plan block" or "Don't draw empty plans". One commit per feature.
+Commit only when asked. Never commit on your own initiative.
+
+A commit message is one line, with no body and no trailers. Write it in the
+present tense, as an affirmative sentence: "Add a plan block".
 
 ## Blocks take their colours from the theme's fixed variables
 
