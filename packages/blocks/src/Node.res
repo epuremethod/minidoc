@@ -83,6 +83,16 @@ type step = {text: string, details: array<string>}
 type apiPart = {name: string, status: option<string>, caption: option<string>, value: JSON.t}
 type column = {title: option<string>, steps: array<step>}
 
+/** Where a stage of a plan stands. */
+type stageState =
+  | Done
+  | Doing
+  | NotStarted
+
+type todo = {text: string, done: bool}
+/** A stage of a plan: its state, its title, the message beside its number, and its todos. */
+type stage = {state: stageState, title: string, message: option<string>, todos: array<todo>}
+
 type rec t =
   | Markdown(string)
   | Callout({
@@ -109,6 +119,8 @@ type rec t =
   /** Where the blocks filed in the annexe are drawn. */
   | Annexe
   | Flow({label: string, columns: array<column>})
+  /** A plan holds stages, or todos only. */
+  | Plan({title: option<string>, stages: array<stage>, todos: array<todo>})
   | Dialog({owner: option<(string, string)>, title: option<string>, widgets: array<widget>})
   | Form({owner: option<(string, string)>, title: option<string>, widgets: array<widget>})
   | Screens({caption: option<string>, children: array<t>})

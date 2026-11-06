@@ -614,6 +614,11 @@ stand in for. `pnpm check` runs everything.
 ## Changelog
 
 - Unreleased
+  - The `plan` block shows where a piece of work stands: its stages as a
+    band, done, in progress or not started, with a message beside each,
+    and the todos under each stage. A plan of more than four stages lists
+    them one under the other, and a click on a stage shows its todos. A
+    theme sets `--tone-done` and `--tone-doing`.
   - An error met while writing an output starts with the output and the
     page it is made from: `brief-steward.html (brief/steward.md): …`.
   - `dev` and `watch` print a content error, a plain `Error`, as one line,

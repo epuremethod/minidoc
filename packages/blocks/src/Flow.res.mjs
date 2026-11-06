@@ -5,6 +5,7 @@ import * as Markdown from "./Markdown.res.mjs";
 import * as Stdlib_Array from "@rescript/runtime/lib/es6/Stdlib_Array.js";
 import * as Stdlib_Option from "@rescript/runtime/lib/es6/Stdlib_Option.js";
 import * as Primitive_object from "@rescript/runtime/lib/es6/Primitive_object.js";
+import * as Primitive_option from "@rescript/runtime/lib/es6/Primitive_option.js";
 
 function lists(md, body) {
   let top = [];
@@ -24,9 +25,11 @@ function lists(md, body) {
         openItems.pop();
         return;
       case "list_item_open" :
+        let line = Stdlib_Option.getOr(Stdlib_Option.flatMap(Primitive_option.fromNullable(token.map), m => m[0]), 0);
         let item = {
           text: undefined,
-          lists: []
+          lists: [],
+          line: line
         };
         Stdlib_Option.forEach(openLists.at(-1), list => {
           list.items.push(item);

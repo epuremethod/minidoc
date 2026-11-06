@@ -11,6 +11,8 @@ type rec token = {
   content: string,
   nesting: int,
   level: int,
+  /** The first and the last line of a block token, from 0. */
+  map: Nullable.t<array<int>>,
   children: Nullable.t<array<token>>,
 }
 

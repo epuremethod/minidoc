@@ -446,3 +446,43 @@ project uses the former name, and a second `Minidoc` module would clash
 with core's.
 
 Costs: a third package to publish while it lives.
+
+## 2026-11-06: A stage of a plan carries its state in its mark
+
+`2. [/] **Add a plan block** building`: `[x]` done, `[/]` in progress, `[ ]` not
+started, then the title in bold and a message. A done stage with an open
+todo stops the build.
+
+Refused: a state taken from the todos. A stage cannot then be waiting with
+nothing checked, and a stage with no todos has no state. Refused too: the
+message in braces, which hold a kind or a position in `states`.
+
+Costs: a done stage repeats what its checked todos already say.
+
+## 2026-11-06: Done and in progress are `--tone-done` and `--tone-doing`
+
+Every theme sets both. A stage not started draws in
+`--drawing-line-secondary` and `--blocks-muted`, and a stage's rule is as
+thick as `--quote-rule`.
+
+Refused: reusing `--tone-draft` and `--tone-proposed`. They name callout
+kinds, and graphic sets both to black, so done and in progress would look
+alike.
+
+Costs: two more variables for a theme to set.
+
+## 2026-11-06: A long plan picks its stage with radio buttons, not a script
+
+A plan of more than four stages draws each stage as a label around a
+hidden radio button, and CSS shows the todos of the checked one beside the
+list, with `:has()`. A page numbers its long plans, `plan-1`, `plan-2`, so
+each one's buttons form their own group. The grid has one row per stage,
+counted in `style="--plan-rows: 6"`, and a last row that takes what the
+todos need beyond the stages' height.
+
+Refused: a script, which a site would have to load as it loads
+`viewer.js`, and `<details>`, which cannot draw its body beside its
+summary.
+
+Costs: two long plans rendered on one page by separate calls share
+`plan-1`, and a browser without `:has()` shows no todos.

@@ -110,6 +110,22 @@ let rec lines = (node, pad) => {
         ]),
       ]),
     ]
+  | Plan({title, stages, todos}) =>
+    let todo = (t: todo, pad) => `${pad}todo${flag("done", t.done)} ${quote(t.text)}`
+    let state = s =>
+      switch s {
+      | Done => " done"
+      | Doing => " doing"
+      | NotStarted => ""
+      }
+    [
+      `${pad}plan${field("title", title)}`,
+      ...stages->Array.flatMap(s => [
+        `${inner}stage${state(s.state)} ${quote(s.title)}${field("message", s.message)}`,
+        ...s.todos->Array.map(t => todo(t, `${inner}  `)),
+      ]),
+      ...todos->Array.map(t => todo(t, inner)),
+    ]
   | Dialog({owner, title, widgets}) => [
       `${pad}ui-dialog${owner->Option.mapOr("", ((key, label)) => ` owner ${key} ${quote(label)}`)}${field(
           "title",

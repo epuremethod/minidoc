@@ -65,6 +65,54 @@
 .quote figcaption { margin-top: .7em; color: var(--blocks-muted); font-size: .85em; }
 .quote cite { color: var(--blocks-ink); font-style: normal; font-weight: 650; }
 
+/* Plans: a band of stages, each with its rule, then the todos under their
+   stage. A stage not started draws its rule in the secondary line colour. */
+
+.plan { --tone: var(--drawing-line-secondary); min-width: 0; margin: 1.25em 0; padding: 0; color: var(--blocks-ink); print-color-adjust: exact; }
+.plan__stage--done, .plan__group--done, .plan__todo--done { --tone: var(--tone-done); }
+.plan__stage--doing, .plan__group--doing { --tone: var(--tone-doing); }
+.plan__title { margin: 0 0 .9em; color: var(--blocks-muted); font-size: var(--callout-label-size); font-weight: 750; letter-spacing: var(--callout-label-tracking); text-transform: var(--callout-label-case); }
+.plan__stages { display: grid; grid-template-columns: repeat(auto-fit, minmax(7em, 1fr)); gap: 1em .5em; margin: 0; padding: 0; list-style: none; }
+.plan__stage { min-width: 0; margin: 0; padding-top: .6em; border-top: var(--quote-rule) solid var(--tone); }
+.plan__state { margin: 0; color: var(--blocks-muted); font-weight: 750; font-variant-numeric: tabular-nums; }
+.plan__stage--done .plan__state, .plan__stage--doing .plan__state { color: var(--blocks-ink); }
+.plan__stage--done .plan__number::after { content: " ✓"; color: var(--tone); }
+.plan__message { color: var(--tone); font-weight: 500; }
+.plan__stage:not(.plan__stage--done):not(.plan__stage--doing) .plan__message { color: var(--blocks-muted); }
+.plan__message::before { content: " · "; color: var(--blocks-muted); }
+.plan__count { margin-left: .5em; color: var(--blocks-muted); font-size: .85em; font-weight: 500; }
+.plan__name { margin: .15em 0 0; color: var(--blocks-muted); line-height: 1.35; overflow-wrap: anywhere; }
+.plan__stage--done .plan__name, .plan__stage--doing .plan__name { color: var(--blocks-ink); }
+.plan__todos { display: grid; grid-template-columns: repeat(auto-fit, minmax(13em, 1fr)); gap: 1.2em var(--flow-gap); margin-top: 1.4em; }
+.plan__group { min-width: 0; }
+.plan__heading { margin: 0 0 .5em; font-weight: 750; }
+.plan__heading .plan__number { margin-right: .3em; color: var(--blocks-muted); }
+.plan__list { margin: 0; padding: 0; list-style: none; }
+.plan__todo { position: relative; margin: .35em 0; padding-left: 1.7em; line-height: 1.4; }
+.plan__todo::before { content: ""; position: absolute; left: 0; top: .2em; box-sizing: border-box; width: 1em; height: 1em; border: var(--step-border) solid var(--blocks-stroke); border-radius: var(--ui-control-radius); background: var(--blocks-surface); }
+.plan__todo--done { color: var(--blocks-muted); }
+.plan__todo--done::before { border-color: var(--tone); background: var(--tone); }
+.plan__todo--done::after { content: "✓"; position: absolute; left: 0; top: .2em; width: 1em; color: var(--blocks-surface); font-size: 1em; font-weight: 750; line-height: 1; text-align: center; }
+
+/* A long plan: its stages one under the other, each a button, and the
+   todos of the chosen stage beside them. The last row of the grid takes
+   what the todos need beyond the stages' height. */
+
+.plan--long .plan__stages { grid-template-columns: minmax(10em, 16em) minmax(0, 1fr); grid-template-rows: repeat(var(--plan-rows), auto) 1fr; gap: .35em 0; }
+.plan__item { display: contents; }
+.plan--long .plan__stage { grid-column: 1; display: block; position: relative; margin: 0; padding: .45em .8em; border: 1px solid transparent; border-left: var(--quote-rule) solid var(--tone); border-radius: 0 var(--ui-control-radius) var(--ui-control-radius) 0; cursor: pointer; }
+.plan--long .plan__state, .plan--long .plan__name { display: block; }
+.plan--long .plan__stage:has(.plan__pick:checked) { border-color: var(--blocks-stroke); border-left-color: var(--tone); background: var(--blocks-surface); }
+.plan--long .plan__stage:has(.plan__pick:checked) .plan__name { font-weight: 650; }
+.plan--long .plan__stage:has(.plan__pick:focus-visible) { outline: 2px solid var(--blocks-ink); outline-offset: 2px; }
+.plan__pick { position: absolute; width: 1px; height: 1px; margin: 0; opacity: 0; pointer-events: none; }
+.plan--long .plan__group { display: none; grid-column: 2; grid-row: 1 / -1; min-width: 0; margin-left: var(--flow-gap); padding: .3em 0 .3em var(--flow-gap); border-left: 1px solid var(--blocks-line); }
+.plan--long .plan__item:has(.plan__pick:checked) .plan__group { display: block; }
+@media (max-width: 640px) {
+  .plan--long .plan__stages { grid-template-columns: minmax(0, 1fr); grid-template-rows: none; }
+  .plan--long .plan__group { grid-column: 1; grid-row: auto; margin: 0 0 .6em; padding: .2em 0 .2em 1em; }
+}
+
 /* Flows: columns of steps, an arrow between two steps. */
 
 /* Flows sit in a callout body, whose own list rules they override. */
@@ -247,5 +295,7 @@ marker[style] .states__tip { fill: color-mix(in srgb, var(--tone) var(--drawing-
 .table-wrap { overflow-x: auto; }
 
 @media print {
-  .callout, .quote, .ui-dialog, .ui-flow, .sequence, .states, .model, .api { break-inside: avoid; }
+  .callout, .quote, .ui-dialog, .ui-flow, .sequence, .states, .model, .api, .plan { break-inside: avoid; }
+  .plan--long .plan__stages { grid-template-columns: minmax(0, 1fr); grid-template-rows: none; }
+  .plan--long .plan__group { display: block; grid-column: 1; grid-row: auto; margin: 0 0 .6em; padding: .2em 0 .2em 1em; }
 }

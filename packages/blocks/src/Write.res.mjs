@@ -223,6 +223,26 @@ function lines(node, pad) {
           ]))
         ]))
       ]);
+    case "Plan" :
+      let todo = (t, pad) => pad + `todo` + flag("done", t.done) + ` ` + quote(t.text);
+      let state = s => {
+        switch (s) {
+          case "Done" :
+            return " done";
+          case "Doing" :
+            return " doing";
+          case "NotStarted" :
+            return "";
+        }
+      };
+      return Belt_Array.concatMany([
+        [pad + `plan` + field("title", node.title)],
+        node.stages.flatMap(s => Belt_Array.concatMany([
+          [inner + `stage` + state(s.state) + ` ` + quote(s.title) + field("message", s.message)],
+          s.todos.map(t => todo(t, inner + `  `))
+        ])),
+        node.todos.map(t => todo(t, inner))
+      ]);
     case "Dialog" :
       return Belt_Array.concatMany([
         [pad + `ui-dialog` + Stdlib_Option.mapOr(node.owner, "", param => ` owner ` + param[0] + ` ` + quote(param[1])) + field("title", node.title)],

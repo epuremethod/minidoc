@@ -72,6 +72,8 @@ type context = {
   apiLabels: dict<string>,
   extras: array<extra>,
   names: Scan.names,
+  /** The long plans drawn so far in the page, which name their stage buttons. */
+  mutable plans: int,
 }
 
 let context = (options: options) => {
@@ -95,6 +97,7 @@ let context = (options: options) => {
         "quote",
         "annexe",
         "flow",
+        "plan",
         "ui-dialog",
         "ui-form",
         "ui-flow",
@@ -103,6 +106,7 @@ let context = (options: options) => {
       ],
       fences: ["sequence", "states", "model", ...extras->Array.filter(isFence)->Array.map(e => e.name)],
     },
+    plans: 0,
   }
 }
 
@@ -193,6 +197,7 @@ let rec readIn = (ctx, page, source, offset) =>
         page.annexe = Some(line)
         Annexe
       | "flow" => Flow.read(ctx.md, body, "Flow")
+      | "plan" => Plan.read(ctx.md, info, body, line)
       | "ui-dialog" =>
         let (owner, title, widgets) = Screen.read(info, body, ctx.owners)
         Dialog({owner, title, widgets})
@@ -250,6 +255,12 @@ let rec renderIn = (ctx, nodes, env, filed, ~whole=false) =>
             ->Array.map(node => renderIn(ctx, [node], env, filed, ~whole=true))
             ->Array.join("")}</section>\n`
     | Flow({label, columns}) => Flow.render(ctx.md, label, columns)
+    | Plan({title, stages, todos}) =>
+      let long = Plan.long(stages)
+      if long {
+        ctx.plans = ctx.plans + 1
+      }
+      Plan.render(ctx.md, title, stages, todos, ~name=`plan-${Int.toString(ctx.plans)}`)
     | Dialog({owner, title, widgets}) => Screen.render(ctx.md, owner, title, widgets)
     | Form({owner, title, widgets}) => Screen.render(~form=true, ctx.md, owner, title, widgets)
     | Screens({caption, children}) => Screen.renderFlow(caption, renderIn(ctx, children, env, filed))
@@ -300,6 +311,7 @@ let readPage = (ctx, source) => {
 
 /** Render a whole page: references get their block's title, and filed blocks go to the annexe. */
 let renderPage = (ctx, nodes, env) => {
+  ctx.plans = 0
   let titles = Dict.make()
   let filed = []
   nodes->each(node =>

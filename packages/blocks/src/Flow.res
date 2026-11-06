@@ -6,10 +6,11 @@
 open Node
 
 type rec list = {ordered: bool, items: array<item>}
-and item = {mutable text: option<string>, lists: array<list>}
+and item = {mutable text: option<string>, lists: array<list>, line: int}
 
 // The lists of `body`, as markdown-it reads them: each item keeps the
-// source of its first line and the lists nested in it.
+// source of its first line, the lists nested in it, and its line in `body`,
+// from 0.
 let lists = (md, body) => {
   let top = []
   let openLists: array<list> = []
@@ -25,7 +26,8 @@ let lists = (md, body) => {
       openLists->Array.push(list)
     | "ordered_list_close" | "bullet_list_close" => openLists->Array.pop->ignore
     | "list_item_open" =>
-      let item = {text: None, lists: []}
+      let line = token.map->Nullable.toOption->Option.flatMap(m => m->Array.get(0))->Option.getOr(0)
+      let item = {text: None, lists: [], line}
       openLists->Array.at(-1)->Option.forEach(list => list.items->Array.push(item))
       openItems->Array.push(item)
     | "list_item_close" => openItems->Array.pop->ignore

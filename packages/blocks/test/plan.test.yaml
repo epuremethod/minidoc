@@ -1,0 +1,107 @@
+feature: Plans
+background:
+  given: a document
+examples:
+  - scenario: each top item is a stage, its mark is its state, and the bullets under it are its todos
+    before: |-
+      ::: plan Plans in maia
+      1. [x] **Fix the blocking bug** released
+      2. [/] **Add a plan block** building
+         - [x] Read the stages and their todos
+         - [ ] Draw the band
+      3. [ ] **Show plans in the maia MCP**
+      :::
+    after: |-
+      plan title "Plans in maia"
+        stage done "Fix the blocking bug" message "released"
+        stage doing "Add a plan block" message "building"
+          todo done "Read the stages and their todos"
+          todo "Draw the band"
+        stage "Show plans in the maia MCP"
+
+  - scenario: stages with no todos are only the overview, and a stage without bold text is all title
+    before: |-
+      ::: plan
+      1. [x] Move the packages to their scope
+      2. [/] Deprecate the former name
+      3. [ ] Publish the new packages
+      :::
+    after: |-
+      plan
+        stage done "Move the packages to their scope"
+        stage doing "Deprecate the former name"
+        stage "Publish the new packages"
+
+  - scenario: a plan of more than four stages reads the same, and its page shows one stage's todos at a time
+    before: |-
+      ::: plan The plans in radif
+      1. [x] **Fix the blocking bug** released
+         - [x] Reproduce the hang with several tabs open
+         - [x] Close the reload stream when the page is hidden
+      2. [x] **Add a plan block** released
+      3. [/] **Show plans in the maia MCP** waiting
+         - [x] Keep the current plan of each session
+         - [ ] Show the current stage in the header
+      4. [ ] **Move radif's plans into blocks**
+         - [ ] Find the plans kept as plain lists
+      5. [ ] **Drop radif's own plan page**
+      6. [ ] **Write the guide's chapter on plans**
+      :::
+    after: |-
+      plan title "The plans in radif"
+        stage done "Fix the blocking bug" message "released"
+          todo done "Reproduce the hang with several tabs open"
+          todo done "Close the reload stream when the page is hidden"
+        stage done "Add a plan block" message "released"
+        stage doing "Show plans in the maia MCP" message "waiting"
+          todo done "Keep the current plan of each session"
+          todo "Show the current stage in the header"
+        stage "Move radif's plans into blocks"
+          todo "Find the plans kept as plain lists"
+        stage "Drop radif's own plan page"
+        stage "Write the guide's chapter on plans"
+
+  - scenario: a bullet task list is only todos
+    before: |-
+      ::: plan Before the release
+      - [x] Update the changelog
+      - [X] Tag the version
+      - [ ] Publish the package
+      :::
+    after: |-
+      plan title "Before the release"
+        todo done "Update the changelog"
+        todo done "Tag the version"
+        todo "Publish the package"
+
+  - scenario: a done stage with an open todo stops the build, with the todo's line in the page
+    before: |-
+      ::: plan
+      1. [x] **Add a plan block**
+         - [x] Read the stages and their todos
+         - [ ] Draw the band
+      :::
+    error: "plan: an open todo in a done stage, line 4: Draw the band"
+
+  - scenario: a stage without a mark stops the build
+    before: |-
+      ::: plan
+      1. [x] **Fix the blocking bug**
+      2. **Add a plan block**
+      :::
+    error: "plan: a stage starts with [x], [/] or [ ], line 3: **Add a plan block**"
+
+  - scenario: a todo is done or open, never in progress
+    before: |-
+      ::: plan
+      1. [/] **Add a plan block**
+         - [/] Draw the band
+      :::
+    error: "plan: a todo starts with [x] or [ ], line 3: [/] Draw the band"
+
+  - scenario: a plan is a list
+    before: |-
+      ::: plan
+      Fix the bug, then add the block.
+      :::
+    error: "plan: a plan is a numbered list of stages or a bullet list of todos, line 1"

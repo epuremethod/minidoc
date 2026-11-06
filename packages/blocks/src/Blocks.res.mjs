@@ -3,6 +3,7 @@
 import * as Api from "./Api.res.mjs";
 import * as Flow from "./Flow.res.mjs";
 import * as Html from "./Html.res.mjs";
+import * as Plan from "./Plan.res.mjs";
 import * as Scan from "./Scan.res.mjs";
 import * as Model from "./Model.res.mjs";
 import * as Write from "./Write.res.mjs";
@@ -106,6 +107,7 @@ function context(options) {
           "quote",
           "annexe",
           "flow",
+          "plan",
           "ui-dialog",
           "ui-form",
           "ui-flow",
@@ -121,7 +123,8 @@ function context(options) {
         ],
         extras.filter(isFence).map(e => e.name)
       ])
-    }
+    },
+    plans: 0
   };
 }
 
@@ -277,6 +280,8 @@ function readIn(ctx, page, source, offset) {
           TAG: "Model",
           _0: Model.read(body, caption(info))
         };
+      case "plan" :
+        return Plan.read(ctx.md, info, body, line);
       case "quote" :
         let match = named(page, name, info, line);
         return {
@@ -384,6 +389,13 @@ function renderIn(ctx, nodes, env, filed, wholeOpt) {
         break;
       case "Flow" :
         return Flow.render(ctx.md, node.label, node.columns);
+      case "Plan" :
+        let stages = node.stages;
+        let long = Plan.long(stages);
+        if (long) {
+          ctx.plans = ctx.plans + 1 | 0;
+        }
+        return Plan.render(ctx.md, node.title, stages, node.todos, `plan-` + ctx.plans.toString());
       case "Dialog" :
         return Screen.render(undefined, ctx.md, node.owner, node.title, node.widgets);
       case "Form" :
@@ -457,6 +469,7 @@ function readPage(ctx, source) {
 }
 
 function renderPage(ctx, nodes, env) {
+  ctx.plans = 0;
   let titles = {};
   let filed = [];
   each(nodes, node => {

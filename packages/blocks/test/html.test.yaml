@@ -122,6 +122,141 @@ examples:
       </ol>
       </div></aside>
 
+  - scenario: a plan draws its stages as a band, then the todos under their stage
+    before: |-
+      ::: plan Plans in maia
+      1. [x] **Fix the blocking bug** released
+      2. [/] **Add a plan block** building
+         - [x] Read the stages and their todos
+         - [ ] Draw the band
+      3. [ ] **Show plans in the maia MCP**
+      :::
+    after: |-
+      <figure class="plan"><figcaption class="plan__title">Plans in maia</figcaption>
+      <ol class="plan__stages">
+      <li class="plan__stage plan__stage--done"><p class="plan__state"><span class="plan__number">1</span><span class="plan__message">released</span></p><p class="plan__name">Fix the blocking bug</p></li>
+      <li class="plan__stage plan__stage--doing"><p class="plan__state"><span class="plan__number">2</span><span class="plan__message">building</span><span class="plan__count">1/2</span></p><p class="plan__name">Add a plan block</p></li>
+      <li class="plan__stage"><p class="plan__state"><span class="plan__number">3</span></p><p class="plan__name">Show plans in the maia MCP</p></li>
+      </ol>
+      <div class="plan__todos">
+      <section class="plan__group plan__group--doing"><p class="plan__heading"><span class="plan__number">2</span> Add a plan block</p>
+      <ul class="plan__list">
+      <li class="plan__todo plan__todo--done">Read the stages and their todos</li>
+      <li class="plan__todo">Draw the band</li>
+      </ul>
+      </section>
+      </div>
+      </figure>
+
+  - scenario: a plan of todos only is their list
+    before: |-
+      ::: plan
+      - [x] Update the changelog
+      - [ ] Publish the package
+      :::
+    after: |-
+      <figure class="plan">
+      <ul class="plan__list">
+      <li class="plan__todo plan__todo--done">Update the changelog</li>
+      <li class="plan__todo">Publish the package</li>
+      </ul>
+      </figure>
+
+  - scenario: a plan of more than four stages draws each stage as a button, and the stage in progress shows its todos
+    before: |-
+      ::: plan
+      1. [x] **Fix the blocking bug** released
+         - [x] Close the reload stream
+      2. [/] **Add a plan block** building
+         - [ ] Draw the band
+      3. [ ] **Show plans in the maia MCP**
+      4. [ ] **Move radif's plans into blocks**
+      5. [ ] **Write the guide's chapter**
+      :::
+    after: |-
+      <figure class="plan plan--long">
+      <ol class="plan__stages" style="--plan-rows: 5">
+      <li class="plan__item"><label class="plan__stage plan__stage--done"><input class="plan__pick" type="radio" name="plan-1"><span class="plan__state"><span class="plan__number">1</span><span class="plan__message">released</span><span class="plan__count">1/1</span></span><span class="plan__name">Fix the blocking bug</span></label>
+      <section class="plan__group plan__group--done"><p class="plan__heading"><span class="plan__number">1</span> Fix the blocking bug</p>
+      <ul class="plan__list">
+      <li class="plan__todo plan__todo--done">Close the reload stream</li>
+      </ul>
+      </section></li>
+      <li class="plan__item"><label class="plan__stage plan__stage--doing"><input class="plan__pick" type="radio" name="plan-1" checked><span class="plan__state"><span class="plan__number">2</span><span class="plan__message">building</span><span class="plan__count">0/1</span></span><span class="plan__name">Add a plan block</span></label>
+      <section class="plan__group plan__group--doing"><p class="plan__heading"><span class="plan__number">2</span> Add a plan block</p>
+      <ul class="plan__list">
+      <li class="plan__todo">Draw the band</li>
+      </ul>
+      </section></li>
+      <li class="plan__item"><label class="plan__stage"><input class="plan__pick" type="radio" name="plan-1"><span class="plan__state"><span class="plan__number">3</span></span><span class="plan__name">Show plans in the maia MCP</span></label>
+      <section class="plan__group"><p class="plan__heading"><span class="plan__number">3</span> Show plans in the maia MCP</p>
+      </section></li>
+      <li class="plan__item"><label class="plan__stage"><input class="plan__pick" type="radio" name="plan-1"><span class="plan__state"><span class="plan__number">4</span></span><span class="plan__name">Move radif's plans into blocks</span></label>
+      <section class="plan__group"><p class="plan__heading"><span class="plan__number">4</span> Move radif's plans into blocks</p>
+      </section></li>
+      <li class="plan__item"><label class="plan__stage"><input class="plan__pick" type="radio" name="plan-1"><span class="plan__state"><span class="plan__number">5</span></span><span class="plan__name">Write the guide's chapter</span></label>
+      <section class="plan__group"><p class="plan__heading"><span class="plan__number">5</span> Write the guide's chapter</p>
+      </section></li>
+      </ol>
+      </figure>
+
+  - scenario: each long plan of a page has its own buttons, and a plan with every stage done shows its last one
+    before: |-
+      ::: plan
+      1. [x] One
+      2. [x] Two
+      3. [x] Three
+      4. [x] Four
+      5. [x] Five
+      :::
+
+      ::: plan
+      1. [ ] One
+      2. [ ] Two
+      3. [ ] Three
+      4. [ ] Four
+      5. [ ] Five
+      :::
+    after: |-
+      <figure class="plan plan--long">
+      <ol class="plan__stages" style="--plan-rows: 5">
+      <li class="plan__item"><label class="plan__stage plan__stage--done"><input class="plan__pick" type="radio" name="plan-1"><span class="plan__state"><span class="plan__number">1</span></span><span class="plan__name">One</span></label>
+      <section class="plan__group plan__group--done"><p class="plan__heading"><span class="plan__number">1</span> One</p>
+      </section></li>
+      <li class="plan__item"><label class="plan__stage plan__stage--done"><input class="plan__pick" type="radio" name="plan-1"><span class="plan__state"><span class="plan__number">2</span></span><span class="plan__name">Two</span></label>
+      <section class="plan__group plan__group--done"><p class="plan__heading"><span class="plan__number">2</span> Two</p>
+      </section></li>
+      <li class="plan__item"><label class="plan__stage plan__stage--done"><input class="plan__pick" type="radio" name="plan-1"><span class="plan__state"><span class="plan__number">3</span></span><span class="plan__name">Three</span></label>
+      <section class="plan__group plan__group--done"><p class="plan__heading"><span class="plan__number">3</span> Three</p>
+      </section></li>
+      <li class="plan__item"><label class="plan__stage plan__stage--done"><input class="plan__pick" type="radio" name="plan-1"><span class="plan__state"><span class="plan__number">4</span></span><span class="plan__name">Four</span></label>
+      <section class="plan__group plan__group--done"><p class="plan__heading"><span class="plan__number">4</span> Four</p>
+      </section></li>
+      <li class="plan__item"><label class="plan__stage plan__stage--done"><input class="plan__pick" type="radio" name="plan-1" checked><span class="plan__state"><span class="plan__number">5</span></span><span class="plan__name">Five</span></label>
+      <section class="plan__group plan__group--done"><p class="plan__heading"><span class="plan__number">5</span> Five</p>
+      </section></li>
+      </ol>
+      </figure>
+      <figure class="plan plan--long">
+      <ol class="plan__stages" style="--plan-rows: 5">
+      <li class="plan__item"><label class="plan__stage"><input class="plan__pick" type="radio" name="plan-2" checked><span class="plan__state"><span class="plan__number">1</span></span><span class="plan__name">One</span></label>
+      <section class="plan__group"><p class="plan__heading"><span class="plan__number">1</span> One</p>
+      </section></li>
+      <li class="plan__item"><label class="plan__stage"><input class="plan__pick" type="radio" name="plan-2"><span class="plan__state"><span class="plan__number">2</span></span><span class="plan__name">Two</span></label>
+      <section class="plan__group"><p class="plan__heading"><span class="plan__number">2</span> Two</p>
+      </section></li>
+      <li class="plan__item"><label class="plan__stage"><input class="plan__pick" type="radio" name="plan-2"><span class="plan__state"><span class="plan__number">3</span></span><span class="plan__name">Three</span></label>
+      <section class="plan__group"><p class="plan__heading"><span class="plan__number">3</span> Three</p>
+      </section></li>
+      <li class="plan__item"><label class="plan__stage"><input class="plan__pick" type="radio" name="plan-2"><span class="plan__state"><span class="plan__number">4</span></span><span class="plan__name">Four</span></label>
+      <section class="plan__group"><p class="plan__heading"><span class="plan__number">4</span> Four</p>
+      </section></li>
+      <li class="plan__item"><label class="plan__stage"><input class="plan__pick" type="radio" name="plan-2"><span class="plan__state"><span class="plan__number">5</span></span><span class="plan__name">Five</span></label>
+      <section class="plan__group"><p class="plan__heading"><span class="plan__number">5</span> Five</p>
+      </section></li>
+      </ol>
+      </figure>
+
   - scenario: a screen draws its bar, its text and each kind of widget
     options:
       ui-dialog:

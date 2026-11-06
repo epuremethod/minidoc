@@ -5,8 +5,8 @@ title: The package
 fixture: ""
 ---
 `@minidoc/blocks` gives every minidoc site the same `:::` blocks:
-callouts, quotes, flows, screen mockups, sequences, state machines and
-database models. A site passes one transform to `run`, and its pages can use
+callouts, quotes, flows, plans, screen mockups, sequences, state machines
+and database models. A site passes one transform to `run`, and its pages can use
 them all.
 
 ```sh
