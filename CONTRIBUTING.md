@@ -27,7 +27,7 @@ One pnpm workspace. The root holds no code.
 - `packages/docs/` is the documentation site, package `minidoc-docs`, private. It is
   built with minidoc and deployed to GitHub Pages on every push to `main`.
 
-`pnpm build` at the root builds the package, then the site. `pnpm dev` serves
+`pnpm build` at the root builds the package, then the site. `pnpm docs:dev` serves
 the site with minidoc's own dev server.
 
 ## Scenarios

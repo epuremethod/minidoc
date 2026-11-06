@@ -17,6 +17,6 @@ This is a pnpm workspace:
 ```sh
 pnpm install
 pnpm build     # build the package, then the site into packages/docs/dist
-pnpm dev       # minidoc's own dev server on the docs — watch, rebuild, live reload
+pnpm docs:dev  # minidoc's own dev server on the docs — watch, rebuild, live reload
 pnpm check     # everything the CI runs
 ```
