@@ -2,6 +2,12 @@
 
 Read `CONTRIBUTING.md` and `DECISIONS.md` first.
 
+## Commits
+
+Commit only when asked. A commit message is one line, with no body and no
+trailer, in the present tense and affirmative: "Add a plan block", not
+"Added a plan block" or "Don't draw empty plans". One commit per feature.
+
 ## Blocks take their colours from the theme's fixed variables
 
 Every block reads the same fixed set of variables, so that all blocks look
