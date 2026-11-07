@@ -784,3 +784,11 @@ repeat. Refused too: the editor's line for the source. A source has many
 lines, so it is a plain text box until a code editor is chosen.
 
 Costs: a drawing keeps its last good form only while it stays mounted.
+
+## 2026-11-07: minidoc is on ReScript 12.3.1
+
+`rescript` and `@rescript/runtime` are 12.3.1 in every package, as in the
+editor and maia. The compiled output did not change.
+
+Refused: staying on 12.3.0. maia builds minidoc's packages with its own
+compiler, and each build on one side cleaned the other's compiled files.

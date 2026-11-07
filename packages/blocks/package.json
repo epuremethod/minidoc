@@ -32,7 +32,7 @@
     "test:watch": "vitest"
   },
   "dependencies": {
-    "@rescript/runtime": "12.3.0",
+    "@rescript/runtime": "12.3.1",
     "markdown-it": "14.3.0",
     "markdown-it-anchor": "9.2.0",
     "yaml": "^2.8.0"
@@ -40,7 +40,7 @@
   "devDependencies": {
     "@epure/vitest": "^1.1.0",
     "@types/node": "^24.0.3",
-    "rescript": "12.3.0",
+    "rescript": "12.3.1",
     "typescript": "5.8.3",
     "vitest": "^3.2.3"
   },
