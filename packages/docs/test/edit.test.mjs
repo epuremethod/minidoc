@@ -7,7 +7,7 @@ import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
-import * as Page from "@minidoc/edit/src/Page.res.mjs";
+import * as Page from "@epure/minidoc/src/edit/Page.res.mjs";
 import { options } from "../src/options.mjs";
 
 const content = fileURLToPath(new URL("../content/", import.meta.url));

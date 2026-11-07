@@ -24,7 +24,7 @@ signature: |-
 
 ```js
 import { rm } from "node:fs/promises"
-import { run } from "@minidoc/core"
+import { run } from "@epure/minidoc"
 
 await rm("dist", { recursive: true, force: true })
 await run({ glob: "content/**/config.yaml" })

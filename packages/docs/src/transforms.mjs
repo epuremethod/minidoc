@@ -2,7 +2,7 @@
 // code fences colored by Prism: build-time only, the deployed page is still
 // static HTML. The `edit…` transforms write the dev page's editor and
 // write nothing in any other build.
-import { blocks } from "@minidoc/blocks";
+import { blocks } from "@epure/blocks";
 import { options } from "./options.mjs";
 
 const render = blocks(options);

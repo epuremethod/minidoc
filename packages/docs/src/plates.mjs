@@ -1,4 +1,4 @@
-// The `plates` transform: a fixture of @minidoc/blocks, drawn as one
+// The `plates` transform: a fixture of @epure/blocks, drawn as one
 // plate per scenario. Its value is the fixture's name. A plate has three
 // columns: the markdown an author writes, the nodes the reader gives, and
 // the page a reader sees. The page is a frame drawn as a screenshot, with
@@ -15,7 +15,7 @@
 
 import { readFileSync } from "node:fs";
 import { parse } from "yaml";
-import { read, render, write } from "@minidoc/blocks";
+import { read, render, write } from "@epure/blocks";
 
 const fixtures = new URL("../../blocks/test/", import.meta.url);
 

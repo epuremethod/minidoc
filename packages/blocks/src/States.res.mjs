@@ -3,12 +3,12 @@
 import * as Belt_Array from "@rescript/runtime/lib/es6/Belt_Array.js";
 import * as Stdlib_Array from "@rescript/runtime/lib/es6/Stdlib_Array.js";
 import * as Stdlib_Option from "@rescript/runtime/lib/es6/Stdlib_Option.js";
+import * as Draw$EpureBlocks from "./Draw.res.mjs";
+import * as Grid$EpureBlocks from "./Grid.res.mjs";
+import * as Html$EpureBlocks from "./Html.res.mjs";
 import * as Primitive_object from "@rescript/runtime/lib/es6/Primitive_object.js";
 import * as Primitive_option from "@rescript/runtime/lib/es6/Primitive_option.js";
-import * as Draw$MinidocBlocks from "./Draw.res.mjs";
-import * as Grid$MinidocBlocks from "./Grid.res.mjs";
-import * as Html$MinidocBlocks from "./Html.res.mjs";
-import * as Sequence$MinidocBlocks from "./Sequence.res.mjs";
+import * as Sequence$EpureBlocks from "./Sequence.res.mjs";
 
 let defaultKind = "step";
 
@@ -39,34 +39,34 @@ function readText(text, keys) {
     if (line.trim().startsWith("#")) {
       return;
     }
-    let d = Sequence$MinidocBlocks.directiveLine.exec(line.trim());
+    let d = Sequence$EpureBlocks.directiveLine.exec(line.trim());
     if (d == null) {
       if (past.contents) {
         let m = moveLine.exec(line);
         if (m == null) {
-          return Html$MinidocBlocks.fail(`states: cannot read the move at ` + at);
+          return Html$EpureBlocks.fail(`states: cannot read the move at ` + at);
         }
-        let match = Grid$MinidocBlocks.label(Stdlib_Option.getOr(Sequence$MinidocBlocks.capture(m, 3), ""));
+        let match = Grid$EpureBlocks.label(Stdlib_Option.getOr(Sequence$EpureBlocks.capture(m, 3), ""));
         let kind = match[3];
         Stdlib_Option.forEach(kind, kind => {
           if (Stdlib_Option.isNone(keys[kind])) {
-            return Html$MinidocBlocks.fail(`states: no kind called ` + kind + `, ` + at);
+            return Html$EpureBlocks.fail(`states: no kind called ` + kind + `, ` + at);
           }
         });
         moves.push({
-          from: Stdlib_Option.getOr(Sequence$MinidocBlocks.capture(m, 0), ""),
-          to: Stdlib_Option.getOr(Sequence$MinidocBlocks.capture(m, 2), ""),
+          from: Stdlib_Option.getOr(Sequence$EpureBlocks.capture(m, 0), ""),
+          to: Stdlib_Option.getOr(Sequence$EpureBlocks.capture(m, 2), ""),
           label: match[0],
           at: match[1],
           right: match[2],
           kind: kind,
-          both: Primitive_object.equal(Sequence$MinidocBlocks.capture(m, 1), "<->")
+          both: Primitive_object.equal(Sequence$EpureBlocks.capture(m, 1), "<->")
         });
         return;
       }
-      let cells = Grid$MinidocBlocks.cells(line);
+      let cells = Grid$EpureBlocks.cells(line);
       if (!cells.every(c => Stdlib_Option.mapOr(c, true, c => cellLine.test(c)))) {
-        Html$MinidocBlocks.fail(`states: cannot read the grid at ` + at);
+        Html$EpureBlocks.fail(`states: cannot read the grid at ` + at);
       }
       rows.push(cells.map(c => Stdlib_Option.map(c, c => {
         let match = c.split(":");
@@ -86,7 +86,7 @@ function readText(text, keys) {
         }
         let kind$1 = match$1[1];
         if (Stdlib_Option.isNone(keys[kind$1])) {
-          Html$MinidocBlocks.fail(`states: no kind called ` + kind$1 + `, ` + at);
+          Html$EpureBlocks.fail(`states: no kind called ` + kind$1 + `, ` + at);
         }
         return {
           name: match$1[0],
@@ -95,14 +95,14 @@ function readText(text, keys) {
       })));
       return;
     }
-    let name = Stdlib_Option.getOr(Sequence$MinidocBlocks.capture(d, 0), "");
+    let name = Stdlib_Option.getOr(Sequence$EpureBlocks.capture(d, 0), "");
     if (name !== "legend") {
-      Html$MinidocBlocks.fail(`states: no directive {` + name + `}, ` + at);
+      Html$EpureBlocks.fail(`states: no directive {` + name + `}, ` + at);
     }
     legend.contents = true;
   });
   if (rows.length === 0) {
-    Html$MinidocBlocks.fail("states: the grid is empty");
+    Html$EpureBlocks.fail("states: the grid is empty");
   }
   let placed = Stdlib_Array.filterMap(rows.flat(), c => c).map(c => c.name);
   moves.forEach(move => {
@@ -111,7 +111,7 @@ function readText(text, keys) {
       move.to
     ].forEach(end => {
       if (!placed.includes(end)) {
-        return Html$MinidocBlocks.fail(`states: no box called ` + end);
+        return Html$EpureBlocks.fail(`states: no box called ` + end);
       }
     });
   });
@@ -132,22 +132,22 @@ function read(text, caption, kinds) {
   ]));
   let match = readText(text, keys);
   let moves = match[1];
-  let match$1 = Grid$MinidocBlocks.place(undefined, match[0].map(row => row.map(c => Stdlib_Option.map(c, c => ({
+  let match$1 = Grid$EpureBlocks.place(undefined, match[0].map(row => row.map(c => Stdlib_Option.map(c, c => ({
     name: c.name,
-    w: Sequence$MinidocBlocks.width(c.name, 13) + 13 * 2,
+    w: Sequence$EpureBlocks.width(c.name, 13) + 13 * 2,
     h: 30,
     data: c.kind
   })))));
   let boxes = match$1[0];
-  let drawn = Grid$MinidocBlocks.route(moves.map(m => ({
+  let drawn = Grid$EpureBlocks.route(moves.map(m => ({
     from: m.from,
     to: m.to,
     label: m.label,
     at: m.at,
     right: m.right
   })), boxes);
-  let used = Sequence$MinidocBlocks.unique(boxes.map(b => b.data));
-  let marked = Sequence$MinidocBlocks.unique(Stdlib_Array.filterMap(moves, m => m.kind));
+  let used = Sequence$EpureBlocks.unique(boxes.map(b => b.data));
+  let marked = Sequence$EpureBlocks.unique(Stdlib_Array.filterMap(moves, m => m.kind));
   let key = (kind, move) => ({
     kind: kind,
     text: Stdlib_Option.getOr(keys[kind], kind),
@@ -157,7 +157,7 @@ function read(text, caption, kinds) {
     ops: Belt_Array.concatMany([
       [{
           TAG: "Frame",
-          _0: Grid$MinidocBlocks.frame(boxes, drawn, match$1[1])
+          _0: Grid$EpureBlocks.frame(boxes, drawn, match$1[1])
         }],
       boxes.map(b => ({
         TAG: "Box",
@@ -175,7 +175,7 @@ function read(text, caption, kinds) {
           kind: move.kind,
           both: move.both,
           points: d.points,
-          label: Grid$MinidocBlocks.placedText(d)
+          label: Grid$EpureBlocks.placedText(d)
         };
       })
     ]),
@@ -200,7 +200,7 @@ function tone(kind) {
 }
 
 function marker(kind) {
-  return Draw$MinidocBlocks.Elements.jsx("marker", {
+  return Draw$EpureBlocks.Elements.jsx("marker", {
     id: `states-tip` + Stdlib_Option.mapOr(kind, "", k => `-` + k),
     style: Stdlib_Option.flatMap(kind, tone),
     viewBox: "0 0 14 10",
@@ -210,7 +210,7 @@ function marker(kind) {
     markerHeight: "10",
     markerUnits: "userSpaceOnUse",
     orient: "auto-start-reverse",
-    children: Draw$MinidocBlocks.Elements.jsx("path", {
+    children: Draw$EpureBlocks.Elements.jsx("path", {
       class: "states__tip",
       d: "M 0 0 L 14 5 L 0 10 L 3.8 5 z"
     })
@@ -218,7 +218,7 @@ function marker(kind) {
 }
 
 function draw(drawing) {
-  let pick = f => Draw$MinidocBlocks.array(Stdlib_Array.filterMap(drawing.ops, f));
+  let pick = f => Draw$EpureBlocks.array(Stdlib_Array.filterMap(drawing.ops, f));
   let frame = Stdlib_Option.getOrThrow(Stdlib_Array.findMap(drawing.ops, op => {
     switch (op.TAG) {
       case "Frame" :
@@ -248,7 +248,7 @@ function draw(drawing) {
         let x3 = match[6];
         let y3 = match[7];
         let tip = `url(#` + Stdlib_Option.mapOr(kind, "states-tip", k => `states-tip-` + k) + `)`;
-        return Draw$MinidocBlocks.Elements.jsx("path", {
+        return Draw$EpureBlocks.Elements.jsx("path", {
           class: `states__move` + Stdlib_Option.mapOr(kind, "", k => ` states__move--` + k),
           style: Stdlib_Option.flatMap(kind, tone),
           "marker-start": op.both ? tip : undefined,
@@ -266,22 +266,22 @@ function draw(drawing) {
         let y = op.y;
         let x = op.x;
         let kind = op.kind;
-        return Draw$MinidocBlocks.Elements.jsxs("g", {
+        return Draw$EpureBlocks.Elements.jsxs("g", {
           class: `states__box states__box--` + kind,
           style: tone(kind),
-          children: Draw$MinidocBlocks.array([
-            Draw$MinidocBlocks.Elements.jsx("rect", {
+          children: Draw$EpureBlocks.array([
+            Draw$EpureBlocks.Elements.jsx("rect", {
               x: x.toString(),
               y: y.toString(),
               width: width.toString(),
               height: height.toString(),
               rx: "7"
             }),
-            Draw$MinidocBlocks.Elements.jsx("text", {
+            Draw$EpureBlocks.Elements.jsx("text", {
               x: (x + width / 2).toString(),
               y: (y + height / 2 + 4).toString(),
               "text-anchor": "middle",
-              children: Draw$MinidocBlocks.string(op.name)
+              children: Draw$EpureBlocks.string(op.name)
             })
           ])
         });
@@ -301,30 +301,30 @@ function draw(drawing) {
           return;
         }
         let match$1 = match[0];
-        return Draw$MinidocBlocks.Elements.jsx("text", {
+        return Draw$EpureBlocks.Elements.jsx("text", {
           class: "states__label",
           style: Stdlib_Option.flatMap(op.kind, tone),
           x: match$1.x.toString(),
           y: match$1.y.toString(),
           "text-anchor": match[1],
-          children: Draw$MinidocBlocks.string(match$1.text)
+          children: Draw$EpureBlocks.string(match$1.text)
         });
     }
   });
-  let title = Stdlib_Option.map(drawing.caption, c => Draw$MinidocBlocks.Elements.jsx("span", {
+  let title = Stdlib_Option.map(drawing.caption, c => Draw$EpureBlocks.Elements.jsx("span", {
     class: "states__title",
-    children: Draw$MinidocBlocks.string(c)
+    children: Draw$EpureBlocks.string(c)
   }));
-  let keyed = Primitive_object.equal(drawing.keys, []) ? undefined : Draw$MinidocBlocks.Elements.jsx("span", {
+  let keyed = Primitive_object.equal(drawing.keys, []) ? undefined : Draw$EpureBlocks.Elements.jsx("span", {
       class: "states__keys",
-      children: Draw$MinidocBlocks.array(drawing.keys.map(param => {
+      children: Draw$EpureBlocks.array(drawing.keys.map(param => {
         let kind = param.kind;
-        return Draw$MinidocBlocks.Elements.jsx("span", {
+        return Draw$EpureBlocks.Elements.jsx("span", {
           class: `states__key states__key--` + kind + (
             param.move ? " states__key--move" : ""
           ),
           style: tone(kind),
-          children: Draw$MinidocBlocks.string(param.text)
+          children: Draw$EpureBlocks.string(param.text)
         });
       }))
     });
@@ -332,7 +332,7 @@ function draw(drawing) {
     title,
     keyed
   ]);
-  let kinds = Sequence$MinidocBlocks.unique(Stdlib_Array.filterMap(drawing.ops, op => {
+  let kinds = Sequence$EpureBlocks.unique(Stdlib_Array.filterMap(drawing.ops, op => {
     switch (op.TAG) {
       case "Frame" :
       case "Box" :
@@ -341,19 +341,19 @@ function draw(drawing) {
         return op.kind;
     }
   }));
-  return Draw$MinidocBlocks.Elements.jsxs("figure", {
+  return Draw$EpureBlocks.Elements.jsxs("figure", {
     class: "states",
-    children: Draw$MinidocBlocks.array([
-      Draw$MinidocBlocks.Elements.jsxs("svg", {
+    children: Draw$EpureBlocks.array([
+      Draw$EpureBlocks.Elements.jsxs("svg", {
         class: "states__svg",
         viewBox: frame.left.toString() + ` ` + frame.top.toString() + ` ` + frame.width.toString() + ` ` + frame.height.toString(),
         width: frame.width.toString(),
         height: frame.height.toString(),
         role: "img",
         "aria-label": Stdlib_Option.getOr(drawing.caption, "A state machine"),
-        children: Draw$MinidocBlocks.array([
-          Draw$MinidocBlocks.Elements.jsx("defs", {
-            children: Draw$MinidocBlocks.array(Belt_Array.concatMany([
+        children: Draw$EpureBlocks.array([
+          Draw$EpureBlocks.Elements.jsx("defs", {
+            children: Draw$EpureBlocks.array(Belt_Array.concatMany([
               [undefined],
               kinds.map(k => k)
             ]).map(marker))
@@ -363,25 +363,25 @@ function draw(drawing) {
           notes
         ])
       }),
-      Primitive_object.equal(under, []) ? Draw$MinidocBlocks.$$null : Draw$MinidocBlocks.Elements.jsx("figcaption", {
+      Primitive_object.equal(under, []) ? Draw$EpureBlocks.$$null : Draw$EpureBlocks.Elements.jsx("figcaption", {
           class: "states__caption",
-          children: Draw$MinidocBlocks.array(under)
+          children: Draw$EpureBlocks.array(under)
         })
     ])
   });
 }
 
-let fail = Html$MinidocBlocks.fail;
+let fail = Html$EpureBlocks.fail;
 
-let width = Sequence$MinidocBlocks.width;
+let width = Sequence$EpureBlocks.width;
 
-let capture = Sequence$MinidocBlocks.capture;
+let capture = Sequence$EpureBlocks.capture;
 
 let boxHeight = 30;
 
 let pad = 13;
 
-let text = Draw$MinidocBlocks.string;
+let text = Draw$EpureBlocks.string;
 
 export {
   fail,

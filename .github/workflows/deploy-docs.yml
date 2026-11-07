@@ -5,7 +5,7 @@ on:
     branches:
       - main
     paths:
-      - packages/core/**
+      - packages/minidoc/**
       - packages/blocks/**
       - packages/docs/**
       - pnpm-lock.yaml

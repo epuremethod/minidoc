@@ -2,11 +2,11 @@
 
 import * as Stdlib_Array from "@rescript/runtime/lib/es6/Stdlib_Array.js";
 import * as Stdlib_Option from "@rescript/runtime/lib/es6/Stdlib_Option.js";
+import * as Draw$EpureBlocks from "./Draw.res.mjs";
 import * as Primitive_object from "@rescript/runtime/lib/es6/Primitive_object.js";
-import * as Draw$MinidocBlocks from "./Draw.res.mjs";
-import * as Scan$MinidocBlocks from "./Scan.res.mjs";
-import * as Markdown$MinidocBlocks from "./Markdown.res.mjs";
-import * as Sequence$MinidocBlocks from "./Sequence.res.mjs";
+import * as Scan$EpureBlocks from "./Scan.res.mjs";
+import * as Markdown$EpureBlocks from "./Markdown.res.mjs";
+import * as Sequence$EpureBlocks from "./Sequence.res.mjs";
 
 let buttonLine = new RegExp("^(?:(?:\\[\\[[^\\[\\]]+\\]\\]|\\[[^\\[\\]]+\\])\\*?\\s*)+$");
 
@@ -82,10 +82,10 @@ function paragraph(source) {
         parts.push({
           TAG: "Field",
           _0: {
-            label: Stdlib_Option.getOr(Sequence$MinidocBlocks.capture(match$1, 0), ""),
-            value: Sequence$MinidocBlocks.capture(match$1, 1),
-            select: Stdlib_Option.isSome(Sequence$MinidocBlocks.capture(match$1, 2)),
-            buttons: buttons(Stdlib_Option.getOr(Sequence$MinidocBlocks.capture(match$1, 3), ""))
+            label: Stdlib_Option.getOr(Sequence$EpureBlocks.capture(match$1, 0), ""),
+            value: Sequence$EpureBlocks.capture(match$1, 1),
+            select: Stdlib_Option.isSome(Sequence$EpureBlocks.capture(match$1, 2)),
+            buttons: buttons(Stdlib_Option.getOr(Sequence$EpureBlocks.capture(match$1, 3), ""))
           }
         });
       }
@@ -94,9 +94,9 @@ function paragraph(source) {
     if (Primitive_object.notequal(text, [])) {
       flush();
     }
-    let mark = Stdlib_Option.getOr(Sequence$MinidocBlocks.capture(match, 0), "");
+    let mark = Stdlib_Option.getOr(Sequence$EpureBlocks.capture(match, 0), "");
     options.push({
-      text: Stdlib_Option.getOr(Sequence$MinidocBlocks.capture(match, 1), ""),
+      text: Stdlib_Option.getOr(Sequence$EpureBlocks.capture(match, 1), ""),
       radio: mark.startsWith("("),
       on: mark.charAt(1).toLowerCase() === "x"
     });
@@ -106,7 +106,7 @@ function paragraph(source) {
 }
 
 function read(info, body, owners) {
-  let match = Scan$MinidocBlocks.split(info);
+  let match = Scan$EpureBlocks.split(info);
   let first = match[0];
   let label = owners[first];
   let match$1 = label !== undefined ? [
@@ -128,15 +128,15 @@ function read(info, body, owners) {
   ];
 }
 
-let nl = Draw$MinidocBlocks.string("\n");
+let nl = Draw$EpureBlocks.string("\n");
 
 function draw(formOpt, md, owner, title, widgets) {
   let form = formOpt !== undefined ? formOpt : false;
-  let inline = (key, source) => Draw$MinidocBlocks.field(key, source, undefined, Draw$MinidocBlocks.raw(md.renderInline(source, Markdown$MinidocBlocks.env())));
-  let plain = (key, value) => Draw$MinidocBlocks.field(key, value, undefined, Draw$MinidocBlocks.string(value));
-  let buttons = (list, at) => Draw$MinidocBlocks.array(list.map((b, i) => {
+  let inline = (key, source) => Draw$EpureBlocks.field(key, source, undefined, Draw$EpureBlocks.raw(md.renderInline(source, Markdown$EpureBlocks.env())));
+  let plain = (key, value) => Draw$EpureBlocks.field(key, value, undefined, Draw$EpureBlocks.string(value));
+  let buttons = (list, at) => Draw$EpureBlocks.array(list.map((b, i) => {
     let key = at + ` button ` + (i + 1 | 0).toString();
-    return Draw$MinidocBlocks.Elements.jsx("span", {
+    return Draw$EpureBlocks.Elements.jsx("span", {
       class: `ui-dialog__button` + (
         b.primary ? " ui-dialog__button--primary" : ""
       ) + (
@@ -149,11 +149,11 @@ function draw(formOpt, md, owner, title, widgets) {
     let at = `widget ` + (index + 1 | 0).toString();
     switch (w.TAG) {
       case "Text" :
-        return Draw$MinidocBlocks.raw(md.render(w._0, Markdown$MinidocBlocks.env()));
+        return Draw$EpureBlocks.raw(md.render(w._0, Markdown$EpureBlocks.env()));
       case "Actions" :
-        return Draw$MinidocBlocks.jsxs(Draw$MinidocBlocks.jsxFragment, {
-          children: Draw$MinidocBlocks.array([
-            Draw$MinidocBlocks.Elements.jsx("div", {
+        return Draw$EpureBlocks.jsxs(Draw$EpureBlocks.jsxFragment, {
+          children: Draw$EpureBlocks.array([
+            Draw$EpureBlocks.Elements.jsx("div", {
               class: "ui-dialog__actions",
               children: buttons(w._0, at)
             }),
@@ -161,11 +161,11 @@ function draw(formOpt, md, owner, title, widgets) {
           ])
         });
       case "Options" :
-        return Draw$MinidocBlocks.jsxs(Draw$MinidocBlocks.jsxFragment, {
-          children: Draw$MinidocBlocks.array([
-            Draw$MinidocBlocks.Elements.jsx("div", {
+        return Draw$EpureBlocks.jsxs(Draw$EpureBlocks.jsxFragment, {
+          children: Draw$EpureBlocks.array([
+            Draw$EpureBlocks.Elements.jsx("div", {
               class: "ui-dialog__options",
-              children: Draw$MinidocBlocks.array(w._0.map((c, i) => Draw$MinidocBlocks.Elements.jsx("div", {
+              children: Draw$EpureBlocks.array(w._0.map((c, i) => Draw$EpureBlocks.Elements.jsx("div", {
                 class: `ui-dialog__option ui-dialog__option--` + (
                   c.radio ? "radio" : "check"
                 ) + (
@@ -180,24 +180,24 @@ function draw(formOpt, md, owner, title, widgets) {
       case "Field" :
         let match = w._0;
         let list = match.buttons;
-        let input = Draw$MinidocBlocks.Elements.jsx("span", {
+        let input = Draw$EpureBlocks.Elements.jsx("span", {
           class: `ui-dialog__input` + (
             match.select ? " ui-dialog__input--select" : ""
           ),
           children: plain(at + ` value`, Stdlib_Option.getOr(match.value, ""))
         });
-        return Draw$MinidocBlocks.jsxs(Draw$MinidocBlocks.jsxFragment, {
-          children: Draw$MinidocBlocks.array([
-            Draw$MinidocBlocks.Elements.jsxs("div", {
+        return Draw$EpureBlocks.jsxs(Draw$EpureBlocks.jsxFragment, {
+          children: Draw$EpureBlocks.array([
+            Draw$EpureBlocks.Elements.jsxs("div", {
               class: "ui-dialog__field",
-              children: Draw$MinidocBlocks.array([
-                Draw$MinidocBlocks.Elements.jsx("span", {
+              children: Draw$EpureBlocks.array([
+                Draw$EpureBlocks.Elements.jsx("span", {
                   class: "ui-dialog__field-label",
                   children: inline(at + ` label`, match.label)
                 }),
-                Primitive_object.equal(list, []) ? input : Draw$MinidocBlocks.Elements.jsxs("span", {
+                Primitive_object.equal(list, []) ? input : Draw$EpureBlocks.Elements.jsxs("span", {
                     class: "ui-dialog__control",
-                    children: Draw$MinidocBlocks.array([
+                    children: Draw$EpureBlocks.array([
                       input,
                       buttons(list, at)
                     ])
@@ -215,32 +215,32 @@ function draw(formOpt, md, owner, title, widgets) {
   ) + Stdlib_Option.mapOr(owner, "", param => ` ui-dialog--` + param[0]);
   let style = Stdlib_Option.map(owner, param => `--tone: var(--tone-` + param[0] + `, var(--blocks-ink))`);
   let bar = Stdlib_Array.keepSome([
-    Stdlib_Option.map(owner, param => Draw$MinidocBlocks.Elements.jsx("span", {
+    Stdlib_Option.map(owner, param => Draw$EpureBlocks.Elements.jsx("span", {
       class: "ui-dialog__owner",
-      children: Draw$MinidocBlocks.string(param[1])
+      children: Draw$EpureBlocks.string(param[1])
     })),
-    Stdlib_Option.map(title, t => Draw$MinidocBlocks.Elements.jsx("span", {
+    Stdlib_Option.map(title, t => Draw$EpureBlocks.Elements.jsx("span", {
       class: "ui-dialog__title",
       children: plain("title", t)
     }))
   ]);
-  return Draw$MinidocBlocks.jsxs(Draw$MinidocBlocks.jsxFragment, {
-    children: Draw$MinidocBlocks.array([
-      Draw$MinidocBlocks.Elements.jsxs("div", {
+  return Draw$EpureBlocks.jsxs(Draw$EpureBlocks.jsxFragment, {
+    children: Draw$EpureBlocks.array([
+      Draw$EpureBlocks.Elements.jsxs("div", {
         class: className,
         style: style,
         role: "group",
         "aria-label": Stdlib_Option.mapOr(title, kind, t => kind + `: ` + t),
-        children: Draw$MinidocBlocks.array([
-          Primitive_object.equal(bar, []) ? Draw$MinidocBlocks.$$null : Draw$MinidocBlocks.Elements.jsx("div", {
+        children: Draw$EpureBlocks.array([
+          Primitive_object.equal(bar, []) ? Draw$EpureBlocks.$$null : Draw$EpureBlocks.Elements.jsx("div", {
               class: "ui-dialog__bar",
-              children: Draw$MinidocBlocks.array(bar)
+              children: Draw$EpureBlocks.array(bar)
             }),
-          Draw$MinidocBlocks.Elements.jsxs("div", {
+          Draw$EpureBlocks.Elements.jsxs("div", {
             class: "ui-dialog__body",
-            children: Draw$MinidocBlocks.array([
+            children: Draw$EpureBlocks.array([
               nl,
-              Draw$MinidocBlocks.array(widgets.map(part))
+              Draw$EpureBlocks.array(widgets.map(part))
             ])
           })
         ])
@@ -251,18 +251,18 @@ function draw(formOpt, md, owner, title, widgets) {
 }
 
 function drawFlow(caption, inner) {
-  return Draw$MinidocBlocks.jsxs(Draw$MinidocBlocks.jsxFragment, {
-    children: Draw$MinidocBlocks.array([
-      Draw$MinidocBlocks.Elements.jsxs("figure", {
+  return Draw$EpureBlocks.jsxs(Draw$EpureBlocks.jsxFragment, {
+    children: Draw$EpureBlocks.array([
+      Draw$EpureBlocks.Elements.jsxs("figure", {
         class: "ui-flow",
-        children: Draw$MinidocBlocks.array([
-          caption !== undefined ? Draw$MinidocBlocks.Elements.jsx("figcaption", {
+        children: Draw$EpureBlocks.array([
+          caption !== undefined ? Draw$EpureBlocks.Elements.jsx("figcaption", {
               class: "ui-flow__caption",
-              children: Draw$MinidocBlocks.string(caption)
-            }) : Draw$MinidocBlocks.$$null,
-          Draw$MinidocBlocks.Elements.jsxs("div", {
+              children: Draw$EpureBlocks.string(caption)
+            }) : Draw$EpureBlocks.$$null,
+          Draw$EpureBlocks.Elements.jsxs("div", {
             class: "ui-flow__steps",
-            children: Draw$MinidocBlocks.array([
+            children: Draw$EpureBlocks.array([
               nl,
               inner
             ])
@@ -274,9 +274,9 @@ function drawFlow(caption, inner) {
   });
 }
 
-let capture = Sequence$MinidocBlocks.capture;
+let capture = Sequence$EpureBlocks.capture;
 
-let text = Draw$MinidocBlocks.string;
+let text = Draw$EpureBlocks.string;
 
 export {
   buttonLine,

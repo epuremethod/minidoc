@@ -13,13 +13,11 @@
     "edit-check": "node test/edit-chrome.mjs"
   },
   "dependencies": {
-    "@minidoc/core": "workspace:*",
-    "@minidoc/blocks": "workspace:*",
+    "@epure/minidoc": "workspace:*",
+    "@epure/blocks": "workspace:*",
     "marked": "^18.0.7",
     "prismjs": "^1.30.0",
     "yaml": "^2.8.0",
-    "@minidoc/edit": "workspace:*",
-    "@minidoc/live": "workspace:*",
     "react": "^19.2.0",
     "react-dom": "^19.2.0"
   },

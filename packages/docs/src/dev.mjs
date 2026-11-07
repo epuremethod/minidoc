@@ -2,7 +2,7 @@
 // each page an editor of its markdown.
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
-import { dev } from "@minidoc/core";
+import { dev } from "@epure/minidoc";
 import { bundled } from "./bundle.mjs";
 
 // `--port` serves on that port for this run; the remembered one stays as written.
@@ -19,6 +19,6 @@ await dev({
   build: "src/build.mjs",
   edit: ["content"],
   // The site is built from the library next door — edit it, see it.
-  watch: ["../core/src", "../blocks/src", "../blocks/test", "../blocks/blocks.css", "../blocks/themes"],
+  watch: ["../minidoc/src", "../blocks/src", "../blocks/test", "../blocks/blocks.css", "../blocks/themes"],
   ...(values.port && { port: Number(values.port) }),
 });

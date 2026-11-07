@@ -1,10 +1,10 @@
 // A drawing of a block, made by the blocks' JSX: elements, text, the HTML
 // markdown-it gives for prose, and fields. `write` writes it as HTML;
-// `@minidoc/live` writes the same tree as React elements.
+// `@epure/blocks/live` writes the same tree as React elements.
 //
-// Each file that draws names this module with `@@jsxConfig`, besides
-// `rescript.json`: a project that builds this package as a dependency, such
-// as maia through `@minidoc/live`, would otherwise give it React's JSX.
+// Each file that draws names this module with `@@jsxConfig`: the
+// package's own JSX is React's, for live's files, and a project that builds
+// this package as a dependency, as maia does, gives it its own.
 
 /** What the person does to a block. A field is named by its key. */
 type act =

@@ -1,0 +1,105 @@
+{
+  "name": "@epure/minidoc",
+  "version": "0.2.0",
+  "description": "Small documentation website generator",
+  "author": "Gaspard Anna Bucher <g.a.bucher@midasum.com>",
+  "license": "MIT",
+  "homepage": "https://minidoc.dev",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/epuremethod/minidoc.git",
+    "directory": "packages/minidoc"
+  },
+  "type": "module",
+  "files": [
+    "src",
+    "dist",
+    "edit.css",
+    "rescript.json",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "rescript build && node esbuild.js && node bin/llms.mjs",
+    "check": "pnpm test && pnpm test:dev && pnpm test:package",
+    "prepack": "pnpm build",
+    "test": "rescript build && vitest run",
+    "test:dev": "rescript build && node --test test/dev.test.mjs",
+    "test:package": "pnpm build && node --test test/package.test.mjs",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@rescript/runtime": "12.3.1",
+    "marked": "^18.0.7",
+    "sury": "11.0.0-alpha.11",
+    "tilia": "^6.0.0",
+    "yaml": "^2.8.0"
+  },
+  "devDependencies": {
+    "@epure/blocks": "workspace:^",
+    "@epure/editor": "link:../../../editor/packages/editor",
+    "@epure/vitest": "^1.1.0",
+    "@rescript/react": "0.15.0",
+    "@tilia/editor": "link:../../../editor/packages/tilia",
+    "@tilia/react": "6.0.1",
+    "@types/node": "^24.0.3",
+    "esbuild": "^0.28.1",
+    "jsdom": "^30.1.1",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "rescript": "12.3.1",
+    "typescript": "5.8.3",
+    "vitest": "^3.2.3"
+  },
+  "types": "./dist/index.d.ts",
+  "peerDependencies": {
+    "@epure/blocks": "workspace:^",
+    "@epure/editor": "^0.1.0-beta.2",
+    "@tilia/editor": "^0.1.0-beta.2",
+    "@tilia/react": "^6.0.1",
+    "@rescript/react": "^0.15.0",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0"
+  },
+  "peerDependenciesMeta": {
+    "@epure/blocks": {
+      "optional": true
+    },
+    "@epure/editor": {
+      "optional": true
+    },
+    "@tilia/editor": {
+      "optional": true
+    },
+    "@tilia/react": {
+      "optional": true
+    },
+    "@rescript/react": {
+      "optional": true
+    },
+    "react": {
+      "optional": true
+    },
+    "react-dom": {
+      "optional": true
+    }
+  },
+  "main": "./dist/index.mjs",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.mjs"
+    },
+    "./edit": "./src/edit/Edit.res.mjs",
+    "./edit.css": "./edit.css",
+    "./src/*": "./src/*",
+    "./dist/*": "./dist/*",
+    "./package.json": "./package.json"
+  }
+}

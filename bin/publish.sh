@@ -3,20 +3,18 @@
 set -euo pipefail
 
 usage() {
-  echo "Usage: $0 <core|blocks|deprecated> [--beta]"
+  echo "Usage: $0 <minidoc|blocks> [--beta]"
   exit 1
 }
 
 package="${1:-}"
 mode="${2:-stable}"
 
-# A stable publish tags the commit: core keeps the `v0.2.0` tags it had
-# before the workspace, blocks gets its own prefix, and the former name,
-# which only re-exports core, gets no tag.
+# A stable publish tags the commit: minidoc keeps the `v0.1.1` tags it had
+# before the workspace, and blocks gets its own prefix.
 case "$package" in
-  core) prefix="v" ;;
+  minidoc) prefix="v" ;;
   blocks) prefix="blocks-v" ;;
-  deprecated) prefix="" ;;
   *) usage ;;
 esac
 
@@ -47,8 +45,8 @@ if [[ ! "$base_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
   exit 1
 fi
 
-git_tag="${prefix:+$prefix$base_version}"
-if [ "$mode" = "stable" ] && [ -n "$git_tag" ] &&
+git_tag="$prefix$base_version"
+if [ "$mode" = "stable" ] &&
   git rev-parse -q --verify "refs/tags/$git_tag" >/dev/null; then
   echo "Tag $git_tag already exists: bump the version first."
   exit 1
@@ -76,23 +74,25 @@ pnpm check
 
 cd "$dir"
 
-# `pnpm build` (run by prepack) writes dist/llms.txt and dist/llms-full.txt
-# from the docs guide: make sure they made it into the tarball.
-if [ "$package" = "core" ]; then
-  mkdir -p "$work/packs"
-  pnpm pack --pack-destination "$work/packs"
-  for file in llms.txt llms-full.txt; do
-    tar -tzf "$work"/packs/*.tgz | grep -qx "package/dist/$file"
-  done
-fi
+# The tarball holds what each subpath needs. For minidoc, `pnpm build` (run
+# by prepack) writes dist/llms.txt and dist/llms-full.txt from the docs
+# guide, and `/edit` is compiled in src/edit.
+case "$package" in
+  minidoc) shipped="dist/index.mjs dist/llms.txt dist/llms-full.txt src/edit/Edit.res.mjs edit.css" ;;
+  blocks) shipped="src/Blocks.res.mjs blocks.css src/live/Live.res.mjs live.css" ;;
+esac
+mkdir -p "$work/packs"
+pnpm pack --pack-destination "$work/packs"
+for file in $shipped; do
+  if ! tar -tzf "$work"/packs/*.tgz | grep -qx "package/$file"; then
+    echo "The tarball lacks $file."
+    exit 1
+  fi
+done
 
 pnpm publish --tag "$tag" --access public --no-git-checks
 
-if [ "$package" = "deprecated" ] && [ "$mode" = "stable" ]; then
-  npm deprecate "$name" "Renamed to @minidoc/core."
-fi
-
-if [ "$mode" = "stable" ] && [ -n "$git_tag" ]; then
+if [ "$mode" = "stable" ]; then
   git tag "$git_tag"
 fi
 

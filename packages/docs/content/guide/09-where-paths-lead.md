@@ -34,7 +34,7 @@ Sam's site uses the shared base, which lives outside Sam's project. The
 build allows that folder by name:
 
 ```js
-import { nodeFs, run } from "@minidoc/core"
+import { nodeFs, run } from "@epure/minidoc"
 
 await run({
   fs: nodeFs(".", { allow: ["../shared"] }),
@@ -52,7 +52,7 @@ takes it as `fs`. Without one, it uses Node's, rooted at the current folder.
 Mara's tests use the in-memory one instead:
 
 ```js
-import { makeMemoryFileSystem, run } from "@minidoc/core"
+import { makeMemoryFileSystem, run } from "@epure/minidoc"
 
 const fs = makeMemoryFileSystem({
   "config.yaml": "build:\n  - output: out.html\n    input: '<p>{{`site`}}</p>'\nvar:\n  site: marmot\n",

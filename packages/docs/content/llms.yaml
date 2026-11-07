@@ -62,7 +62,7 @@ var:
 
     The guide tells minidoc as one story, in order; the API reference has one
     entry for each function, config key, var kind, build entry, rule and type;
-    the blocks pages describe `@minidoc/blocks`, the `:::` blocks a site
+    the blocks pages describe `@epure/blocks`, the `:::` blocks a site
     adds with one transform. The complete documentation as one markdown file is in
     [llms-full.txt](https://minidoc.dev/llms-full.txt).
 

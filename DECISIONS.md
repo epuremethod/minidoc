@@ -891,3 +891,26 @@ Refused: changing the editor's display line for minidoc.
 
 Costs: a drawing after a paragraph sits 4 px higher than on the static
 page.
+
+## 2026-11-07: minidoc publishes `@epure/minidoc` and `@epure/blocks`, with subpaths
+
+The generator is `@epure/minidoc`, as 0.1.1 on npm is, in
+`packages/minidoc`. `dev`'s editor is its subpath `@epure/minidoc/edit`,
+in `src/edit`. The blocks are `@epure/blocks`, and live is its subpath
+`@epure/blocks/live`, in `src/live`, under one ReScript namespace,
+`EpureBlocks`. The editor, the blocks and React are optional peers, needed
+only by the subpaths. `src/edit` is a ReScript source of `"type": "dev"`,
+so a project that builds the generator from its ReScript never compiles
+it. This supersedes "The packages live in the `@minidoc` scope"
+(2026-11-04) and "The blocks and live packages carry ReScript namespaces"
+(2026-11-06). `pnpm pub` takes `minidoc` or `blocks`, and nothing is
+deprecated, since the re-export was never published.
+
+Refused: four packages, one for each of core, edit, blocks and live, which
+a site would have to keep at matching versions. Refused too: the
+`@minidoc` scope, beside an `@epure/minidoc` that users already install,
+and the editor bundled into `dist`, where a host could not share its React.
+
+Costs: a ReScript project that builds `@epure/blocks` compiles live too,
+and needs `@rescript/react`. Each package's `exports` lists `./src/*`,
+because ReScript output imports compiled files by path.

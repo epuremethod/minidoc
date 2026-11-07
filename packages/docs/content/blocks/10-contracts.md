@@ -11,7 +11,7 @@ around the blocks, with its anchors, its highlighted code and its wrapped
 tables, is held by `blocks/test/page.test.yaml`.
 
 Each block is drawn once, as a tree of elements, text, prose and fields.
-`draw` gives the tree, and `render` writes it as HTML. `@minidoc/live`
+`draw` gives the tree, and `render` writes it as HTML. `@epure/blocks/live`
 writes the same tree as React elements, and runs the same HTML contract:
 each of its scenarios must give the same DOM when drawn live.
 
@@ -27,7 +27,7 @@ A plan can be edited where it stands. Its marks are fields too, such as
 click or a key does: tick a todo, move a stage along, add or remove a
 todo or a stage. `edit` applies one of these to the block's source, and
 changes only the characters it touches. `blocks/test/edits.test.yaml`
-holds these edits, and `@minidoc/live` draws the plan with its inputs.
+holds these edits, and `@epure/blocks/live` draws the plan with its inputs.
 
 A theme sets variables and nothing else. Every colour comes from a
 `--tone-*` variable, and a block mixes its fill and its edge from it.

@@ -75,7 +75,7 @@ given to `run` by name:
 
 ```js
 // build.mjs
-import { run } from "@minidoc/core"
+import { run } from "@epure/minidoc"
 import { typescript } from "./highlight.mjs"
 
 await run({ glob: "content/**/config.yaml", transform: { typescript } })

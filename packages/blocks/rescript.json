@@ -1,10 +1,10 @@
 {
-  "name": "@minidoc/blocks",
-  "namespace": "MinidocBlocks",
+  "name": "@epure/blocks",
+  "namespace": "EpureBlocks",
   "sources": [
     {
       "dir": "src",
-      "subdirs": false
+      "subdirs": ["live"]
     }
   ],
   "package-specs": [
@@ -15,7 +15,7 @@
   ],
   "suffix": ".res.mjs",
   "jsx": {
-    "version": 4,
-    "module": "Draw"
-  }
+    "version": 4
+  },
+  "dependencies": ["@rescript/react"]
 }

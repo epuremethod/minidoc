@@ -3,13 +3,13 @@
 import * as Stdlib_Int from "@rescript/runtime/lib/es6/Stdlib_Int.js";
 import * as Stdlib_Array from "@rescript/runtime/lib/es6/Stdlib_Array.js";
 import * as Stdlib_Option from "@rescript/runtime/lib/es6/Stdlib_Option.js";
+import * as Draw$EpureBlocks from "./Draw.res.mjs";
+import * as Flow$EpureBlocks from "./Flow.res.mjs";
+import * as Html$EpureBlocks from "./Html.res.mjs";
 import * as Primitive_object from "@rescript/runtime/lib/es6/Primitive_object.js";
 import * as Primitive_option from "@rescript/runtime/lib/es6/Primitive_option.js";
-import * as Draw$MinidocBlocks from "./Draw.res.mjs";
-import * as Flow$MinidocBlocks from "./Flow.res.mjs";
-import * as Html$MinidocBlocks from "./Html.res.mjs";
-import * as Scan$MinidocBlocks from "./Scan.res.mjs";
-import * as Markdown$MinidocBlocks from "./Markdown.res.mjs";
+import * as Scan$EpureBlocks from "./Scan.res.mjs";
+import * as Markdown$EpureBlocks from "./Markdown.res.mjs";
 
 let mark = new RegExp("^\\[([ xX/])\\](?:\\s+(\\S.*))?$");
 
@@ -21,8 +21,8 @@ function at(line, item) {
 
 function marked(item) {
   return Stdlib_Option.map(Primitive_option.fromNullable(mark.exec(Stdlib_Option.getOr(item.text, ""))), m => [
-    Scan$MinidocBlocks.capture(m, 0),
-    Scan$MinidocBlocks.capture(m, 1)
+    Scan$EpureBlocks.capture(m, 0),
+    Scan$EpureBlocks.capture(m, 1)
   ]);
 }
 
@@ -50,7 +50,7 @@ function todo(line, item) {
       };
     }
   }
-  return Html$MinidocBlocks.fail(`plan: a todo starts with [x] or [ ], line ` + at(line, item).toString() + `: ` + Stdlib_Option.getOr(item.text, ""));
+  return Html$EpureBlocks.fail(`plan: a todo starts with [x] or [ ], line ` + at(line, item).toString() + `: ` + Stdlib_Option.getOr(item.text, ""));
 }
 
 function stage(line, item) {
@@ -78,7 +78,7 @@ function stage(line, item) {
         ];
     }
   } else {
-    match$1 = Html$MinidocBlocks.fail(`plan: a stage starts with [x], [/] or [ ], line ` + at(line, item).toString() + `: ` + Stdlib_Option.getOr(item.text, ""));
+    match$1 = Html$EpureBlocks.fail(`plan: a stage starts with [x], [/] or [ ], line ` + at(line, item).toString() + `: ` + Stdlib_Option.getOr(item.text, ""));
   }
   let rest = match$1[1];
   let state = match$1[0];
@@ -105,7 +105,7 @@ function stage(line, item) {
   if (state === "Done") {
     todos.forEach(t => {
       if (!t.done) {
-        return Html$MinidocBlocks.fail(`plan: an open todo in a done stage, line ` + t.line.toString() + `: ` + t.text);
+        return Html$EpureBlocks.fail(`plan: an open todo in a done stage, line ` + t.line.toString() + `: ` + t.text);
       }
     });
   }
@@ -120,7 +120,7 @@ function stage(line, item) {
 
 function read(md, info, body, line) {
   let title = info.trim() === "" ? undefined : info.trim();
-  let match = Flow$MinidocBlocks.lists(md, body)[0];
+  let match = Flow$EpureBlocks.lists(md, body)[0];
   if (match !== undefined) {
     if (match.ordered) {
       return {
@@ -140,7 +140,7 @@ function read(md, info, body, line) {
       };
     }
   } else {
-    return Html$MinidocBlocks.fail(`plan: a plan is a numbered list of stages or a bullet list of todos, line ` + line.toString());
+    return Html$EpureBlocks.fail(`plan: a plan is a numbered list of stages or a bullet list of todos, line ` + line.toString());
   }
 }
 
@@ -176,14 +176,14 @@ function shown(stages) {
   }
 }
 
-let nl = Draw$MinidocBlocks.string("\n");
+let nl = Draw$EpureBlocks.string("\n");
 
 function draw(md, title, stages, todos, name) {
-  let inline = (input, key, source) => Draw$MinidocBlocks.field(key, source, input, Draw$MinidocBlocks.raw(md.renderInline(source, Markdown$MinidocBlocks.env())));
+  let inline = (input, key, source) => Draw$EpureBlocks.field(key, source, input, Draw$EpureBlocks.raw(md.renderInline(source, Markdown$EpureBlocks.env())));
   let stageKey = index => `stage ` + (index + 1 | 0).toString();
-  let number = index => Draw$MinidocBlocks.Elements.jsx("span", {
+  let number = index => Draw$EpureBlocks.Elements.jsx("span", {
     class: "plan__number",
-    children: Draw$MinidocBlocks.string((index + 1 | 0).toString())
+    children: Draw$EpureBlocks.string((index + 1 | 0).toString())
   });
   let stageMark = s => {
     let match = s.state;
@@ -196,26 +196,26 @@ function draw(md, title, stages, todos, name) {
         return "[ ]";
     }
   };
-  let list = (todos, at) => Draw$MinidocBlocks.jsxs(Draw$MinidocBlocks.jsxFragment, {
-    children: Draw$MinidocBlocks.array([
-      Draw$MinidocBlocks.Elements.jsxs("ul", {
+  let list = (todos, at) => Draw$EpureBlocks.jsxs(Draw$EpureBlocks.jsxFragment, {
+    children: Draw$EpureBlocks.array([
+      Draw$EpureBlocks.Elements.jsxs("ul", {
         class: "plan__list",
-        children: Draw$MinidocBlocks.array([
+        children: Draw$EpureBlocks.array([
           nl,
-          Draw$MinidocBlocks.joined(todos.map((t, i) => {
+          Draw$EpureBlocks.joined(todos.map((t, i) => {
             let key = at + `todo ` + (i + 1 | 0).toString();
-            return Draw$MinidocBlocks.Elements.jsxs("li", {
+            return Draw$EpureBlocks.Elements.jsxs("li", {
               class: `plan__todo` + (
                 t.done ? " plan__todo--done" : ""
               ),
-              children: Draw$MinidocBlocks.array([
-                Draw$MinidocBlocks.field(key + ` mark`, t.done ? "[x]" : "[ ]", {
+              children: Draw$EpureBlocks.array([
+                Draw$EpureBlocks.field(key + ` mark`, t.done ? "[x]" : "[ ]", {
                   TAG: "Clicked",
                   _0: {
                     TAG: "Tick",
                     _0: key
                   }
-                }, Draw$MinidocBlocks.$$null),
+                }, Draw$EpureBlocks.$$null),
                 inline({
                   TAG: "Typed",
                   enter: (before, after) => ({
@@ -246,18 +246,18 @@ function draw(md, title, stages, todos, name) {
         _0: stageKey(index)
       }) : undefined
   }, stageKey(index) + ` title`, s.title);
-  let line = (index, s) => Draw$MinidocBlocks.Elements.jsxs("span", {
+  let line = (index, s) => Draw$EpureBlocks.Elements.jsxs("span", {
     class: "plan__line",
-    children: Draw$MinidocBlocks.array([
-      Draw$MinidocBlocks.field(stageKey(index) + ` mark`, stageMark(s), {
+    children: Draw$EpureBlocks.array([
+      Draw$EpureBlocks.field(stageKey(index) + ` mark`, stageMark(s), {
         TAG: "Clicked",
         _0: {
           TAG: "MoveAlong",
           _0: stageKey(index)
         }
       }, number(index)),
-      Draw$MinidocBlocks.string(" "),
-      Draw$MinidocBlocks.Elements.jsx("span", {
+      Draw$EpureBlocks.string(" "),
+      Draw$EpureBlocks.Elements.jsx("span", {
         class: "plan__name",
         children: name$p(index, s)
       })
@@ -267,12 +267,12 @@ function draw(md, title, stages, todos, name) {
     let key = stageKey(index) + ` message`;
     let m = s.message;
     if (m !== undefined) {
-      return Draw$MinidocBlocks.Elements.jsx("span", {
+      return Draw$EpureBlocks.Elements.jsx("span", {
         class: "plan__message",
         children: inline(undefined, key, m)
       });
     } else {
-      return Draw$MinidocBlocks.edited(Draw$MinidocBlocks.Elements.jsx("span", {
+      return Draw$EpureBlocks.edited(Draw$EpureBlocks.Elements.jsx("span", {
         class: "plan__message",
         children: inline(undefined, key, "")
       }));
@@ -280,24 +280,24 @@ function draw(md, title, stages, todos, name) {
   };
   let addTodo = (index, s) => {
     if (Primitive_object.equal(s.todos, [])) {
-      return Draw$MinidocBlocks.act({
+      return Draw$EpureBlocks.act({
         TAG: "AddTodoIn",
         _0: stageKey(index)
-      }, Draw$MinidocBlocks.Elements.jsx("p", {
+      }, Draw$EpureBlocks.Elements.jsx("p", {
         class: "plan__add",
-        children: Draw$MinidocBlocks.string("+ todo")
+        children: Draw$EpureBlocks.string("+ todo")
       }));
     } else {
-      return Draw$MinidocBlocks.$$null;
+      return Draw$EpureBlocks.$$null;
     }
   };
-  let heading = (index, s) => Draw$MinidocBlocks.jsxs(Draw$MinidocBlocks.jsxFragment, {
-    children: Draw$MinidocBlocks.array([
-      Draw$MinidocBlocks.Elements.jsxs("p", {
+  let heading = (index, s) => Draw$EpureBlocks.jsxs(Draw$EpureBlocks.jsxFragment, {
+    children: Draw$EpureBlocks.array([
+      Draw$EpureBlocks.Elements.jsxs("p", {
         class: "plan__heading",
-        children: Draw$MinidocBlocks.array([
+        children: Draw$EpureBlocks.array([
           number(index),
-          Draw$MinidocBlocks.string(" "),
+          Draw$EpureBlocks.string(" "),
           name$p(index, s)
         ])
       }),
@@ -306,17 +306,17 @@ function draw(md, title, stages, todos, name) {
   });
   let todosOf = (index, s) => list(s.todos, stageKey(index) + ` `);
   let first = shown(stages);
-  let addStage = Draw$MinidocBlocks.act("AddStage", Draw$MinidocBlocks.Elements.jsx("p", {
+  let addStage = Draw$EpureBlocks.act("AddStage", Draw$EpureBlocks.Elements.jsx("p", {
     class: "plan__add",
-    children: Draw$MinidocBlocks.string("+ stage")
+    children: Draw$EpureBlocks.string("+ stage")
   }));
   let groups = Stdlib_Array.keepSome(stages.map((s, i) => {
     if (Primitive_object.equal(s.todos, [])) {
       return;
     } else {
-      return Draw$MinidocBlocks.Elements.jsxs("section", {
+      return Draw$EpureBlocks.Elements.jsxs("section", {
         class: `plan__group` + modifier("plan__group", s.state),
-        children: Draw$MinidocBlocks.array([
+        children: Draw$EpureBlocks.array([
           heading(i, s),
           todosOf(i, s)
         ])
@@ -324,20 +324,20 @@ function draw(md, title, stages, todos, name) {
     }
   }));
   let body = Primitive_object.equal(stages, []) ? list(todos, "") : (
-      stages.length > 4 ? Draw$MinidocBlocks.jsxs(Draw$MinidocBlocks.jsxFragment, {
-          children: Draw$MinidocBlocks.array([
-            Draw$MinidocBlocks.Elements.jsxs("ol", {
+      stages.length > 4 ? Draw$EpureBlocks.jsxs(Draw$EpureBlocks.jsxFragment, {
+          children: Draw$EpureBlocks.array([
+            Draw$EpureBlocks.Elements.jsxs("ol", {
               class: "plan__stages",
               style: `--plan-rows: ` + stages.length.toString(),
-              children: Draw$MinidocBlocks.array([
+              children: Draw$EpureBlocks.array([
                 nl,
-                Draw$MinidocBlocks.joined(stages.map((s, i) => Draw$MinidocBlocks.Elements.jsxs("li", {
+                Draw$EpureBlocks.joined(stages.map((s, i) => Draw$EpureBlocks.Elements.jsxs("li", {
                   class: "plan__item",
-                  children: Draw$MinidocBlocks.array([
-                    Draw$MinidocBlocks.Elements.jsxs("label", {
+                  children: Draw$EpureBlocks.array([
+                    Draw$EpureBlocks.Elements.jsxs("label", {
                       class: `plan__stage` + modifier("plan__stage", s.state),
-                      children: Draw$MinidocBlocks.array([
-                        Draw$MinidocBlocks.Elements.jsx("input", {
+                      children: Draw$EpureBlocks.array([
+                        Draw$EpureBlocks.Elements.jsx("input", {
                           class: "plan__pick",
                           type: "radio",
                           name: name,
@@ -348,9 +348,9 @@ function draw(md, title, stages, todos, name) {
                       ])
                     }),
                     nl,
-                    Draw$MinidocBlocks.Elements.jsxs("section", {
+                    Draw$EpureBlocks.Elements.jsxs("section", {
                       class: `plan__group` + modifier("plan__group", s.state),
-                      children: Draw$MinidocBlocks.array([
+                      children: Draw$EpureBlocks.array([
                         heading(i, s),
                         Primitive_object.equal(s.todos, []) ? addTodo(i, s) : todosOf(i, s)
                       ])
@@ -363,15 +363,15 @@ function draw(md, title, stages, todos, name) {
             nl,
             addStage
           ])
-        }) : Draw$MinidocBlocks.jsxs(Draw$MinidocBlocks.jsxFragment, {
-          children: Draw$MinidocBlocks.array([
-            Draw$MinidocBlocks.Elements.jsxs("ol", {
+        }) : Draw$EpureBlocks.jsxs(Draw$EpureBlocks.jsxFragment, {
+          children: Draw$EpureBlocks.array([
+            Draw$EpureBlocks.Elements.jsxs("ol", {
               class: "plan__stages",
-              children: Draw$MinidocBlocks.array([
+              children: Draw$EpureBlocks.array([
                 nl,
-                Draw$MinidocBlocks.joined(stages.map((s, i) => Draw$MinidocBlocks.Elements.jsxs("li", {
+                Draw$EpureBlocks.joined(stages.map((s, i) => Draw$EpureBlocks.Elements.jsxs("li", {
                   class: `plan__stage` + modifier("plan__stage", s.state),
-                  children: Draw$MinidocBlocks.array([
+                  children: Draw$EpureBlocks.array([
                     line(i, s),
                     message(i, s),
                     addTodo(i, s)
@@ -382,13 +382,13 @@ function draw(md, title, stages, todos, name) {
             }),
             nl,
             addStage,
-            Primitive_object.equal(groups, []) ? Draw$MinidocBlocks.$$null : Draw$MinidocBlocks.jsxs(Draw$MinidocBlocks.jsxFragment, {
-                children: Draw$MinidocBlocks.array([
-                  Draw$MinidocBlocks.Elements.jsxs("div", {
+            Primitive_object.equal(groups, []) ? Draw$EpureBlocks.$$null : Draw$EpureBlocks.jsxs(Draw$EpureBlocks.jsxFragment, {
+                children: Draw$EpureBlocks.array([
+                  Draw$EpureBlocks.Elements.jsxs("div", {
                     class: "plan__todos",
-                    children: Draw$MinidocBlocks.array([
+                    children: Draw$EpureBlocks.array([
                       nl,
-                      Draw$MinidocBlocks.joined(groups, "\n"),
+                      Draw$EpureBlocks.joined(groups, "\n"),
                       nl
                     ])
                   }),
@@ -398,23 +398,23 @@ function draw(md, title, stages, todos, name) {
           ])
         })
     );
-  return Draw$MinidocBlocks.jsxs(Draw$MinidocBlocks.jsxFragment, {
-    children: Draw$MinidocBlocks.array([
-      Draw$MinidocBlocks.Elements.jsxs("figure", {
+  return Draw$EpureBlocks.jsxs(Draw$EpureBlocks.jsxFragment, {
+    children: Draw$EpureBlocks.array([
+      Draw$EpureBlocks.Elements.jsxs("figure", {
         class: `plan` + (
           stages.length > 4 ? " plan--long" : ""
         ),
-        children: Draw$MinidocBlocks.array([
-          title !== undefined ? Draw$MinidocBlocks.jsxs(Draw$MinidocBlocks.jsxFragment, {
-              children: Draw$MinidocBlocks.array([
-                Draw$MinidocBlocks.Elements.jsx("figcaption", {
+        children: Draw$EpureBlocks.array([
+          title !== undefined ? Draw$EpureBlocks.jsxs(Draw$EpureBlocks.jsxFragment, {
+              children: Draw$EpureBlocks.array([
+                Draw$EpureBlocks.Elements.jsx("figcaption", {
                   class: "plan__title",
                   children: inline(undefined, "title", title)
                 }),
                 nl
               ])
-            }) : Draw$MinidocBlocks.jsxs(Draw$MinidocBlocks.jsxFragment, {
-              children: Draw$MinidocBlocks.array([
+            }) : Draw$EpureBlocks.jsxs(Draw$EpureBlocks.jsxFragment, {
+              children: Draw$EpureBlocks.array([
                 inline(undefined, "title", ""),
                 nl
               ])
@@ -442,18 +442,18 @@ function cut(pattern, text, marks) {
   if (m == null) {
     return;
   }
-  let head = Stdlib_Array.fromInitializer(marks, i => Scan$MinidocBlocks.capture(m, i)).join("") + "[";
-  let rest = spaced.exec(Scan$MinidocBlocks.capture(m, marks + 1 | 0));
+  let head = Stdlib_Array.fromInitializer(marks, i => Scan$EpureBlocks.capture(m, i)).join("") + "[";
+  let rest = spaced.exec(Scan$EpureBlocks.capture(m, marks + 1 | 0));
   let match = Stdlib_Option.mapOr((rest == null) ? undefined : Primitive_option.some(rest), [
     "",
     ""
   ], r => [
-    Scan$MinidocBlocks.capture(r, 0),
-    Scan$MinidocBlocks.capture(r, 1)
+    Scan$EpureBlocks.capture(r, 0),
+    Scan$EpureBlocks.capture(r, 1)
   ]);
   return {
     head: head,
-    mark: Scan$MinidocBlocks.capture(m, marks),
+    mark: Scan$EpureBlocks.capture(m, marks),
     space: match[0],
     words: match[1]
   };
@@ -483,10 +483,10 @@ function words(text) {
     };
   } else {
     return {
-      bold: Scan$MinidocBlocks.capture(m, 0),
-      title: Scan$MinidocBlocks.capture(m, 1),
-      gap: Scan$MinidocBlocks.capture(m, 2),
-      message: Scan$MinidocBlocks.capture(m, 3)
+      bold: Scan$EpureBlocks.capture(m, 0),
+      title: Scan$EpureBlocks.capture(m, 1),
+      gap: Scan$EpureBlocks.capture(m, 2),
+      message: Scan$EpureBlocks.capture(m, 3)
     };
   }
 }
@@ -551,9 +551,9 @@ function place(key) {
   if (m == null) {
     return;
   }
-  let match = Scan$MinidocBlocks.capture(m, 0);
-  let match$1 = Scan$MinidocBlocks.capture(m, 1);
-  let match$2 = Scan$MinidocBlocks.capture(m, 2);
+  let match = Scan$EpureBlocks.capture(m, 0);
+  let match$1 = Scan$EpureBlocks.capture(m, 1);
+  let match$2 = Scan$EpureBlocks.capture(m, 2);
   let exit = 0;
   if (match === "" && match$1 === "") {
     if (match$2 === "title") {
@@ -637,7 +637,7 @@ function todoKey(stage, todo) {
 
 function edit(source, stages, todos, line, act) {
   let lines = source.split("\n");
-  let fail = reason => Html$MinidocBlocks.fail(`plan: ` + reason);
+  let fail = reason => Html$EpureBlocks.fail(`plan: ` + reason);
   let unknown = key => fail(`no field "` + key + `" in this plan`);
   let where = key => Stdlib_Option.getOrThrow(place(key), `plan: no field "` + key + `" in this plan`);
   let stage = index => Stdlib_Option.getOrThrow(stages[index], "plan: no such stage");
@@ -693,9 +693,9 @@ function edit(source, stages, todos, line, act) {
     if (last !== undefined) {
       let parts = stageParts(last.line);
       let m = stageLine.exec(get(last.line));
-      let number = (m == null) ? stages.length + 1 | 0 : Stdlib_Option.getOr(Stdlib_Int.fromString(Scan$MinidocBlocks.capture(m, 1), undefined), stages.length) + 1 | 0;
+      let number = (m == null) ? stages.length + 1 | 0 : Stdlib_Option.getOr(Stdlib_Int.fromString(Scan$EpureBlocks.capture(m, 1), undefined), stages.length) + 1 | 0;
       let m$1 = stageLine.exec(get(last.line));
-      let head = (m$1 == null) ? parts.head : Scan$MinidocBlocks.capture(m$1, 0) + number.toString() + Scan$MinidocBlocks.capture(m$1, 2) + Scan$MinidocBlocks.capture(m$1, 3) + `[`;
+      let head = (m$1 == null) ? parts.head : Scan$EpureBlocks.capture(m$1, 0) + number.toString() + Scan$EpureBlocks.capture(m$1, 2) + Scan$EpureBlocks.capture(m$1, 3) + `[`;
       let match = span(lines, last.line - 1 | 0);
       lines.splice(match[1] + 1 | 0, 0, paste({
         head: head,
@@ -718,8 +718,8 @@ function edit(source, stages, todos, line, act) {
           if (m$2 == null) {
             fail("no opening line");
           } else {
-            set(line, text === "" ? Scan$MinidocBlocks.capture(m$2, 0) : Scan$MinidocBlocks.capture(m$2, 0) + (
-                Scan$MinidocBlocks.capture(m$2, 1) === "" ? " " : Scan$MinidocBlocks.capture(m$2, 1)
+            set(line, text === "" ? Scan$EpureBlocks.capture(m$2, 0) : Scan$EpureBlocks.capture(m$2, 0) + (
+                Scan$EpureBlocks.capture(m$2, 1) === "" ? " " : Scan$EpureBlocks.capture(m$2, 1)
               ) + text);
           }
         } else {
@@ -951,8 +951,8 @@ function edit(source, stages, todos, line, act) {
                 if (m == null) {
                   return;
                 }
-                let number = Stdlib_Option.getOr(Stdlib_Int.fromString(Scan$MinidocBlocks.capture(m, 1), undefined), 1) - 1 | 0;
-                set(s.line, Scan$MinidocBlocks.capture(m, 0) + number.toString() + Scan$MinidocBlocks.capture(m, 2) + Scan$MinidocBlocks.capture(m, 3) + `[` + Scan$MinidocBlocks.capture(m, 4) + `]` + Scan$MinidocBlocks.capture(m, 5));
+                let number = Stdlib_Option.getOr(Stdlib_Int.fromString(Scan$EpureBlocks.capture(m, 1), undefined), 1) - 1 | 0;
+                set(s.line, Scan$EpureBlocks.capture(m, 0) + number.toString() + Scan$EpureBlocks.capture(m, 2) + Scan$EpureBlocks.capture(m, 3) + `[` + Scan$EpureBlocks.capture(m, 4) + `]` + Scan$EpureBlocks.capture(m, 5));
               });
               let match$9 = span(lines, stage(index$6).line - 1 | 0);
               let first$1 = match$9[0];
@@ -985,7 +985,7 @@ function edit(source, stages, todos, line, act) {
   };
 }
 
-let text = Draw$MinidocBlocks.string;
+let text = Draw$EpureBlocks.string;
 
 export {
   mark,

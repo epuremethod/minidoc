@@ -1,4 +1,4 @@
-/* @minidoc/blocks — the rules. They read variables only; a theme
+/* @epure/blocks — the rules. They read variables only; a theme
    (themes/soft.css, themes/graphic.css) sets them, under
    [data-blocks-theme]. A block takes its colour from --tone, and mixes its
    fill, its edge and its label from it by the amounts the theme sets. A

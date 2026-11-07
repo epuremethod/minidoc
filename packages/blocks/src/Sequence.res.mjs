@@ -3,10 +3,10 @@
 import * as Belt_Array from "@rescript/runtime/lib/es6/Belt_Array.js";
 import * as Stdlib_Array from "@rescript/runtime/lib/es6/Stdlib_Array.js";
 import * as Stdlib_Option from "@rescript/runtime/lib/es6/Stdlib_Option.js";
+import * as Draw$EpureBlocks from "./Draw.res.mjs";
+import * as Html$EpureBlocks from "./Html.res.mjs";
 import * as Primitive_object from "@rescript/runtime/lib/es6/Primitive_object.js";
 import * as Primitive_option from "@rescript/runtime/lib/es6/Primitive_option.js";
-import * as Draw$MinidocBlocks from "./Draw.res.mjs";
-import * as Html$MinidocBlocks from "./Html.res.mjs";
 
 let chars = ((text) => [...text]);
 
@@ -75,11 +75,11 @@ function readText(text, kinds) {
           let cell$1 = Stdlib_Option.getOr(cell, "");
           let m = partyCell.exec(cell$1);
           if (m == null) {
-            return Html$MinidocBlocks.fail(`sequence: cannot read the party ` + cell$1 + `, ` + at);
+            return Html$EpureBlocks.fail(`sequence: cannot read the party ` + cell$1 + `, ` + at);
           }
           let kind = Stdlib_Option.getOr(capture(m, 1), defaultKind);
           if (kind !== defaultKind && Stdlib_Option.isNone(kinds[kind])) {
-            Html$MinidocBlocks.fail(`sequence: no kind called ` + kind + `, ` + at);
+            Html$EpureBlocks.fail(`sequence: no kind called ` + kind + `, ` + at);
           }
           return {
             name: Stdlib_Option.getOr(capture(m, 0), ""),
@@ -92,12 +92,12 @@ function readText(text, kinds) {
       if (m == null) {
         let m$1 = moveLine.exec(line);
         if (m$1 == null) {
-          return Html$MinidocBlocks.fail(`sequence: cannot read the step at ` + at);
+          return Html$EpureBlocks.fail(`sequence: cannot read the step at ` + at);
         }
         let from = Stdlib_Option.getOr(capture(m$1, 0), "");
         let to = Stdlib_Option.getOr(capture(m$1, 2), "");
         if (from === to) {
-          Html$MinidocBlocks.fail(`sequence: a message runs between two parties, ` + at);
+          Html$EpureBlocks.fail(`sequence: a message runs between two parties, ` + at);
         }
         steps.push({
           TAG: "Said",
@@ -117,18 +117,18 @@ function readText(text, kinds) {
     }
     let name = Stdlib_Option.getOr(capture(d, 0), "");
     if (name !== "legend") {
-      Html$MinidocBlocks.fail(`sequence: no directive {` + name + `}, ` + at);
+      Html$EpureBlocks.fail(`sequence: no directive {` + name + `}, ` + at);
     }
     legend.contents = true;
   });
   let parties$1 = parties.contents;
-  let parties$2 = parties$1 !== undefined ? parties$1 : Html$MinidocBlocks.fail("sequence: no parties are named");
+  let parties$2 = parties$1 !== undefined ? parties$1 : Html$EpureBlocks.fail("sequence: no parties are named");
   if (parties$2.length < 2) {
-    Html$MinidocBlocks.fail("sequence: a sequence runs between two parties at least");
+    Html$EpureBlocks.fail("sequence: a sequence runs between two parties at least");
   }
   let named = parties$2.map(p => p.name);
   if (new Set(named).size < parties$2.length) {
-    Html$MinidocBlocks.fail("sequence: a party is named twice");
+    Html$EpureBlocks.fail("sequence: a party is named twice");
   }
   steps.forEach(step => {
     let ends;
@@ -138,7 +138,7 @@ function readText(text, kinds) {
       ] : [step.on];
     ends.forEach(end => {
       if (!named.includes(end)) {
-        return Html$MinidocBlocks.fail(`sequence: no party called ` + end);
+        return Html$EpureBlocks.fail(`sequence: no party called ` + end);
       }
     });
   });
@@ -339,9 +339,9 @@ function tone(kind) {
   }
 }
 
-let tips = Draw$MinidocBlocks.Elements.jsxs("defs", {
-  children: Draw$MinidocBlocks.array([
-    Draw$MinidocBlocks.Elements.jsx("marker", {
+let tips = Draw$EpureBlocks.Elements.jsxs("defs", {
+  children: Draw$EpureBlocks.array([
+    Draw$EpureBlocks.Elements.jsx("marker", {
       id: "sequence-tip",
       viewBox: "0 0 14 10",
       refX: "13",
@@ -350,12 +350,12 @@ let tips = Draw$MinidocBlocks.Elements.jsxs("defs", {
       markerHeight: "10",
       markerUnits: "userSpaceOnUse",
       orient: "auto",
-      children: Draw$MinidocBlocks.Elements.jsx("path", {
+      children: Draw$EpureBlocks.Elements.jsx("path", {
         class: "sequence__tip",
         d: "M 0 0 L 14 5 L 0 10 L 3.8 5 z"
       })
     }),
-    Draw$MinidocBlocks.Elements.jsx("marker", {
+    Draw$EpureBlocks.Elements.jsx("marker", {
       id: "sequence-cross",
       viewBox: "0 0 10 10",
       refX: "5",
@@ -364,7 +364,7 @@ let tips = Draw$MinidocBlocks.Elements.jsxs("defs", {
       markerHeight: "10",
       markerUnits: "userSpaceOnUse",
       orient: "auto",
-      children: Draw$MinidocBlocks.Elements.jsx("path", {
+      children: Draw$EpureBlocks.Elements.jsx("path", {
         class: "sequence__cross",
         d: "M 1.5 1.5 L 8.5 8.5 M 8.5 1.5 L 1.5 8.5"
       })
@@ -373,7 +373,7 @@ let tips = Draw$MinidocBlocks.Elements.jsxs("defs", {
 });
 
 function draw(drawing) {
-  let pick = f => Draw$MinidocBlocks.array(Stdlib_Array.filterMap(drawing.ops, f));
+  let pick = f => Draw$EpureBlocks.array(Stdlib_Array.filterMap(drawing.ops, f));
   let frame = Stdlib_Option.getOrThrow(Stdlib_Array.findMap(drawing.ops, op => {
     if (op.TAG === "Frame") {
       return op._0;
@@ -384,7 +384,7 @@ function draw(drawing) {
       return;
     }
     let x = op.x;
-    return Draw$MinidocBlocks.Elements.jsx("line", {
+    return Draw$EpureBlocks.Elements.jsx("line", {
       class: "sequence__life",
       x1: x.toString(),
       y1: op.top.toString(),
@@ -401,22 +401,22 @@ function draw(drawing) {
     let y = op.y;
     let x = op.x;
     let kind = op.kind;
-    return Draw$MinidocBlocks.Elements.jsxs("g", {
+    return Draw$EpureBlocks.Elements.jsxs("g", {
       class: `sequence__head sequence__head--` + kind,
       style: tone(kind),
-      children: Draw$MinidocBlocks.array([
-        Draw$MinidocBlocks.Elements.jsx("rect", {
+      children: Draw$EpureBlocks.array([
+        Draw$EpureBlocks.Elements.jsx("rect", {
           x: x.toString(),
           y: y.toString(),
           width: width.toString(),
           height: height.toString(),
           rx: "7"
         }),
-        Draw$MinidocBlocks.Elements.jsx("text", {
+        Draw$EpureBlocks.Elements.jsx("text", {
           x: (x + width / 2).toString(),
           y: (y + height / 2 + 4).toString(),
           "text-anchor": "middle",
-          children: Draw$MinidocBlocks.string(op.name)
+          children: Draw$EpureBlocks.string(op.name)
         })
       ])
     });
@@ -427,7 +427,7 @@ function draw(drawing) {
     }
     let refused = op.refused;
     let y = op.y;
-    return Draw$MinidocBlocks.Elements.jsx("path", {
+    return Draw$EpureBlocks.Elements.jsx("path", {
       class: `sequence__message` + (
         refused ? " sequence__message--refused" : ""
       ),
@@ -446,21 +446,21 @@ function draw(drawing) {
     let width = op.width;
     let y = op.y;
     let x = op.x;
-    return Draw$MinidocBlocks.Elements.jsxs("g", {
+    return Draw$EpureBlocks.Elements.jsxs("g", {
       class: "sequence__state",
-      children: Draw$MinidocBlocks.array([
-        Draw$MinidocBlocks.Elements.jsx("rect", {
+      children: Draw$EpureBlocks.array([
+        Draw$EpureBlocks.Elements.jsx("rect", {
           x: x.toString(),
           y: y.toString(),
           width: width.toString(),
           height: height.toString(),
           rx: "6"
         }),
-        Draw$MinidocBlocks.Elements.jsx("text", {
+        Draw$EpureBlocks.Elements.jsx("text", {
           x: (x + width / 2).toString(),
           y: (y + height / 2 + 4).toString(),
           "text-anchor": "middle",
-          children: Draw$MinidocBlocks.string(op.text)
+          children: Draw$EpureBlocks.string(op.text)
         })
       ])
     });
@@ -471,29 +471,29 @@ function draw(drawing) {
     }
     let match = op.label;
     if (match !== undefined) {
-      return Draw$MinidocBlocks.Elements.jsx("text", {
+      return Draw$EpureBlocks.Elements.jsx("text", {
         class: `sequence__label` + (
           op.refused ? " sequence__label--refused" : ""
         ),
         x: match.x.toString(),
         y: match.y.toString(),
         "text-anchor": "middle",
-        children: Draw$MinidocBlocks.string(match.text)
+        children: Draw$EpureBlocks.string(match.text)
       });
     }
   });
-  let title = Stdlib_Option.map(drawing.caption, c => Draw$MinidocBlocks.Elements.jsx("span", {
+  let title = Stdlib_Option.map(drawing.caption, c => Draw$EpureBlocks.Elements.jsx("span", {
     class: "sequence__title",
-    children: Draw$MinidocBlocks.string(c)
+    children: Draw$EpureBlocks.string(c)
   }));
-  let keyed = Primitive_object.equal(drawing.keys, []) ? undefined : Draw$MinidocBlocks.Elements.jsx("span", {
+  let keyed = Primitive_object.equal(drawing.keys, []) ? undefined : Draw$EpureBlocks.Elements.jsx("span", {
       class: "sequence__keys",
-      children: Draw$MinidocBlocks.array(drawing.keys.map(param => {
+      children: Draw$EpureBlocks.array(drawing.keys.map(param => {
         let kind = param.kind;
-        return Draw$MinidocBlocks.Elements.jsx("span", {
+        return Draw$EpureBlocks.Elements.jsx("span", {
           class: `sequence__key sequence__key--` + kind,
           style: lineKeys.some(param => param[0] === kind) ? undefined : tone(kind),
-          children: Draw$MinidocBlocks.string(param.text)
+          children: Draw$EpureBlocks.string(param.text)
         });
       }))
     });
@@ -501,17 +501,17 @@ function draw(drawing) {
     title,
     keyed
   ]);
-  return Draw$MinidocBlocks.Elements.jsxs("figure", {
+  return Draw$EpureBlocks.Elements.jsxs("figure", {
     class: "sequence",
-    children: Draw$MinidocBlocks.array([
-      Draw$MinidocBlocks.Elements.jsxs("svg", {
+    children: Draw$EpureBlocks.array([
+      Draw$EpureBlocks.Elements.jsxs("svg", {
         class: "sequence__svg",
         viewBox: frame.left.toString() + ` ` + frame.top.toString() + ` ` + frame.width.toString() + ` ` + frame.height.toString(),
         width: frame.width.toString(),
         height: frame.height.toString(),
         role: "img",
         "aria-label": Stdlib_Option.getOr(drawing.caption, "A sequence"),
-        children: Draw$MinidocBlocks.array([
+        children: Draw$EpureBlocks.array([
           tips,
           lives,
           heads,
@@ -520,15 +520,15 @@ function draw(drawing) {
           notes
         ])
       }),
-      Primitive_object.equal(under, []) ? Draw$MinidocBlocks.$$null : Draw$MinidocBlocks.Elements.jsx("figcaption", {
+      Primitive_object.equal(under, []) ? Draw$EpureBlocks.$$null : Draw$EpureBlocks.Elements.jsx("figcaption", {
           class: "sequence__caption",
-          children: Draw$MinidocBlocks.array(under)
+          children: Draw$EpureBlocks.array(under)
         })
     ])
   });
 }
 
-let fail = Html$MinidocBlocks.fail;
+let fail = Html$EpureBlocks.fail;
 
 let headHeight = 26;
 
@@ -548,7 +548,7 @@ let stateHeight = 20;
 
 let labelUp = 5;
 
-let text = Draw$MinidocBlocks.string;
+let text = Draw$EpureBlocks.string;
 
 export {
   fail,

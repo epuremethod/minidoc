@@ -2,17 +2,17 @@
 
 import * as Stdlib_Array from "@rescript/runtime/lib/es6/Stdlib_Array.js";
 import * as Stdlib_Option from "@rescript/runtime/lib/es6/Stdlib_Option.js";
+import * as Draw$EpureBlocks from "./Draw.res.mjs";
+import * as Html$EpureBlocks from "./Html.res.mjs";
 import * as Primitive_object from "@rescript/runtime/lib/es6/Primitive_object.js";
 import * as Primitive_option from "@rescript/runtime/lib/es6/Primitive_option.js";
-import * as Draw$MinidocBlocks from "./Draw.res.mjs";
-import * as Html$MinidocBlocks from "./Html.res.mjs";
-import * as Markdown$MinidocBlocks from "./Markdown.res.mjs";
+import * as Markdown$EpureBlocks from "./Markdown.res.mjs";
 
 function lists(md, body) {
   let top = [];
   let openLists = [];
   let openItems = [];
-  md.parse(body, Markdown$MinidocBlocks.env()).forEach(token => {
+  md.parse(body, Markdown$EpureBlocks.env()).forEach(token => {
     let match = token.type;
     switch (match) {
       case "inline" :
@@ -88,7 +88,7 @@ function step(item) {
 
 function read(md, body, label) {
   let list = lists(md, body).find(l => l.ordered);
-  let list$1 = list !== undefined ? list : Html$MinidocBlocks.fail("flow: a flow is a numbered list");
+  let list$1 = list !== undefined ? list : Html$EpureBlocks.fail("flow: a flow is a numbered list");
   let columns = list$1.items.some(item => Stdlib_Option.isSome(ordered(item))) ? list$1.items.map(item => ({
       title: Stdlib_Option.map(item.text, title),
       steps: Stdlib_Option.mapOr(ordered(item), [], l => l.items.map(step))
@@ -103,42 +103,42 @@ function read(md, body, label) {
   };
 }
 
-let nl = Draw$MinidocBlocks.string("\n");
+let nl = Draw$EpureBlocks.string("\n");
 
 function draw(md, label, columns) {
-  let inline = (key, source) => Draw$MinidocBlocks.field(key, source, undefined, Draw$MinidocBlocks.raw(md.renderInline(source, Markdown$MinidocBlocks.env())));
+  let inline = (key, source) => Draw$EpureBlocks.field(key, source, undefined, Draw$EpureBlocks.raw(md.renderInline(source, Markdown$EpureBlocks.env())));
   let column = (c, index) => {
     let at = `column ` + (index + 1 | 0).toString();
     let t = c.title;
-    return Draw$MinidocBlocks.Elements.jsxs("li", {
+    return Draw$EpureBlocks.Elements.jsxs("li", {
       class: "flow__column",
-      children: Draw$MinidocBlocks.array([
-        t !== undefined ? Draw$MinidocBlocks.Elements.jsx("p", {
+      children: Draw$EpureBlocks.array([
+        t !== undefined ? Draw$EpureBlocks.Elements.jsx("p", {
             class: "flow__title",
             children: inline(at + ` title`, t)
-          }) : Draw$MinidocBlocks.$$null,
+          }) : Draw$EpureBlocks.$$null,
         nl,
-        Draw$MinidocBlocks.Elements.jsxs("ol", {
+        Draw$EpureBlocks.Elements.jsxs("ol", {
           class: "flow__steps",
-          children: Draw$MinidocBlocks.array([
+          children: Draw$EpureBlocks.array([
             nl,
-            Draw$MinidocBlocks.joined(c.steps.map((s, i) => {
+            Draw$EpureBlocks.joined(c.steps.map((s, i) => {
               let at$1 = at + ` step ` + (i + 1 | 0).toString();
-              return Draw$MinidocBlocks.Elements.jsxs("li", {
+              return Draw$EpureBlocks.Elements.jsxs("li", {
                 class: "flow__step",
-                children: Draw$MinidocBlocks.array([
-                  Draw$MinidocBlocks.Elements.jsx("p", {
+                children: Draw$EpureBlocks.array([
+                  Draw$EpureBlocks.Elements.jsx("p", {
                     class: "flow__text",
                     children: inline(at$1, s.text)
                   }),
-                  Primitive_object.equal(s.details, []) ? Draw$MinidocBlocks.$$null : Draw$MinidocBlocks.jsxs(Draw$MinidocBlocks.jsxFragment, {
-                      children: Draw$MinidocBlocks.array([
+                  Primitive_object.equal(s.details, []) ? Draw$EpureBlocks.$$null : Draw$EpureBlocks.jsxs(Draw$EpureBlocks.jsxFragment, {
+                      children: Draw$EpureBlocks.array([
                         nl,
-                        Draw$MinidocBlocks.Elements.jsxs("ul", {
+                        Draw$EpureBlocks.Elements.jsxs("ul", {
                           class: "flow__details",
-                          children: Draw$MinidocBlocks.array([
+                          children: Draw$EpureBlocks.array([
                             nl,
-                            Draw$MinidocBlocks.joined(s.details.map((d, i) => Draw$MinidocBlocks.Elements.jsx("li", {
+                            Draw$EpureBlocks.joined(s.details.map((d, i) => Draw$EpureBlocks.Elements.jsx("li", {
                               children: inline(at$1 + ` detail ` + (i + 1 | 0).toString(), d)
                             })), "\n"),
                             nl
@@ -157,25 +157,25 @@ function draw(md, label, columns) {
       ])
     });
   };
-  return Draw$MinidocBlocks.jsxs(Draw$MinidocBlocks.jsxFragment, {
-    children: Draw$MinidocBlocks.array([
-      Draw$MinidocBlocks.Elements.jsxs("aside", {
+  return Draw$EpureBlocks.jsxs(Draw$EpureBlocks.jsxFragment, {
+    children: Draw$EpureBlocks.array([
+      Draw$EpureBlocks.Elements.jsxs("aside", {
         class: "callout callout--flow",
         "aria-label": label,
-        children: Draw$MinidocBlocks.array([
-          Draw$MinidocBlocks.Elements.jsx("p", {
+        children: Draw$EpureBlocks.array([
+          Draw$EpureBlocks.Elements.jsx("p", {
             class: "callout__label",
-            children: Draw$MinidocBlocks.string(label)
+            children: Draw$EpureBlocks.string(label)
           }),
-          Draw$MinidocBlocks.Elements.jsxs("div", {
+          Draw$EpureBlocks.Elements.jsxs("div", {
             class: "callout__body",
-            children: Draw$MinidocBlocks.array([
+            children: Draw$EpureBlocks.array([
               nl,
-              Draw$MinidocBlocks.Elements.jsxs("ol", {
+              Draw$EpureBlocks.Elements.jsxs("ol", {
                 class: "flow",
-                children: Draw$MinidocBlocks.array([
+                children: Draw$EpureBlocks.array([
                   nl,
-                  Draw$MinidocBlocks.joined(columns.map(column), "\n"),
+                  Draw$EpureBlocks.joined(columns.map(column), "\n"),
                   nl
                 ])
               }),
@@ -189,7 +189,7 @@ function draw(md, label, columns) {
   });
 }
 
-let text = Draw$MinidocBlocks.string;
+let text = Draw$EpureBlocks.string;
 
 export {
   lists,

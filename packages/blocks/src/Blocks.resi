@@ -1,4 +1,4 @@
-// @minidoc/blocks — common `:::` blocks for minidoc sites.
+// @epure/blocks — common `:::` blocks for minidoc sites.
 // Public interface; kept parallel to Blocks.res.d.mts.
 
 /** The middle language: what a block means, between its markdown and its HTML. */

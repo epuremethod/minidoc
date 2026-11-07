@@ -3,11 +3,11 @@
 import * as Yaml from "yaml";
 import * as Stdlib_Array from "@rescript/runtime/lib/es6/Stdlib_Array.js";
 import * as Stdlib_Option from "@rescript/runtime/lib/es6/Stdlib_Option.js";
+import * as Draw$EpureBlocks from "./Draw.res.mjs";
+import * as Html$EpureBlocks from "./Html.res.mjs";
 import * as Primitive_object from "@rescript/runtime/lib/es6/Primitive_object.js";
-import * as Draw$MinidocBlocks from "./Draw.res.mjs";
-import * as Html$MinidocBlocks from "./Html.res.mjs";
-import * as Scan$MinidocBlocks from "./Scan.res.mjs";
-import * as Sequence$MinidocBlocks from "./Sequence.res.mjs";
+import * as Scan$EpureBlocks from "./Scan.res.mjs";
+import * as Sequence$EpureBlocks from "./Sequence.res.mjs";
 
 let parse = ((parse, text, where) => {
   try { return parse(text) ?? null }
@@ -25,13 +25,13 @@ function dedent(lines) {
 }
 
 function read(info, body, line) {
-  let match = Scan$MinidocBlocks.split(info);
+  let match = Scan$EpureBlocks.split(info);
   let method = match[0];
-  let match$1 = Scan$MinidocBlocks.split(match[1]);
+  let match$1 = Scan$EpureBlocks.split(match[1]);
   let title = match$1[1];
   let path = match$1[0];
   if (method === "" || path === "") {
-    Html$MinidocBlocks.fail(`api: an API call names a method and a path, like "GET /messages", line ` + line.toString());
+    Html$EpureBlocks.fail(`api: an API call names a method and a path, like "GET /messages", line ` + line.toString());
   }
   let parts = [];
   body.split("\n").forEach((text, index) => {
@@ -47,12 +47,12 @@ function read(info, body, line) {
         match[1].push(text);
         return;
       } else {
-        return Html$MinidocBlocks.fail(`api: "` + text.trim() + `" belongs to no part, line ` + at.toString());
+        return Html$EpureBlocks.fail(`api: "` + text.trim() + `" belongs to no part, line ` + at.toString());
       }
     }
     let m = partLine.exec(text);
     if (m == null) {
-      return Html$MinidocBlocks.fail(`api: unknown part "` + text + `", line ` + at.toString() + `; a part is query, headers, body or response`);
+      return Html$EpureBlocks.fail(`api: unknown part "` + text + `", line ` + at.toString() + `; a part is query, headers, body or response`);
     } else {
       parts.push([
         m,
@@ -63,12 +63,12 @@ function read(info, body, line) {
   });
   let parts$1 = parts.map(param => {
     let m = param[0];
-    let name = Stdlib_Option.getOr(Sequence$MinidocBlocks.capture(m, 0), "");
-    let status = Sequence$MinidocBlocks.capture(m, 1);
+    let name = Stdlib_Option.getOr(Sequence$EpureBlocks.capture(m, 0), "");
+    let status = Sequence$EpureBlocks.capture(m, 1);
     return {
       name: name,
       status: status,
-      caption: Sequence$MinidocBlocks.capture(m, 2),
+      caption: Sequence$EpureBlocks.capture(m, 2),
       value: parse(prim => Yaml.parse(prim), dedent(param[1]), `api: the ` + name + Stdlib_Option.mapOr(status, "", s => ` ` + s))
     };
   });
@@ -94,14 +94,14 @@ function scalar(v) {
   }
 }
 
-let nl = Draw$MinidocBlocks.string("\n");
+let nl = Draw$EpureBlocks.string("\n");
 
 function draw(method, path, title, parts, labels) {
   let label = name => Stdlib_Option.getOr(labels[name], name);
-  let plain = (key, value) => Draw$MinidocBlocks.field(key, value, undefined, Draw$MinidocBlocks.string(value));
+  let plain = (key, value) => Draw$EpureBlocks.field(key, value, undefined, Draw$EpureBlocks.string(value));
   let value = (v, at) => {
     if (v === null) {
-      return Draw$MinidocBlocks.Elements.jsx("span", {
+      return Draw$EpureBlocks.Elements.jsx("span", {
         class: "api__literal",
         children: plain(at, "null")
       });
@@ -109,27 +109,27 @@ function draw(method, path, title, parts, labels) {
     if (Array.isArray(v)) {
       if (v.length !== 0) {
         if (v.every(i => Stdlib_Option.isSome(scalar(i)))) {
-          return Draw$MinidocBlocks.Elements.jsx("span", {
+          return Draw$EpureBlocks.Elements.jsx("span", {
             class: "api__inline",
-            children: Draw$MinidocBlocks.joined(v.map((item, i) => value(item, at + ` ` + (i + 1 | 0).toString())), ", ")
+            children: Draw$EpureBlocks.joined(v.map((item, i) => value(item, at + ` ` + (i + 1 | 0).toString())), ", ")
           });
         } else {
-          return Draw$MinidocBlocks.Elements.jsx("ol", {
+          return Draw$EpureBlocks.Elements.jsx("ol", {
             class: "api__items",
-            children: Draw$MinidocBlocks.array(v.map((item, i) => Draw$MinidocBlocks.Elements.jsx("li", {
+            children: Draw$EpureBlocks.array(v.map((item, i) => Draw$EpureBlocks.Elements.jsx("li", {
               class: "api__item",
               children: value(item, at + ` ` + (i + 1 | 0).toString())
             })))
           });
         }
       } else {
-        return Draw$MinidocBlocks.Elements.jsxs("p", {
+        return Draw$EpureBlocks.Elements.jsxs("p", {
           class: "api__empty",
-          children: Draw$MinidocBlocks.array([
-            Draw$MinidocBlocks.string(label("empty")),
-            Draw$MinidocBlocks.string(" "),
-            Draw$MinidocBlocks.Elements.jsx("code", {
-              children: Draw$MinidocBlocks.string("[]")
+          children: Draw$EpureBlocks.array([
+            Draw$EpureBlocks.string(label("empty")),
+            Draw$EpureBlocks.string(" "),
+            Draw$EpureBlocks.Elements.jsx("code", {
+              children: Draw$EpureBlocks.string("[]")
             })
           ])
         });
@@ -137,32 +137,32 @@ function draw(method, path, title, parts, labels) {
     }
     switch (typeof v) {
       case "boolean" :
-        return Draw$MinidocBlocks.Elements.jsx("span", {
+        return Draw$EpureBlocks.Elements.jsx("span", {
           class: "api__literal",
           children: plain(at, v ? "true" : "false")
         });
       case "string" :
-        return Draw$MinidocBlocks.Elements.jsx("span", {
+        return Draw$EpureBlocks.Elements.jsx("span", {
           class: "api__string",
           children: plain(at, v)
         });
       case "number" :
-        return Draw$MinidocBlocks.Elements.jsx("span", {
+        return Draw$EpureBlocks.Elements.jsx("span", {
           class: "api__number",
           children: plain(at, v.toString())
         });
       case "object" :
-        return Draw$MinidocBlocks.Elements.jsx("dl", {
+        return Draw$EpureBlocks.Elements.jsx("dl", {
           class: "api__fields",
-          children: Draw$MinidocBlocks.array(Object.entries(v).map(param => {
+          children: Draw$EpureBlocks.array(Object.entries(v).map(param => {
             let key = param[0];
-            return Draw$MinidocBlocks.Elements.jsxs("div", {
+            return Draw$EpureBlocks.Elements.jsxs("div", {
               class: "api__field",
-              children: Draw$MinidocBlocks.array([
-                Draw$MinidocBlocks.Elements.jsx("dt", {
-                  children: Draw$MinidocBlocks.string(key)
+              children: Draw$EpureBlocks.array([
+                Draw$EpureBlocks.Elements.jsx("dt", {
+                  children: Draw$EpureBlocks.string(key)
                 }),
-                Draw$MinidocBlocks.Elements.jsx("dd", {
+                Draw$EpureBlocks.Elements.jsx("dd", {
                   children: value(param[1], at + ` ` + key)
                 })
               ])
@@ -187,38 +187,38 @@ function draw(method, path, title, parts, labels) {
   let part = (p, index) => {
     let s = p.status;
     let c = p.caption;
-    return Draw$MinidocBlocks.jsxs(Draw$MinidocBlocks.jsxFragment, {
-      children: Draw$MinidocBlocks.array([
-        Draw$MinidocBlocks.Elements.jsxs("div", {
+    return Draw$EpureBlocks.jsxs(Draw$EpureBlocks.jsxFragment, {
+      children: Draw$EpureBlocks.array([
+        Draw$EpureBlocks.Elements.jsxs("div", {
           class: `api__part api__part--` + p.name,
-          children: Draw$MinidocBlocks.array([
-            Draw$MinidocBlocks.Elements.jsxs("p", {
+          children: Draw$EpureBlocks.array([
+            Draw$EpureBlocks.Elements.jsxs("p", {
               class: "api__label",
-              children: Draw$MinidocBlocks.array([
-                Draw$MinidocBlocks.string(label(p.name)),
-                s !== undefined ? Draw$MinidocBlocks.jsxs(Draw$MinidocBlocks.jsxFragment, {
-                    children: Draw$MinidocBlocks.array([
-                      Draw$MinidocBlocks.string(" "),
-                      Draw$MinidocBlocks.Elements.jsx("span", {
+              children: Draw$EpureBlocks.array([
+                Draw$EpureBlocks.string(label(p.name)),
+                s !== undefined ? Draw$EpureBlocks.jsxs(Draw$EpureBlocks.jsxFragment, {
+                    children: Draw$EpureBlocks.array([
+                      Draw$EpureBlocks.string(" "),
+                      Draw$EpureBlocks.Elements.jsx("span", {
                         class: `api__status api__status--` + (
                           s.startsWith("2") ? "ok" : "error"
                         ),
-                        children: Draw$MinidocBlocks.string(s)
+                        children: Draw$EpureBlocks.string(s)
                       })
                     ])
-                  }) : Draw$MinidocBlocks.$$null,
-                c !== undefined ? Draw$MinidocBlocks.jsxs(Draw$MinidocBlocks.jsxFragment, {
-                    children: Draw$MinidocBlocks.array([
-                      Draw$MinidocBlocks.string(" "),
-                      Draw$MinidocBlocks.Elements.jsx("span", {
+                  }) : Draw$EpureBlocks.$$null,
+                c !== undefined ? Draw$EpureBlocks.jsxs(Draw$EpureBlocks.jsxFragment, {
+                    children: Draw$EpureBlocks.array([
+                      Draw$EpureBlocks.string(" "),
+                      Draw$EpureBlocks.Elements.jsx("span", {
                         class: "api__caption",
-                        children: Draw$MinidocBlocks.string(c)
+                        children: Draw$EpureBlocks.string(c)
                       })
                     ])
-                  }) : Draw$MinidocBlocks.$$null
+                  }) : Draw$EpureBlocks.$$null
               ])
             }),
-            p.value === null ? Draw$MinidocBlocks.$$null : value(p.value, `part ` + (index + 1 | 0).toString())
+            p.value === null ? Draw$EpureBlocks.$$null : value(p.value, `part ` + (index + 1 | 0).toString())
           ])
         }),
         nl
@@ -226,38 +226,38 @@ function draw(method, path, title, parts, labels) {
     });
   };
   let call = method + ` ` + path + Stdlib_Option.getOr(search, "");
-  return Draw$MinidocBlocks.jsxs(Draw$MinidocBlocks.jsxFragment, {
-    children: Draw$MinidocBlocks.array([
-      Draw$MinidocBlocks.Elements.jsxs("figure", {
+  return Draw$EpureBlocks.jsxs(Draw$EpureBlocks.jsxFragment, {
+    children: Draw$EpureBlocks.array([
+      Draw$EpureBlocks.Elements.jsxs("figure", {
         class: "api",
         role: "group",
         "aria-label": Stdlib_Option.getOr(title, call),
-        children: Draw$MinidocBlocks.array([
-          Draw$MinidocBlocks.Elements.jsxs("div", {
+        children: Draw$EpureBlocks.array([
+          Draw$EpureBlocks.Elements.jsxs("div", {
             class: "api__call",
-            children: Draw$MinidocBlocks.array([
-              Draw$MinidocBlocks.Elements.jsx("span", {
+            children: Draw$EpureBlocks.array([
+              Draw$EpureBlocks.Elements.jsx("span", {
                 class: "api__method",
                 children: plain("method", method)
               }),
-              Draw$MinidocBlocks.Elements.jsxs("code", {
+              Draw$EpureBlocks.Elements.jsxs("code", {
                 class: "api__path",
-                children: Draw$MinidocBlocks.array([
+                children: Draw$EpureBlocks.array([
                   plain("path", path),
-                  search !== undefined ? Draw$MinidocBlocks.Elements.jsx("span", {
+                  search !== undefined ? Draw$EpureBlocks.Elements.jsx("span", {
                       class: "api__search",
-                      children: Draw$MinidocBlocks.string(search)
-                    }) : Draw$MinidocBlocks.$$null
+                      children: Draw$EpureBlocks.string(search)
+                    }) : Draw$EpureBlocks.$$null
                 ])
               }),
-              title !== undefined ? Draw$MinidocBlocks.Elements.jsx("span", {
+              title !== undefined ? Draw$EpureBlocks.Elements.jsx("span", {
                   class: "api__title",
                   children: plain("title", title)
-                }) : Draw$MinidocBlocks.$$null
+                }) : Draw$EpureBlocks.$$null
             ])
           }),
           nl,
-          Draw$MinidocBlocks.array(parts.map(part))
+          Draw$EpureBlocks.array(parts.map(part))
         ])
       }),
       nl
@@ -265,9 +265,9 @@ function draw(method, path, title, parts, labels) {
   });
 }
 
-let capture = Sequence$MinidocBlocks.capture;
+let capture = Sequence$EpureBlocks.capture;
 
-let text = Draw$MinidocBlocks.string;
+let text = Draw$EpureBlocks.string;
 
 export {
   parse,

@@ -3,19 +3,19 @@
 import * as Belt_Array from "@rescript/runtime/lib/es6/Belt_Array.js";
 import * as Stdlib_Array from "@rescript/runtime/lib/es6/Stdlib_Array.js";
 import * as Stdlib_Option from "@rescript/runtime/lib/es6/Stdlib_Option.js";
+import * as Api$EpureBlocks from "./Api.res.mjs";
+import * as Draw$EpureBlocks from "./Draw.res.mjs";
+import * as Flow$EpureBlocks from "./Flow.res.mjs";
+import * as Html$EpureBlocks from "./Html.res.mjs";
+import * as Plan$EpureBlocks from "./Plan.res.mjs";
 import * as Primitive_object from "@rescript/runtime/lib/es6/Primitive_object.js";
-import * as Api$MinidocBlocks from "./Api.res.mjs";
-import * as Draw$MinidocBlocks from "./Draw.res.mjs";
-import * as Flow$MinidocBlocks from "./Flow.res.mjs";
-import * as Html$MinidocBlocks from "./Html.res.mjs";
-import * as Plan$MinidocBlocks from "./Plan.res.mjs";
-import * as Scan$MinidocBlocks from "./Scan.res.mjs";
-import * as Model$MinidocBlocks from "./Model.res.mjs";
-import * as Write$MinidocBlocks from "./Write.res.mjs";
-import * as Screen$MinidocBlocks from "./Screen.res.mjs";
-import * as States$MinidocBlocks from "./States.res.mjs";
-import * as Markdown$MinidocBlocks from "./Markdown.res.mjs";
-import * as Sequence$MinidocBlocks from "./Sequence.res.mjs";
+import * as Scan$EpureBlocks from "./Scan.res.mjs";
+import * as Model$EpureBlocks from "./Model.res.mjs";
+import * as Write$EpureBlocks from "./Write.res.mjs";
+import * as Screen$EpureBlocks from "./Screen.res.mjs";
+import * as States$EpureBlocks from "./States.res.mjs";
+import * as Markdown$EpureBlocks from "./Markdown.res.mjs";
+import * as Sequence$EpureBlocks from "./Sequence.res.mjs";
 
 let common = [
   [
@@ -79,7 +79,7 @@ let byInfo = new RegExp("^(?:\"([^\"]*)\")?(?:\\s*(\\S.*?))?\\s*$");
 
 let annexeTail = new RegExp("^(.*?)(?:^|\\s)annexe$");
 
-let nameTail = new RegExp(`^(.*?)(?:^|\\s)#(` + Markdown$MinidocBlocks.name + `)$`);
+let nameTail = new RegExp(`^(.*?)(?:^|\\s)#(` + Markdown$EpureBlocks.name + `)$`);
 
 let urlTail = new RegExp("^(.*?)(?:^|\\s)<([^<>\\s]+)>$");
 
@@ -91,7 +91,7 @@ function context(options) {
   let extras = Stdlib_Option.getOr(options.extra, []);
   let isFence = e => Stdlib_Option.getOr(e.fence, false);
   return {
-    md: Markdown$MinidocBlocks.make(options.markdown),
+    md: Markdown$EpureBlocks.make(options.markdown),
     callouts: callouts,
     owners: Stdlib_Option.getOr(Stdlib_Option.flatMap(options["ui-dialog"], d => d.owners), {}),
     sequenceKinds: Stdlib_Option.getOr(Stdlib_Option.flatMap(options.sequence, k => k.kinds), {}),
@@ -140,11 +140,11 @@ function caption(info) {
 function by(name, info, line) {
   let m = byInfo.exec(info.trim());
   if (m == null) {
-    return Html$MinidocBlocks.fail(`Unknown block on line ` + line.toString() + `: ` + name + ` ` + info);
+    return Html$EpureBlocks.fail(`Unknown block on line ` + line.toString() + `: ` + name + ` ` + info);
   } else {
     return [
-      Sequence$MinidocBlocks.capture(m, 0),
-      Sequence$MinidocBlocks.capture(m, 1)
+      Sequence$EpureBlocks.capture(m, 0),
+      Sequence$EpureBlocks.capture(m, 1)
     ];
   }
 }
@@ -157,7 +157,7 @@ function named(page, name, info, line) {
       info$1,
       false
     ] : [
-      Scan$MinidocBlocks.capture(m, 0).trim(),
+      Scan$EpureBlocks.capture(m, 0).trim(),
       true
     ];
   let annexe = match[1];
@@ -167,8 +167,8 @@ function named(page, name, info, line) {
       info$2,
       undefined
     ] : [
-      Scan$MinidocBlocks.capture(m$1, 0).trim(),
-      Sequence$MinidocBlocks.capture(m$1, 1)
+      Scan$EpureBlocks.capture(m$1, 0).trim(),
+      Sequence$EpureBlocks.capture(m$1, 1)
     ];
   let anchor = match$1[1];
   let info$3 = match$1[0];
@@ -177,22 +177,22 @@ function named(page, name, info, line) {
       info$3,
       undefined
     ] : [
-      Scan$MinidocBlocks.capture(m$2, 0).trim(),
-      Sequence$MinidocBlocks.capture(m$2, 1)
+      Scan$EpureBlocks.capture(m$2, 0).trim(),
+      Sequence$EpureBlocks.capture(m$2, 1)
     ];
   let url = match$2[1];
   let match$3 = by(name, match$2[0], line);
   let author = match$3[0];
   if (url !== undefined && author === undefined) {
-    Html$MinidocBlocks.fail(`Source without a title on line ` + at + `: <` + url + `>`);
+    Html$EpureBlocks.fail(`Source without a title on line ` + at + `: <` + url + `>`);
   }
   if (anchor !== undefined) {
     if (author === undefined) {
-      Html$MinidocBlocks.fail(`Named block without a title on line ` + at + `: #` + anchor);
+      Html$EpureBlocks.fail(`Named block without a title on line ` + at + `: #` + anchor);
     }
     let first = page.anchors[anchor];
     if (first !== undefined) {
-      Html$MinidocBlocks.fail(`Duplicate name on line ` + at + `: #` + anchor + `, first on line ` + first.toString());
+      Html$EpureBlocks.fail(`Duplicate name on line ` + at + `: #` + anchor + `, first on line ` + first.toString());
     } else {
       page.anchors[anchor] = line;
     }
@@ -203,7 +203,7 @@ function named(page, name, info, line) {
       ];
     }
   } else if (annexe) {
-    Html$MinidocBlocks.fail(`Annexe without a name on line ` + at);
+    Html$EpureBlocks.fail(`Annexe without a name on line ` + at);
   }
   return [
     author,
@@ -233,42 +233,42 @@ function each(nodes, f) {
   });
 }
 
-let nl = Draw$MinidocBlocks.string("\n");
+let nl = Draw$EpureBlocks.string("\n");
 
 function byline(author, date, url, figure) {
   let title = a => {
     if (url !== undefined) {
-      return Draw$MinidocBlocks.Elements.jsx("a", {
+      return Draw$EpureBlocks.Elements.jsx("a", {
         href: url,
-        children: Draw$MinidocBlocks.string(a)
+        children: Draw$EpureBlocks.string(a)
       });
     } else {
-      return Draw$MinidocBlocks.string(a);
+      return Draw$EpureBlocks.string(a);
     }
   };
   let parts = Stdlib_Array.keepSome([
-    Stdlib_Option.map(author, a => Draw$MinidocBlocks.Elements.jsx("cite", {
+    Stdlib_Option.map(author, a => Draw$EpureBlocks.Elements.jsx("cite", {
       children: title(a)
     })),
-    Stdlib_Option.map(date, d => Draw$MinidocBlocks.Elements.jsx("span", {
+    Stdlib_Option.map(date, d => Draw$EpureBlocks.Elements.jsx("span", {
       class: figure ? "quote__date" : "callout__date",
-      children: Draw$MinidocBlocks.string(d)
+      children: Draw$EpureBlocks.string(d)
     }))
   ]);
-  let inner = Draw$MinidocBlocks.jsxs(Draw$MinidocBlocks.jsxFragment, {
-    children: Draw$MinidocBlocks.array([
-      Draw$MinidocBlocks.string("— "),
-      Draw$MinidocBlocks.joined(parts, ", ")
+  let inner = Draw$EpureBlocks.jsxs(Draw$EpureBlocks.jsxFragment, {
+    children: Draw$EpureBlocks.array([
+      Draw$EpureBlocks.string("— "),
+      Draw$EpureBlocks.joined(parts, ", ")
     ])
   });
   if (Primitive_object.equal(parts, [])) {
-    return Draw$MinidocBlocks.$$null;
+    return Draw$EpureBlocks.$$null;
   } else if (figure) {
-    return Draw$MinidocBlocks.Elements.jsx("figcaption", {
+    return Draw$EpureBlocks.Elements.jsx("figcaption", {
       children: inner
     });
   } else {
-    return Draw$MinidocBlocks.Elements.jsx("p", {
+    return Draw$EpureBlocks.Elements.jsx("p", {
       class: "callout__by",
       children: inner
     });
@@ -276,7 +276,7 @@ function byline(author, date, url, figure) {
 }
 
 function readIn(ctx, page, source, offset) {
-  return Scan$MinidocBlocks.scan(source, offset, ctx.names).map(item => {
+  return Scan$EpureBlocks.scan(source, offset, ctx.names).map(item => {
     if (item.TAG === "Run") {
       return {
         TAG: "Markdown",
@@ -292,24 +292,24 @@ function readIn(ctx, page, source, offset) {
       case "annexe" :
         let at = line.toString();
         if (page.annexe !== undefined) {
-          Html$MinidocBlocks.fail(`Second annexe on line ` + at);
+          Html$EpureBlocks.fail(`Second annexe on line ` + at);
         }
         if (body.trim() !== "") {
-          Html$MinidocBlocks.fail(`Annexe with a body on line ` + at);
+          Html$EpureBlocks.fail(`Annexe with a body on line ` + at);
         }
         page.annexe = line;
         return "Annexe";
       case "api" :
-        return Api$MinidocBlocks.read(info, body, line);
+        return Api$EpureBlocks.read(info, body, line);
       case "flow" :
-        return Flow$MinidocBlocks.read(ctx.md, body, "Flow");
+        return Flow$EpureBlocks.read(ctx.md, body, "Flow");
       case "model" :
         return {
           TAG: "Model",
-          _0: Model$MinidocBlocks.read(body, caption(info))
+          _0: Model$EpureBlocks.read(body, caption(info))
         };
       case "plan" :
-        return Plan$MinidocBlocks.read(ctx.md, info, body, line);
+        return Plan$EpureBlocks.read(ctx.md, info, body, line);
       case "quote" :
         let match = named(page, name, info, line);
         return {
@@ -324,15 +324,15 @@ function readIn(ctx, page, source, offset) {
       case "sequence" :
         return {
           TAG: "Sequence",
-          _0: Sequence$MinidocBlocks.read(body, caption(info), ctx.sequenceKinds)
+          _0: Sequence$EpureBlocks.read(body, caption(info), ctx.sequenceKinds)
         };
       case "states" :
         return {
           TAG: "States",
-          _0: States$MinidocBlocks.read(body, caption(info), ctx.statesKinds)
+          _0: States$EpureBlocks.read(body, caption(info), ctx.statesKinds)
         };
       case "ui-dialog" :
-        let match$1 = Screen$MinidocBlocks.read(info, body, ctx.owners);
+        let match$1 = Screen$EpureBlocks.read(info, body, ctx.owners);
         return {
           TAG: "Dialog",
           owner: match$1[0],
@@ -346,7 +346,7 @@ function readIn(ctx, page, source, offset) {
           children: inner()
         };
       case "ui-form" :
-        let match$2 = Screen$MinidocBlocks.read(info, body, ctx.owners);
+        let match$2 = Screen$EpureBlocks.read(info, body, ctx.owners);
         return {
           TAG: "Form",
           owner: match$2[0],
@@ -381,22 +381,22 @@ function readIn(ctx, page, source, offset) {
 
 function drawIn(ctx, nodes, env, filed, wholeOpt) {
   let whole = wholeOpt !== undefined ? wholeOpt : false;
-  return Draw$MinidocBlocks.array(nodes.map((node, index) => {
-    let inner = children => Draw$MinidocBlocks.under(drawIn(ctx, children, env, filed, undefined), `block ` + (index + 1 | 0).toString() + ` `);
+  return Draw$EpureBlocks.array(nodes.map((node, index) => {
+    let inner = children => Draw$EpureBlocks.under(drawIn(ctx, children, env, filed, undefined), `block ` + (index + 1 | 0).toString() + ` `);
     let exit = 0;
     let author;
     let anchor;
     if (typeof node !== "object") {
       if (Primitive_object.equal(filed, [])) {
-        return Draw$MinidocBlocks.$$null;
+        return Draw$EpureBlocks.$$null;
       } else {
-        return Draw$MinidocBlocks.jsxs(Draw$MinidocBlocks.jsxFragment, {
-          children: Draw$MinidocBlocks.array([
-            Draw$MinidocBlocks.Elements.jsxs("section", {
+        return Draw$EpureBlocks.jsxs(Draw$EpureBlocks.jsxFragment, {
+          children: Draw$EpureBlocks.array([
+            Draw$EpureBlocks.Elements.jsxs("section", {
               class: "annexe",
-              children: Draw$MinidocBlocks.array([
+              children: Draw$EpureBlocks.array([
                 nl,
-                Draw$MinidocBlocks.array(filed.map(node => drawIn(ctx, [node], env, filed, true)))
+                Draw$EpureBlocks.array(filed.map(node => drawIn(ctx, [node], env, filed, true)))
               ])
             }),
             nl
@@ -406,7 +406,7 @@ function drawIn(ctx, nodes, env, filed, wholeOpt) {
     }
     switch (node.TAG) {
       case "Markdown" :
-        return Draw$MinidocBlocks.raw(ctx.md.render(node._0, env));
+        return Draw$EpureBlocks.raw(ctx.md.render(node._0, env));
       case "Callout" :
         let anchor$1 = node.anchor;
         if (anchor$1 !== undefined && node.annexe) {
@@ -424,39 +424,39 @@ function drawIn(ctx, nodes, env, filed, wholeOpt) {
         }
         break;
       case "Flow" :
-        return Flow$MinidocBlocks.draw(ctx.md, node.label, node.columns);
+        return Flow$EpureBlocks.draw(ctx.md, node.label, node.columns);
       case "Plan" :
         let stages = node.stages;
-        if (Plan$MinidocBlocks.long(stages)) {
+        if (Plan$EpureBlocks.long(stages)) {
           ctx.plans = ctx.plans + 1 | 0;
         }
-        return Plan$MinidocBlocks.draw(ctx.md, node.title, stages, node.todos, `plan-` + ctx.plans.toString());
+        return Plan$EpureBlocks.draw(ctx.md, node.title, stages, node.todos, `plan-` + ctx.plans.toString());
       case "Dialog" :
-        return Screen$MinidocBlocks.draw(undefined, ctx.md, node.owner, node.title, node.widgets);
+        return Screen$EpureBlocks.draw(undefined, ctx.md, node.owner, node.title, node.widgets);
       case "Form" :
-        return Screen$MinidocBlocks.draw(true, ctx.md, node.owner, node.title, node.widgets);
+        return Screen$EpureBlocks.draw(true, ctx.md, node.owner, node.title, node.widgets);
       case "Screens" :
-        return Screen$MinidocBlocks.drawFlow(node.caption, inner(node.children));
+        return Screen$EpureBlocks.drawFlow(node.caption, inner(node.children));
       case "Api" :
-        return Api$MinidocBlocks.draw(node.method, node.path, node.title, node.parts, ctx.apiLabels);
+        return Api$EpureBlocks.draw(node.method, node.path, node.title, node.parts, ctx.apiLabels);
       case "Sequence" :
-        return Draw$MinidocBlocks.jsxs(Draw$MinidocBlocks.jsxFragment, {
-          children: Draw$MinidocBlocks.array([
-            Sequence$MinidocBlocks.draw(node._0),
+        return Draw$EpureBlocks.jsxs(Draw$EpureBlocks.jsxFragment, {
+          children: Draw$EpureBlocks.array([
+            Sequence$EpureBlocks.draw(node._0),
             nl
           ])
         });
       case "States" :
-        return Draw$MinidocBlocks.jsxs(Draw$MinidocBlocks.jsxFragment, {
-          children: Draw$MinidocBlocks.array([
-            States$MinidocBlocks.draw(node._0),
+        return Draw$EpureBlocks.jsxs(Draw$EpureBlocks.jsxFragment, {
+          children: Draw$EpureBlocks.array([
+            States$EpureBlocks.draw(node._0),
             nl
           ])
         });
       case "Model" :
-        return Draw$MinidocBlocks.jsxs(Draw$MinidocBlocks.jsxFragment, {
-          children: Draw$MinidocBlocks.array([
-            Model$MinidocBlocks.draw(node._0),
+        return Draw$EpureBlocks.jsxs(Draw$EpureBlocks.jsxFragment, {
+          children: Draw$EpureBlocks.array([
+            Model$EpureBlocks.draw(node._0),
             nl
           ])
         });
@@ -464,19 +464,19 @@ function drawIn(ctx, nodes, env, filed, wholeOpt) {
         let name = node.name;
         let e = ctx.extras.find(e => e.name === name);
         if (e !== undefined) {
-          return Draw$MinidocBlocks.raw(e.render(node.info, node.body));
+          return Draw$EpureBlocks.raw(e.render(node.info, node.body));
         } else {
-          return Draw$MinidocBlocks.$$null;
+          return Draw$EpureBlocks.$$null;
         }
     }
     if (exit === 2 && !whole) {
-      return Draw$MinidocBlocks.jsxs(Draw$MinidocBlocks.jsxFragment, {
-        children: Draw$MinidocBlocks.array([
-          Draw$MinidocBlocks.Elements.jsx("p", {
+      return Draw$EpureBlocks.jsxs(Draw$EpureBlocks.jsxFragment, {
+        children: Draw$EpureBlocks.array([
+          Draw$EpureBlocks.Elements.jsx("p", {
             class: "annexe__ref",
-            children: Draw$MinidocBlocks.Elements.jsx("a", {
+            children: Draw$EpureBlocks.Elements.jsx("a", {
               href: `#` + anchor,
-              children: Draw$MinidocBlocks.string(Stdlib_Option.getOr(author, ""))
+              children: Draw$EpureBlocks.string(Stdlib_Option.getOr(author, ""))
             })
           }),
           nl
@@ -485,14 +485,14 @@ function drawIn(ctx, nodes, env, filed, wholeOpt) {
     }
     if (typeof node === "object") {
       if (node.TAG !== "Callout") {
-        return Draw$MinidocBlocks.jsxs(Draw$MinidocBlocks.jsxFragment, {
-          children: Draw$MinidocBlocks.array([
-            Draw$MinidocBlocks.Elements.jsxs("figure", {
+        return Draw$EpureBlocks.jsxs(Draw$EpureBlocks.jsxFragment, {
+          children: Draw$EpureBlocks.array([
+            Draw$EpureBlocks.Elements.jsxs("figure", {
               class: "quote",
               id: node.anchor,
-              children: Draw$MinidocBlocks.array([
-                Draw$MinidocBlocks.Elements.jsxs("blockquote", {
-                  children: Draw$MinidocBlocks.array([
+              children: Draw$EpureBlocks.array([
+                Draw$EpureBlocks.Elements.jsxs("blockquote", {
+                  children: Draw$EpureBlocks.array([
                     nl,
                     inner(node.children)
                   ])
@@ -505,20 +505,20 @@ function drawIn(ctx, nodes, env, filed, wholeOpt) {
         });
       }
       let label = node.label;
-      return Draw$MinidocBlocks.jsxs(Draw$MinidocBlocks.jsxFragment, {
-        children: Draw$MinidocBlocks.array([
-          Draw$MinidocBlocks.Elements.jsxs("aside", {
+      return Draw$EpureBlocks.jsxs(Draw$EpureBlocks.jsxFragment, {
+        children: Draw$EpureBlocks.array([
+          Draw$EpureBlocks.Elements.jsxs("aside", {
             class: `callout callout--` + node.name,
             id: node.anchor,
             "aria-label": label,
-            children: Draw$MinidocBlocks.array([
-              Draw$MinidocBlocks.Elements.jsx("p", {
+            children: Draw$EpureBlocks.array([
+              Draw$EpureBlocks.Elements.jsx("p", {
                 class: "callout__label",
-                children: Draw$MinidocBlocks.string(label)
+                children: Draw$EpureBlocks.string(label)
               }),
-              Draw$MinidocBlocks.Elements.jsxs("div", {
+              Draw$EpureBlocks.Elements.jsxs("div", {
                 class: "callout__body",
-                children: Draw$MinidocBlocks.array([
+                children: Draw$EpureBlocks.array([
                   nl,
                   inner(node.children)
                 ])
@@ -549,7 +549,7 @@ function readPage(ctx, source) {
   let match = page.filed;
   let match$1 = page.annexe;
   if (match !== undefined && match$1 === undefined) {
-    Html$MinidocBlocks.fail(`No ::: annexe for the block on line ` + match[1].toString() + `: #` + match[0]);
+    Html$EpureBlocks.fail(`No ::: annexe for the block on line ` + match[1].toString() + `: #` + match[0]);
   }
   each(nodes, node => {
     if (typeof node !== "object") {
@@ -558,9 +558,9 @@ function readPage(ctx, source) {
     if (node.TAG !== "Markdown") {
       return;
     }
-    Markdown$MinidocBlocks.references(ctx.md, node._0).forEach(name => {
+    Markdown$EpureBlocks.references(ctx.md, node._0).forEach(name => {
       if (!(name in page.anchors)) {
-        return Html$MinidocBlocks.fail(`Unknown reference on line ` + referenceLine(source, name).toString() + `: (` + name + `)`);
+        return Html$EpureBlocks.fail(`Unknown reference on line ` + referenceLine(source, name).toString() + `: (` + name + `)`);
       }
     });
   });
@@ -614,7 +614,7 @@ function drawPage(ctx, nodes, env) {
       return;
     }
   });
-  Markdown$MinidocBlocks.setTitles(env, titles);
+  Markdown$EpureBlocks.setTitles(env, titles);
   return drawIn(ctx, nodes, env, filed, undefined);
 }
 
@@ -623,11 +623,11 @@ function read(source, options) {
 }
 
 function draw(nodes, options) {
-  return drawPage(context(options), nodes, Markdown$MinidocBlocks.env());
+  return drawPage(context(options), nodes, Markdown$EpureBlocks.env());
 }
 
 function render(nodes, options) {
-  return Draw$MinidocBlocks.write(draw(nodes, options));
+  return Draw$EpureBlocks.write(draw(nodes, options));
 }
 
 function alone(nodes) {
@@ -657,8 +657,8 @@ function editable(nodes) {
 function edit(source, act, options) {
   let match = alone(read(source, options));
   let edited = match !== undefined ? (
-      typeof match !== "object" || match.TAG !== "Plan" ? Html$MinidocBlocks.fail("Only a plan can be edited where it stands") : Plan$MinidocBlocks.edit(source, match.stages, match.todos, match.line, act)
-    ) : Html$MinidocBlocks.fail("Only a source of one block can be edited where it stands");
+      typeof match !== "object" || match.TAG !== "Plan" ? Html$EpureBlocks.fail("Only a plan can be edited where it stands") : Plan$EpureBlocks.edit(source, match.stages, match.todos, match.line, act)
+    ) : Html$EpureBlocks.fail("Only a source of one block can be edited where it stands");
   read(edited.source, options);
   return edited;
 }
@@ -666,13 +666,13 @@ function edit(source, act, options) {
 function blocks(options) {
   let ctx = context(options);
   return source => {
-    let env = Markdown$MinidocBlocks.env();
+    let env = Markdown$EpureBlocks.env();
     ctx.md.parse(source, env);
-    return Draw$MinidocBlocks.write(drawPage(ctx, readPage(ctx, source), env));
+    return Draw$EpureBlocks.write(drawPage(ctx, readPage(ctx, source), env));
   };
 }
 
-let write = Write$MinidocBlocks.write;
+let write = Write$EpureBlocks.write;
 
 export {
   read,

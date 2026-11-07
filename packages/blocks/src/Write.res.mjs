@@ -2,7 +2,7 @@
 
 import * as Belt_Array from "@rescript/runtime/lib/es6/Belt_Array.js";
 import * as Stdlib_Option from "@rescript/runtime/lib/es6/Stdlib_Option.js";
-import * as Model$MinidocBlocks from "./Model.res.mjs";
+import * as Model$EpureBlocks from "./Model.res.mjs";
 
 function quote(text) {
   return `"` + text.replaceAll("\"", "\\\"") + `"`;
@@ -157,7 +157,7 @@ function modelOp(op, pad) {
       ]);
     case "Link" :
       return Belt_Array.concatMany([
-        [pad + `link ` + Model$MinidocBlocks.arityName(op.from) + ` ` + Model$MinidocBlocks.arityName(op.to) + ` ` + nums(op.points)],
+        [pad + `link ` + Model$EpureBlocks.arityName(op.from) + ` ` + Model$EpureBlocks.arityName(op.to) + ` ` + nums(op.points)],
         placed(op.label, pad)
       ]);
     case "Parent" :
@@ -315,4 +315,4 @@ export {
   lines,
   write,
 }
-/* Model-MinidocBlocks Not a pure module */
+/* Model-EpureBlocks Not a pure module */

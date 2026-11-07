@@ -4,18 +4,18 @@ nav: The package
 title: The package
 fixture: ""
 ---
-`@minidoc/blocks` gives every minidoc site the same `:::` blocks:
+`@epure/blocks` gives every minidoc site the same `:::` blocks:
 callouts, quotes, flows, plans, screen mockups, sequences, state machines
 and database models. A site passes one transform to `run`, and its pages can use
 them all.
 
 ```sh
-pnpm add -D @minidoc/blocks
+pnpm add -D @epure/blocks
 ```
 
 ```js
-import { run } from "@minidoc/core"
-import { blocks } from "@minidoc/blocks"
+import { run } from "@epure/minidoc"
+import { blocks } from "@epure/blocks"
 
 await run({ glob: "content/config.yaml", transform: { md: blocks({}) } })
 ```
@@ -38,7 +38,7 @@ script tag names other blocks to open, as a CSS selector:
 in the colours of the blocks theme.
 
 An app that shows blocks in React, such as an editor, uses
-`@minidoc/live`. It reads a block's source, keeping minidoc's reason when
+`@epure/blocks/live`. It reads a block's source, keeping minidoc's reason when
 it refuses it, draws the block exactly as a static page does, and gives a
 pane that holds the source, with the reason above it when minidoc refuses
 it. Each change redraws the block in the page, and a drawing whose source

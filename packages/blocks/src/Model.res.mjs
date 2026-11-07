@@ -3,12 +3,12 @@
 import * as Belt_Array from "@rescript/runtime/lib/es6/Belt_Array.js";
 import * as Stdlib_Array from "@rescript/runtime/lib/es6/Stdlib_Array.js";
 import * as Stdlib_Option from "@rescript/runtime/lib/es6/Stdlib_Option.js";
+import * as Draw$EpureBlocks from "./Draw.res.mjs";
+import * as Grid$EpureBlocks from "./Grid.res.mjs";
+import * as Html$EpureBlocks from "./Html.res.mjs";
 import * as Primitive_object from "@rescript/runtime/lib/es6/Primitive_object.js";
 import * as Primitive_option from "@rescript/runtime/lib/es6/Primitive_option.js";
-import * as Draw$MinidocBlocks from "./Draw.res.mjs";
-import * as Grid$MinidocBlocks from "./Grid.res.mjs";
-import * as Html$MinidocBlocks from "./Html.res.mjs";
-import * as Sequence$MinidocBlocks from "./Sequence.res.mjs";
+import * as Sequence$EpureBlocks from "./Sequence.res.mjs";
 
 let nameLine = new RegExp("^[\\p{L}\\p{N}_.\\-]+$", "u");
 
@@ -108,13 +108,13 @@ function readEnd(ends, said, at) {
   if (match !== undefined) {
     return match[1];
   } else {
-    return Html$MinidocBlocks.fail(`model: cannot read the end "` + said + `", ` + at);
+    return Html$EpureBlocks.fail(`model: cannot read the end "` + said + `", ` + at);
   }
 }
 
 function readLabel(said, at) {
-  let match = Grid$MinidocBlocks.label(Stdlib_Option.getOr(said, ""));
-  Stdlib_Option.forEach(match[3], kind => Html$MinidocBlocks.fail(`model: no kind called ` + kind + `, ` + at));
+  let match = Grid$EpureBlocks.label(Stdlib_Option.getOr(said, ""));
+  Stdlib_Option.forEach(match[3], kind => Html$EpureBlocks.fail(`model: no kind called ` + kind + `, ` + at));
   return [
     match[0],
     match[1],
@@ -129,9 +129,9 @@ function readRelation(line, at) {
     if (m$1 == null) {
       return;
     }
-    let parent = Stdlib_Option.getOr(Sequence$MinidocBlocks.capture(m$1, 0), "");
-    let child = Stdlib_Option.getOr(Sequence$MinidocBlocks.capture(m$1, 1), "");
-    let match = readLabel(Sequence$MinidocBlocks.capture(m$1, 2), at);
+    let parent = Stdlib_Option.getOr(Sequence$EpureBlocks.capture(m$1, 0), "");
+    let child = Stdlib_Option.getOr(Sequence$EpureBlocks.capture(m$1, 1), "");
+    let match = readLabel(Sequence$EpureBlocks.capture(m$1, 2), at);
     return {
       from: child,
       to: parent,
@@ -145,11 +145,11 @@ function readRelation(line, at) {
       }
     };
   }
-  let from = Stdlib_Option.getOr(Sequence$MinidocBlocks.capture(m, 0), "");
-  let to = Stdlib_Option.getOr(Sequence$MinidocBlocks.capture(m, 3), "");
-  let match$1 = readLabel(Sequence$MinidocBlocks.capture(m, 4), at);
-  let fromEnd = readEnd(leftEnds, Stdlib_Option.getOr(Sequence$MinidocBlocks.capture(m, 1), ""), at);
-  let toEnd = readEnd(rightEnds, Stdlib_Option.getOr(Sequence$MinidocBlocks.capture(m, 2), ""), at);
+  let from = Stdlib_Option.getOr(Sequence$EpureBlocks.capture(m, 0), "");
+  let to = Stdlib_Option.getOr(Sequence$EpureBlocks.capture(m, 3), "");
+  let match$1 = readLabel(Sequence$EpureBlocks.capture(m, 4), at);
+  let fromEnd = readEnd(leftEnds, Stdlib_Option.getOr(Sequence$EpureBlocks.capture(m, 1), ""), at);
+  let toEnd = readEnd(rightEnds, Stdlib_Option.getOr(Sequence$EpureBlocks.capture(m, 2), ""), at);
   return {
     from: from,
     to: to,
@@ -198,17 +198,17 @@ function readText(text) {
         let match$1 = columnLine.exec(line);
         if (match !== undefined) {
           if (match$1 == null) {
-            return Html$MinidocBlocks.fail(`model: cannot read the column at ` + at);
+            return Html$EpureBlocks.fail(`model: cannot read the column at ` + at);
           } else {
             match.columns.push([
-              Stdlib_Option.getOr(Sequence$MinidocBlocks.capture(match$1, 0), ""),
-              Sequence$MinidocBlocks.capture(match$1, 1),
-              Sequence$MinidocBlocks.capture(match$1, 2)
+              Stdlib_Option.getOr(Sequence$EpureBlocks.capture(match$1, 0), ""),
+              Sequence$EpureBlocks.capture(match$1, 1),
+              Sequence$EpureBlocks.capture(match$1, 2)
             ]);
             return;
           }
         } else {
-          return Html$MinidocBlocks.fail(`model: a column outside a table, ` + at);
+          return Html$EpureBlocks.fail(`model: a column outside a table, ` + at);
         }
       }
       let relation = readRelation(line, at);
@@ -219,16 +219,16 @@ function readText(text) {
       }
       let m = headLine.exec(line);
       if (m == null) {
-        return Html$MinidocBlocks.fail(`model: cannot read ` + at);
+        return Html$EpureBlocks.fail(`model: cannot read ` + at);
       }
-      let name = Stdlib_Option.getOr(Sequence$MinidocBlocks.capture(m, 0), "");
+      let name = Stdlib_Option.getOr(Sequence$EpureBlocks.capture(m, 0), "");
       if (!rows.flat().includes(name)) {
-        Html$MinidocBlocks.fail(`model: no table called ` + name + ` in the grid, ` + at);
+        Html$EpureBlocks.fail(`model: no table called ` + name + ` in the grid, ` + at);
       }
       if (tables.some(t => t.name === name)) {
-        Html$MinidocBlocks.fail(`model: ` + name + ` is described twice, ` + at);
+        Html$EpureBlocks.fail(`model: ` + name + ` is described twice, ` + at);
       }
-      let table_tenant = Sequence$MinidocBlocks.capture(m, 1);
+      let table_tenant = Sequence$EpureBlocks.capture(m, 1);
       let table_columns = [];
       let table = {
         name: name,
@@ -239,14 +239,14 @@ function readText(text) {
       current.contents = table;
       return;
     }
-    let cells = Grid$MinidocBlocks.cells(line);
+    let cells = Grid$EpureBlocks.cells(line);
     if (!cells.every(c => Stdlib_Option.mapOr(c, true, c => nameLine.test(c)))) {
-      Html$MinidocBlocks.fail(`model: cannot read the grid at ` + at);
+      Html$EpureBlocks.fail(`model: cannot read the grid at ` + at);
     }
     rows.push(cells);
   });
   if (rows.length === 0) {
-    Html$MinidocBlocks.fail("model: the grid is empty");
+    Html$EpureBlocks.fail("model: the grid is empty");
   }
   let placed = Stdlib_Array.filterMap(rows.flat(), c => c);
   relations.forEach(relation => {
@@ -255,7 +255,7 @@ function readText(text) {
       relation.to
     ].forEach(end => {
       if (!placed.includes(end)) {
-        return Html$MinidocBlocks.fail(`model: no table called ` + end);
+        return Html$EpureBlocks.fail(`model: no table called ` + end);
       }
     });
   });
@@ -275,16 +275,16 @@ function most(values) {
 }
 
 function measure(table) {
-  let names = most(table.columns.map(param => Sequence$MinidocBlocks.width(param[0], 12)));
-  let kinds = most(Stdlib_Array.filterMap(table.columns, param => param[1]).map(k => Sequence$MinidocBlocks.width(k, 12)));
-  let values = most(Stdlib_Array.filterMap(table.columns, param => param[2]).map(v => Sequence$MinidocBlocks.width(v, 12)));
+  let names = most(table.columns.map(param => Sequence$EpureBlocks.width(param[0], 12)));
+  let kinds = most(Stdlib_Array.filterMap(table.columns, param => param[1]).map(k => Sequence$EpureBlocks.width(k, 12)));
+  let values = most(Stdlib_Array.filterMap(table.columns, param => param[2]).map(v => Sequence$EpureBlocks.width(v, 12)));
   let inner = names + (
     kinds > 0 ? 14 + kinds : 0
   ) + (
     values > 0 ? 14 + values : 0
   );
-  let tag = Stdlib_Option.mapOr(table.tenant, 0, t => 14 + Sequence$MinidocBlocks.width(t, 11));
-  let w = Math.max(Sequence$MinidocBlocks.width(table.name, 13) + tag, inner) + 12 * 2;
+  let tag = Stdlib_Option.mapOr(table.tenant, 0, t => 14 + Sequence$EpureBlocks.width(t, 11));
+  let w = Math.max(Sequence$EpureBlocks.width(table.name, 13) + tag, inner) + 12 * 2;
   let rows = table.columns.length;
   let h = rows === 0 ? 30 : 30 + rows * 22 + 6;
   return [
@@ -307,7 +307,7 @@ function read(text, caption) {
     tenant: undefined,
     columns: []
   });
-  let match$1 = Grid$MinidocBlocks.place(96, match[0].map(row => row.map(c => Stdlib_Option.map(c, name => {
+  let match$1 = Grid$EpureBlocks.place(96, match[0].map(row => row.map(c => Stdlib_Option.map(c, name => {
     let table = described(name);
     let match = measure(table);
     return {
@@ -321,12 +321,12 @@ function read(text, caption) {
     };
   }))));
   let boxes = match$1[0];
-  let drawn = Grid$MinidocBlocks.route(relations.map(r => r.way), boxes);
+  let drawn = Grid$EpureBlocks.route(relations.map(r => r.way), boxes);
   return {
     ops: Belt_Array.concatMany([
       [{
           TAG: "Frame",
-          _0: Grid$MinidocBlocks.frame(boxes, drawn, match$1[1])
+          _0: Grid$EpureBlocks.frame(boxes, drawn, match$1[1])
         }],
       drawn.map((d, index) => {
         let relation = relations[index];
@@ -335,7 +335,7 @@ function read(text, caption) {
           return {
             TAG: "Parent",
             points: d.points,
-            label: Grid$MinidocBlocks.placedText(d)
+            label: Grid$EpureBlocks.placedText(d)
           };
         } else {
           return {
@@ -343,7 +343,7 @@ function read(text, caption) {
             from: match._0,
             to: match._1,
             points: d.points,
-            label: Grid$MinidocBlocks.placedText(d)
+            label: Grid$EpureBlocks.placedText(d)
           };
         }
       }),
@@ -381,11 +381,11 @@ function n(prim0, prim1) {
 }
 
 function shapes(arity) {
-  let crow = from => Draw$MinidocBlocks.Elements.jsx("path", {
+  let crow = from => Draw$EpureBlocks.Elements.jsx("path", {
     class: "model__end",
     d: `M ` + from + ` 8 L 20 1 M ` + from + ` 8 L 20 15`
   });
-  let ring = x => Draw$MinidocBlocks.Elements.jsx("circle", {
+  let ring = x => Draw$EpureBlocks.Elements.jsx("circle", {
     class: "model__ring",
     cx: x,
     cy: "8",
@@ -393,14 +393,14 @@ function shapes(arity) {
   });
   switch (arity) {
     case "One" :
-      return Draw$MinidocBlocks.$$null;
+      return Draw$EpureBlocks.$$null;
     case "Optional" :
       return ring("13");
     case "More" :
       return crow("8");
     case "Any" :
-      return Draw$MinidocBlocks.jsxs(Draw$MinidocBlocks.jsxFragment, {
-        children: Draw$MinidocBlocks.array([
+      return Draw$EpureBlocks.jsxs(Draw$EpureBlocks.jsxFragment, {
+        children: Draw$EpureBlocks.array([
           ring("5.5"),
           crow("10")
         ])
@@ -442,7 +442,7 @@ function markerId(arity) {
 
 let parentId = "model-parent";
 
-let parentMarker = Draw$MinidocBlocks.Elements.jsx("marker", {
+let parentMarker = Draw$EpureBlocks.Elements.jsx("marker", {
   id: parentId,
   viewBox: "0 0 20 16",
   refX: "20",
@@ -451,14 +451,14 @@ let parentMarker = Draw$MinidocBlocks.Elements.jsx("marker", {
   markerHeight: "16",
   markerUnits: "userSpaceOnUse",
   orient: "auto",
-  children: Draw$MinidocBlocks.Elements.jsx("path", {
+  children: Draw$EpureBlocks.Elements.jsx("path", {
     class: "model__parent",
     d: "M 6 1 L 20 8 L 6 15 z"
   })
 });
 
 function marker(arity) {
-  return Draw$MinidocBlocks.Elements.jsx("marker", {
+  return Draw$EpureBlocks.Elements.jsx("marker", {
     id: markerId(arity),
     viewBox: "0 0 20 16",
     refX: "20",
@@ -472,7 +472,7 @@ function marker(arity) {
 }
 
 function draw(drawing) {
-  let pick = f => Draw$MinidocBlocks.array(Stdlib_Array.filterMap(drawing.ops, f));
+  let pick = f => Draw$EpureBlocks.array(Stdlib_Array.filterMap(drawing.ops, f));
   let frame = Stdlib_Option.getOrThrow(Stdlib_Array.findMap(drawing.ops, op => {
     if (op.TAG === "Frame") {
       return op._0;
@@ -494,10 +494,10 @@ function draw(drawing) {
     "Any"
   ].filter(a => used.includes(a));
   let parents = drawing.ops.some(op => op.TAG === "Parent");
-  let tips = Primitive_object.equal(used$1, []) && !parents ? Draw$MinidocBlocks.$$null : Draw$MinidocBlocks.Elements.jsxs("defs", {
-      children: Draw$MinidocBlocks.array([
-        Draw$MinidocBlocks.array(used$1.map(marker)),
-        parents ? parentMarker : Draw$MinidocBlocks.$$null
+  let tips = Primitive_object.equal(used$1, []) && !parents ? Draw$EpureBlocks.$$null : Draw$EpureBlocks.Elements.jsxs("defs", {
+      children: Draw$EpureBlocks.array([
+        Draw$EpureBlocks.array(used$1.map(marker)),
+        parents ? parentMarker : Draw$EpureBlocks.$$null
       ])
     });
   let end = arity => {
@@ -529,7 +529,7 @@ function draw(drawing) {
         let y3 = match[7];
         let match$1 = stub(x0, y0, x1, y1, reach(from) * 0.7);
         let match$2 = stub(x3, y3, x2, y2, reach(to) * 0.7);
-        return Draw$MinidocBlocks.Elements.jsx("path", {
+        return Draw$EpureBlocks.Elements.jsx("path", {
           class: "model__link",
           "marker-start": end(from),
           "marker-end": end(to),
@@ -550,7 +550,7 @@ function draw(drawing) {
         let x3$1 = match$3[6];
         let y3$1 = match$3[7];
         let match$4 = stub(x3$1, y3$1, x2$1, y2$1, 14 * 0.7);
-        return Draw$MinidocBlocks.Elements.jsx("path", {
+        return Draw$EpureBlocks.Elements.jsx("path", {
           class: "model__link",
           "marker-end": `url(#` + parentId + `)`,
           d: `M ` + x0$1.toString() + ` ` + y0$1.toString() + ` C ` + x1$1.toString() + ` ` + y1$1.toString() + `, ` + x2$1.toString() + ` ` + y2$1.toString() + `, ` + match$4[0].toString() + ` ` + match$4[1].toString() + ` L ` + x3$1.toString() + ` ` + y3$1.toString(),
@@ -585,58 +585,58 @@ function draw(drawing) {
     let x = op.x;
     let left = x + 12;
     let modifier = Stdlib_Option.mapOr(tenant, "", t => ` model__table--tenant-` + tenants.indexOf(t).toString());
-    return Draw$MinidocBlocks.Elements.jsxs("g", {
+    return Draw$EpureBlocks.Elements.jsxs("g", {
       class: `model__table` + modifier,
-      children: Draw$MinidocBlocks.array([
-        Draw$MinidocBlocks.Elements.jsx("rect", {
+      children: Draw$EpureBlocks.array([
+        Draw$EpureBlocks.Elements.jsx("rect", {
           x: x.toString(),
           y: y.toString(),
           width: width.toString(),
           height: op.height.toString()
         }),
-        Draw$MinidocBlocks.Elements.jsx("text", {
+        Draw$EpureBlocks.Elements.jsx("text", {
           class: "model__name",
           x: left.toString(),
           y: (y + 30 / 2 + 4).toString(),
-          children: Draw$MinidocBlocks.string(op.name)
+          children: Draw$EpureBlocks.string(op.name)
         }),
-        tenant !== undefined ? Draw$MinidocBlocks.Elements.jsx("text", {
+        tenant !== undefined ? Draw$EpureBlocks.Elements.jsx("text", {
             class: "model__tenant",
             x: (x + width - 12).toString(),
             y: (y + 30 / 2 + 4).toString(),
             "text-anchor": "end",
-            children: Draw$MinidocBlocks.string(tenant)
-          }) : Draw$MinidocBlocks.$$null,
-        Primitive_object.equal(columns, []) ? Draw$MinidocBlocks.$$null : Draw$MinidocBlocks.Elements.jsx("line", {
+            children: Draw$EpureBlocks.string(tenant)
+          }) : Draw$EpureBlocks.$$null,
+        Primitive_object.equal(columns, []) ? Draw$EpureBlocks.$$null : Draw$EpureBlocks.Elements.jsx("line", {
             class: "model__rule",
             x1: x.toString(),
             y1: (y + 30).toString(),
             x2: (x + width).toString(),
             y2: (y + 30).toString()
           }),
-        Draw$MinidocBlocks.array(columns.map(c => {
+        Draw$EpureBlocks.array(columns.map(c => {
           let k = c.kind;
           let v = c.value;
-          return Draw$MinidocBlocks.jsxs(Draw$MinidocBlocks.jsxFragment, {
-            children: Draw$MinidocBlocks.array([
-              Draw$MinidocBlocks.Elements.jsx("text", {
+          return Draw$EpureBlocks.jsxs(Draw$EpureBlocks.jsxFragment, {
+            children: Draw$EpureBlocks.array([
+              Draw$EpureBlocks.Elements.jsx("text", {
                 class: "model__column",
                 x: left.toString(),
                 y: c.y.toString(),
-                children: Draw$MinidocBlocks.string(c.name)
+                children: Draw$EpureBlocks.string(c.name)
               }),
-              k !== undefined ? Draw$MinidocBlocks.Elements.jsx("text", {
+              k !== undefined ? Draw$EpureBlocks.Elements.jsx("text", {
                   class: "model__type",
                   x: kindX.toString(),
                   y: c.y.toString(),
-                  children: Draw$MinidocBlocks.string(k)
-                }) : Draw$MinidocBlocks.$$null,
-              v !== undefined ? Draw$MinidocBlocks.Elements.jsx("text", {
+                  children: Draw$EpureBlocks.string(k)
+                }) : Draw$EpureBlocks.$$null,
+              v !== undefined ? Draw$EpureBlocks.Elements.jsx("text", {
                   class: "model__value",
                   x: valueX.toString(),
                   y: c.y.toString(),
-                  children: Draw$MinidocBlocks.string(v)
-                }) : Draw$MinidocBlocks.$$null
+                  children: Draw$EpureBlocks.string(v)
+                }) : Draw$EpureBlocks.$$null
             ])
           });
         }))
@@ -675,48 +675,48 @@ function draw(drawing) {
         anchor = match$2[1];
         break;
     }
-    return Draw$MinidocBlocks.Elements.jsx("text", {
+    return Draw$EpureBlocks.Elements.jsx("text", {
       class: "model__label",
       x: x.toString(),
       y: y.toString(),
       "text-anchor": anchor,
-      children: Draw$MinidocBlocks.string(said)
+      children: Draw$EpureBlocks.string(said)
     });
   });
   let c = drawing.caption;
-  return Draw$MinidocBlocks.Elements.jsxs("figure", {
+  return Draw$EpureBlocks.Elements.jsxs("figure", {
     class: "model",
-    children: Draw$MinidocBlocks.array([
-      Draw$MinidocBlocks.Elements.jsxs("svg", {
+    children: Draw$EpureBlocks.array([
+      Draw$EpureBlocks.Elements.jsxs("svg", {
         class: "model__svg",
         viewBox: frame.left.toString() + ` ` + frame.top.toString() + ` ` + frame.width.toString() + ` ` + frame.height.toString(),
         width: frame.width.toString(),
         height: frame.height.toString(),
         role: "img",
         "aria-label": Stdlib_Option.getOr(drawing.caption, "A database schema"),
-        children: Draw$MinidocBlocks.array([
+        children: Draw$EpureBlocks.array([
           tips,
           links,
           tables,
           notes
         ])
       }),
-      c !== undefined ? Draw$MinidocBlocks.Elements.jsx("figcaption", {
+      c !== undefined ? Draw$EpureBlocks.Elements.jsx("figcaption", {
           class: "model__caption",
-          children: Draw$MinidocBlocks.Elements.jsx("span", {
+          children: Draw$EpureBlocks.Elements.jsx("span", {
             class: "model__title",
-            children: Draw$MinidocBlocks.string(c)
+            children: Draw$EpureBlocks.string(c)
           })
-        }) : Draw$MinidocBlocks.$$null
+        }) : Draw$EpureBlocks.$$null
     ])
   });
 }
 
-let fail = Html$MinidocBlocks.fail;
+let fail = Html$EpureBlocks.fail;
 
-let width = Sequence$MinidocBlocks.width;
+let width = Sequence$EpureBlocks.width;
 
-let capture = Sequence$MinidocBlocks.capture;
+let capture = Sequence$EpureBlocks.capture;
 
 let headHeight = 30;
 
@@ -732,7 +732,7 @@ let across = 96;
 
 let baseline = 15;
 
-let text = Draw$MinidocBlocks.string;
+let text = Draw$EpureBlocks.string;
 
 let straight = 0.7;
 

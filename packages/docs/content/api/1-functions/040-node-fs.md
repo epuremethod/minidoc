@@ -36,7 +36,7 @@ one.
 #### Example
 
 ```js
-import { nodeFs, run } from "@minidoc/core"
+import { nodeFs, run } from "@epure/minidoc"
 
 const root = new URL("./", import.meta.url)
 await run({ fs: nodeFs(root, { allow: ["../shared"] }), glob: "content/config.yaml" })

@@ -12,7 +12,7 @@ import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { dev } from "@minidoc/core";
+import { dev } from "@epure/minidoc";
 import { bundled } from "../src/bundle.mjs";
 
 const docs = fileURLToPath(new URL("../", import.meta.url));
