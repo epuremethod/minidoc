@@ -65,9 +65,18 @@ var:
       if (saved === "soft" || saved === "graphic") pick(saved)
     })()
     </script>
-    <script src="./viewer.js" defer></script>
+    <script src="./viewer.js" defer></script>{{editScript}}
     </body>
     </html>
+
+  # The dev page is the editor: `pnpm docs:dev` marks each file's body with
+  # the file it comes from, and loads the editor. Any other build writes
+  # nothing for these.
+  editScript: { value: "", transform: editScript }
+  editTo: { value: "", transform: editTo }
+  guideEdit: { value: "content/guide/{{file.name}}", transform: editFrom }
+  apiEdit: { value: "content/api/{{file.dir}}/{{file.name}}", transform: editFrom }
+  blocksEdit: { value: "content/blocks/{{file.name}}", transform: editFrom }
 
   # The guide: one story, one file per chapter, read in order.
   guideToc:
@@ -92,7 +101,7 @@ var:
       <h2 class="chapter__title">{{title}}</h2>
       {{figureHtml}}
       <div class="prose">
-      {{body}}
+      {{guideEdit}}{{body}}{{editTo}}
       {{refsBlock}}
       </div>
       </section>
@@ -111,7 +120,7 @@ var:
       <p class="entry__summary">{{summary}}</p>
       <div class="prose">
       <div class="entry__signature">{{signatureHtml}}</div>
-      {{body}}
+      {{apiEdit}}{{body}}{{editTo}}
       </div>
       </article>
   signatureHtml:
@@ -145,7 +154,7 @@ var:
       <section class="chapter" id="{{slug}}">
       <h2 class="chapter__title">{{title}}</h2>
       <div class="prose">
-      {{body}}
+      {{blocksEdit}}{{body}}{{editTo}}
       </div>
       {{sectionPlates}}
       </section>

@@ -792,3 +792,102 @@ editor and maia. The compiled output did not change.
 
 Refused: staying on 12.3.0. maia builds minidoc's packages with its own
 compiler, and each build on one side cleaned the other's compiled files.
+
+## 2026-11-07: A page is edited through its markdown, read as CommonMark groups it
+
+In `dev`, each file a page is made of is one section, drawn by one
+`TiliaEditor.View`. `@minidoc/edit` reads the markdown with the blocks'
+scanner for `:::` blocks and markdown-it's line maps for the rest. A
+paragraph, a `- ` item of a flat list and a `#` to `###` title are the
+editor's blocks, however they are wrapped in the file. Every other block
+is an atom holding its exact source, drawn by `Live.Drawing` and edited
+in the panel through `Live.Pane`; the plan is `Live.Editor` in place.
+`{{` is text, escaped outside code spans.
+
+Refused: one block per line, which shows a wrapped paragraph as several.
+Refused too: an editor for each block, and a shadow root for each block.
+
+Costs: only paragraphs, flat `- ` lists, `#` to `###` titles and the plan
+are edited in place. Tables, numbered lists, quotes, `####` titles, code
+and callouts go through the panel.
+
+## 2026-11-07: An unchanged block is written as it was
+
+Writing a section back, a block nobody changed writes its original lines,
+and the space between blocks is kept. An edited paragraph is broken again
+after the same words, by a longest common subsequence of its words. A new
+block gets a blank line before it, except an item after an item.
+
+Refused: writing the whole file in the editor's form, which changed 47
+places in the docs on the first save.
+
+Costs: an edited block comes back in the editor's form, `*x*` as `_x_`.
+
+## 2026-11-07: A source minidoc refuses is not written
+
+An atom whose source does not read writes the last source that read, as
+the drawing keeps its last form, so the site keeps building.
+
+Refused: writing what the person typed, which stops the build and the
+page with it while they type.
+
+Costs: a refused source is lost if the page closes before it reads.
+
+## 2026-11-07: `dev` writes the markdown of the folders `edit` names
+
+`dev({edit: ["content"]})` serves `GET` and `PUT /__minidoc/file?path=`.
+A `PUT` carries `{text, base, page}` and is refused with 409, and the file
+as it is, when the file is no longer `base`. A path outside those folders,
+a missing or non-markdown file, a request without the `x-minidoc-edit`
+header or from another origin get 403. The reload stream names its page.
+When a build lands and one page's own writes are every change, that page
+is told `built` and keeps its caret, and every other page reloads. Any
+other change reloads every page. A page writes 300 ms after the last key.
+
+Refused: telling a page's own save apart by a time window, and Vite's dev
+server.
+
+Costs: a page names itself on the reload stream, and the route answers
+only a request with its header from the dev page's origin.
+
+## 2026-11-07: The docs load the editor only in dev, by value vars
+
+`docs:dev` sets `MINIDOC_EDIT` and bundles `src/edit.mjs` into
+`dist/edit.js` with esbuild's watch. The docs' layout writes
+`{{editFrom}}{{body}}{{editTo}}` and `{{editScript}}`, value vars whose
+transforms write nothing without `MINIDOC_EDIT`, each placed so that the
+static build stays byte for byte. The story callout and Prism are shared
+by the `md` transform and the editor, in `src/options.mjs`.
+
+Refused: a source attribute in the static HTML, and markers written by
+core.
+
+Costs: `dist/edit.js` stays in `dist` after dev. A build from a clean
+tree, as CI's, has none.
+
+## 2026-11-07: Each section names its own block ids, until the editor prefixes them
+
+`Page.read ~ids` makes the editor's ids unique on the page (`s1b0`,
+`s1a3`), and a section is given no `prefix`. In this version, the editor's
+`View` draws a section's blocks without its prefix but looks them up with
+it, so a prefix makes it ignore every key. A new entry removes this once
+the editor passes its prefix to a section's blocks.
+
+Refused: the prefix, which leaves the model unchanged while the page shows
+the typing.
+
+Costs: the page, not the editor, keeps the ids apart.
+
+## 2026-11-07: A drawing in the editor drops its outer margins
+
+A drawing sits in the editor's display line, between two zero-width
+spaces, and its margins cannot collapse with the text's around it.
+`edit.css` drops its first child's top margin, and its last child's
+bottom margin when a `#` to `###` title follows. The line takes no room by
+`font-size: 0`; the drawing takes back the section's size from
+`--edit-size`, a registered property of `edit.css`, not a theme variable.
+
+Refused: changing the editor's display line for minidoc.
+
+Costs: a drawing after a paragraph sits 4 px higher than on the static
+page.

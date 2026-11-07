@@ -152,7 +152,8 @@ async function folder(path) {
   }
 }
 
-async function watching(paths, skip, exts, trigger) {
+async function watching(paths, skip, exts, trigger, notedOpt) {
+  let noted = notedOpt !== undefined ? notedOpt : param => {};
   let fs = await import_("node:fs");
   let pending = {
     contents: undefined
@@ -173,12 +174,14 @@ async function watching(paths, skip, exts, trigger) {
       persistent: true
     }, (_event, name) => {
       if (name == null) {
-        if (deep) {
-          return;
-        } else {
+        if (!deep) {
+          noted(path);
           return soon();
+        } else {
+          return;
         }
       } else if (changed(skip, exts, name)) {
+        noted(deep ? Schema.join(path, name) : path);
         return soon();
       } else {
         return;
@@ -306,11 +309,13 @@ function failed(message) {
   return `event: failed\ndata: ` + JSON.stringify(message) + `\n\n`;
 }
 
+let built = "event: built\ndata: \n\n";
+
 let banner = "position:fixed;left:0;right:0;bottom:0;max-height:50vh;overflow:auto;padding:12px 16px;background:#3b0a0a;color:#ffd9d9;font:12px/1.4 ui-monospace,monospace;z-index:2147483647";
 
 let closer = "float:right;margin:-4px -8px 0 12px;padding:0 6px;border:0;background:none;color:inherit;font:16px/1 ui-monospace,monospace;cursor:pointer";
 
-let live = `<script>(()=>{let s=null,b=null,m=null;const fail=e=>{if(!b){b=document.createElement("div");b.id="__minidoc";b.style.cssText="` + banner + `";const x=document.createElement("button");x.type="button";x.title="Close";x.textContent="\\u00d7";x.style.cssText="` + closer + `";x.onclick=()=>{b.remove();b=null};m=document.createElement("pre");m.style.cssText="margin:0;white-space:pre-wrap";b.append(x,m);document.body.appendChild(b)}m.textContent=JSON.parse(e.data)};const open=()=>{if(s)return;s=new EventSource("` + channel + `");s.addEventListener("message",()=>location.reload());s.addEventListener("failed",fail)};const close=()=>{if(s){s.close();s=null}};open();addEventListener("pagehide",close);addEventListener("pageshow",open);document.addEventListener("visibilitychange",()=>document.hidden?close():open())})()</script>`;
+let live = `<script>(()=>{let s=null,b=null,m=null;const fail=e=>{if(!b){b=document.createElement("div");b.id="__minidoc";b.style.cssText="` + banner + `";const x=document.createElement("button");x.type="button";x.title="Close";x.textContent="\\u00d7";x.style.cssText="` + closer + `";x.onclick=()=>{b.remove();b=null};m=document.createElement("pre");m.style.cssText="margin:0;white-space:pre-wrap";b.append(x,m);document.body.appendChild(b)}m.textContent=JSON.parse(e.data)};const page=Math.random().toString(36).slice(2);window.__minidocPage=page;const open=()=>{if(s)return;s=new EventSource("` + channel + `?page="+page);s.addEventListener("message",()=>{try{sessionStorage.setItem("minidoc-reloaded","1")}catch{}location.reload()});s.addEventListener("failed",fail);s.addEventListener("built",()=>{if(b){b.remove();b=null}})};const close=()=>{if(s){s.close();s=null}};open();addEventListener("pagehide",close);addEventListener("pageshow",open);document.addEventListener("visibilitychange",()=>document.hidden?close():open())})()</script>`;
 
 function inject(html) {
   let at = html.lastIndexOf("</body>");
@@ -334,8 +339,76 @@ function candidates(path) {
   }
 }
 
-async function serve(dir, clients, broken, req, res) {
+let pageOf = ((req) => new URL(req.url, "http://127.0.0.1").searchParams.get("page") || "");
+
+let files = channel + "/file";
+
+async function nodeModules() {
+  let path = await import_("node:path");
+  let fs = await import_("node:fs/promises");
+  return {
+    path: path,
+    fs: fs
+  };
+}
+
+let rawFile = (async ({path, fs}, req, res, root, folders, port, wrote) => {
+  const say = (code, text, type = "text/plain; charset=utf-8") => {
+    res.writeHead(code, {"content-type": type, "cache-control": "no-store"})
+    res.end(text)
+  }
+  const origin = req.headers.origin
+  const own = ["http://127.0.0.1:" + port, "http://localhost:" + port]
+  if (!req.headers["x-minidoc-edit"] || (origin && !own.includes(origin))) return say(403, "Forbidden")
+  const asked = new URL(req.url, "http://127.0.0.1").searchParams.get("path") || ""
+  const at = path.resolve(root, asked)
+  const inside = folders.some((folder) => at.startsWith(path.resolve(root, folder) + path.sep))
+  if (!inside || asked.includes("..") || !at.endsWith(".md")) return say(403, "Forbidden")
+  let current
+  try { current = await fs.readFile(at, "utf8") } catch { return say(403, "Forbidden") }
+  if (req.method === "GET") return say(200, current, "text/markdown; charset=utf-8")
+  if (req.method !== "PUT") return say(405, "Method not allowed")
+  let body = ""
+  for await (const chunk of req) body += chunk
+  let sent = null
+  try { sent = JSON.parse(body) } catch {}
+  if (!sent || typeof sent.text !== "string" || typeof sent.base !== "string" || typeof sent.page !== "string")
+    return say(400, "A write is {text, base, page}")
+  if (sent.base !== current) return say(409, current, "text/markdown; charset=utf-8")
+  wrote[at] = {text: sent.text, page: sent.page}
+  await fs.writeFile(at, sent.text)
+  say(200, "")
+});
+
+let rawWriter = (async ({path, fs}, changed, wrote) => {
+  const pages = new Set()
+  for (const name of changed) {
+    const at = path.resolve(name)
+    const own = wrote[at]
+    if (!own) return null
+    let text
+    try { text = await fs.readFile(at, "utf8") } catch { return null }
+    if (text !== own.text) return null
+    pages.add(own.page)
+  }
+  return pages.size === 1 ? [...pages][0] : null
+});
+
+async function file(req, res, root, folders, port, wrote) {
+  return await rawFile(await nodeModules(), req, res, root, folders, port, wrote);
+}
+
+async function writer(changed, wrote) {
+  return await rawWriter(await nodeModules(), changed, wrote);
+}
+
+async function serve(site, req, res) {
+  let clients = site.clients;
+  let dir = site.dir;
   let path = decodeURIComponent(req.url.split("?")[0]);
+  if (path === files && site.edit.length !== 0) {
+    return await file(req, res, site.root, site.edit, site.port.contents, site.wrote);
+  }
   if (path === channel) {
     res.writeHead(200, Object.fromEntries([
       [
@@ -352,15 +425,18 @@ async function serve(dir, clients, broken, req, res) {
       ]
     ]));
     res.write(":open\n\n");
-    Stdlib_Option.forEach(broken.contents, message => {
+    Stdlib_Option.forEach(site.broken.contents, message => {
       res.write(failed(message));
     });
     clients.contents = Belt_Array.concatMany([
       clients.contents,
-      [res]
+      [[
+          res,
+          pageOf(req)
+        ]]
     ]);
     res.on("close", () => {
-      clients.contents = clients.contents.filter(r => r !== res);
+      clients.contents = clients.contents.filter(param => param[0] !== res);
     });
     return;
   }
@@ -448,7 +524,7 @@ async function watch(options, rebuild) {
   let watchers = await watching(Belt_Array.concatMany([
     [root],
     Stdlib_Option.getOr(options.watch, [])
-  ]), Stdlib_Option.getOr(options.ignore, ignored), Stdlib_Option.getOr(options.extensions, extensions), trigger);
+  ]), Stdlib_Option.getOr(options.ignore, ignored), Stdlib_Option.getOr(options.extensions, extensions), trigger, undefined);
   say(`watching ` + root);
   return {
     stop: () => {
@@ -462,20 +538,37 @@ async function watch(options, rebuild) {
 async function dev(options, hooks) {
   let root = Stdlib_Option.getOr(options.root, process.cwd());
   let dir = absolute(root, Stdlib_Option.getOr(options.serve, "dist"));
-  let clients = {
+  let site_edit = Stdlib_Option.getOr(options.edit, []);
+  let site_clients = {
     contents: []
   };
-  let broken = {
+  let site_broken = {
     contents: undefined
   };
+  let site_wrote = {};
+  let site_port = {
+    contents: 0
+  };
+  let site = {
+    dir: dir,
+    root: root,
+    edit: site_edit,
+    clients: site_clients,
+    broken: site_broken,
+    wrote: site_wrote,
+    port: site_port
+  };
+  let broken = site_broken;
+  let clients = site_clients;
   let http = await import_("node:http");
   let server = http.createServer((req, res) => {
-    serve(dir, clients, broken, req, res);
+    serve(site, req, res);
   });
   let port = options.port;
   let remembered = port !== undefined ? port : await hooks.readPort();
   let wanted = Stdlib_Option.getOr(remembered, 0);
   let port$1 = await rawListen(server, wanted, host);
+  site_port.contents = port$1;
   if (port$1 < 0) {
     if (wanted === 0) {
       return Schema.fail(`dev server could not listen on ` + host);
@@ -492,18 +585,36 @@ async function dev(options, hooks) {
   if (Stdlib_Option.isNone(options.port) && Primitive_object.notequal(remembered, port$1)) {
     await hooks.writePort(port$1);
   }
+  let changed = {
+    contents: []
+  };
   let trigger = looper(hooks.rebuild, failure => {
     broken.contents = failure;
-    let word = failure !== undefined ? failed(failure) : reload;
-    clients.contents.forEach(r => {
-      r.write(word);
-    });
+    let seen = changed.contents;
+    changed.contents = [];
+    if (failure !== undefined) {
+      clients.contents.forEach(param => {
+        param[0].write(failed(failure));
+      });
+    } else {
+      writer(seen, site_wrote).then(page => {
+        let page$1 = (page == null) ? undefined : Primitive_option.some(page);
+        clients.contents.forEach(param => {
+          param[0].write(Primitive_object.equal(param[1], page$1) ? built : reload);
+        });
+      });
+    }
   });
   await trigger();
   let watchers = await watching(Belt_Array.concatMany([
     [root],
     Stdlib_Option.getOr(options.watch, [])
-  ]), Stdlib_Option.getOr(options.ignore, ignored), Stdlib_Option.getOr(options.extensions, extensions), trigger);
+  ]), Stdlib_Option.getOr(options.ignore, ignored), Stdlib_Option.getOr(options.extensions, extensions), trigger, name => {
+    changed.contents = Belt_Array.concatMany([
+      changed.contents,
+      [name]
+    ]);
+  });
   say(`http://` + host + `:` + port$1.toString() + ` — watching ` + root);
   return {
     port: port$1,
@@ -511,8 +622,8 @@ async function dev(options, hooks) {
       watchers.forEach(prim => {
         prim.close();
       });
-      clients.contents.forEach(r => {
-        r.end("");
+      clients.contents.forEach(param => {
+        param[0].end("");
       });
       server.close();
       server.closeAllConnections();
@@ -543,11 +654,19 @@ export {
   channel,
   reload,
   failed,
+  built,
   banner,
   closer,
   live,
   inject,
   candidates,
+  pageOf,
+  files,
+  nodeModules,
+  rawFile,
+  rawWriter,
+  file,
+  writer,
   serve,
   rawListen,
   rawProbe,

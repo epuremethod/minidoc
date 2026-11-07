@@ -12,6 +12,7 @@
     "docs:dev": "pnpm --filter minidoc-docs dev",
     "live:hit": "pnpm --filter @minidoc/live hit",
     "pub": "bin/publish.sh",
-    "test": "pnpm -r test"
+    "test": "pnpm -r test",
+    "docs:edit-check": "pnpm --filter minidoc-docs edit-check"
   }
 }

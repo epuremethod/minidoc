@@ -82,6 +82,11 @@ export type DevOptions = WatchOptions & {
   serve?: string;
   /** A fixed port; without one, the port remembered in the entry config. */
   port?: number;
+  /**
+   * Folders, relative to `root`, whose markdown files a page may read and
+   * write through the server. Without it, the server writes nothing.
+   */
+  edit?: string[];
 };
 
 export interface Watcher {

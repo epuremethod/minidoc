@@ -183,7 +183,7 @@ let folder = async path =>
 
 // One watcher per path: the root, and whatever else a site is built from —
 // a folder is watched all the way down, a single file as itself.
-let watching = async (paths, skip, exts, trigger) => {
+let watching = async (paths, skip, exts, trigger, ~noted: string => unit=_ => ()) => {
   let fs: nodefs = await import_("node:fs")
   let pending: ref<option<timer>> = ref(None)
   // One save is several events; the last one wins.
@@ -202,9 +202,17 @@ let watching = async (paths, skip, exts, trigger) => {
       let deep = await folder(path)
       fs.watch(path, {recursive: deep, persistent: true}, (_event, name) =>
         switch name->Nullable.toOption {
-        | Some(name) => changed(skip, exts, name) ? soon() : ()
+        | Some(name) =>
+          if changed(skip, exts, name) {
+            noted(deep ? join(path, name) : path)
+            soon()
+          }
         // A watched file reporting no name is the file itself.
-        | None => deep ? () : soon()
+        | None =>
+          if !deep {
+            noted(path)
+            soon()
+          }
         }
       )
     }),
@@ -278,15 +286,19 @@ let channel = "/__minidoc"
 // failure at its foot, because a reload into a broken build loses the page.
 let reload = "data: reload\n\n"
 let failed = message => `event: failed\ndata: ${stringify(message)}\n\n`
+// The page whose own write made the build already shows it: it is told the
+// build landed, and closes a failure it showed, but keeps its caret.
+let built = "event: built\ndata: \n\n"
 
-// The page holds a stream open; a finished build says one word down it. A
+// The page holds a stream open, under a name of its own; a finished build
+// says one word down it. A
 // hidden page lets go of it: a browser allows a host six connections, so
 // tabs left open would starve the next one, and an open stream keeps a page
 // out of the back and forward cache. Shown again, it opens one anew.
 let banner = "position:fixed;left:0;right:0;bottom:0;max-height:50vh;overflow:auto;padding:12px 16px;background:#3b0a0a;color:#ffd9d9;font:12px/1.4 ui-monospace,monospace;z-index:2147483647"
 let closer = "float:right;margin:-4px -8px 0 12px;padding:0 6px;border:0;background:none;color:inherit;font:16px/1 ui-monospace,monospace;cursor:pointer"
 // Closing the failure hides it; the next failure opens a new one.
-let live = `<script>(()=>{let s=null,b=null,m=null;const fail=e=>{if(!b){b=document.createElement("div");b.id="__minidoc";b.style.cssText="${banner}";const x=document.createElement("button");x.type="button";x.title="Close";x.textContent="\\u00d7";x.style.cssText="${closer}";x.onclick=()=>{b.remove();b=null};m=document.createElement("pre");m.style.cssText="margin:0;white-space:pre-wrap";b.append(x,m);document.body.appendChild(b)}m.textContent=JSON.parse(e.data)};const open=()=>{if(s)return;s=new EventSource("${channel}");s.addEventListener("message",()=>location.reload());s.addEventListener("failed",fail)};const close=()=>{if(s){s.close();s=null}};open();addEventListener("pagehide",close);addEventListener("pageshow",open);document.addEventListener("visibilitychange",()=>document.hidden?close():open())})()</script>`
+let live = `<script>(()=>{let s=null,b=null,m=null;const fail=e=>{if(!b){b=document.createElement("div");b.id="__minidoc";b.style.cssText="${banner}";const x=document.createElement("button");x.type="button";x.title="Close";x.textContent="\\u00d7";x.style.cssText="${closer}";x.onclick=()=>{b.remove();b=null};m=document.createElement("pre");m.style.cssText="margin:0;white-space:pre-wrap";b.append(x,m);document.body.appendChild(b)}m.textContent=JSON.parse(e.data)};const page=Math.random().toString(36).slice(2);window.__minidocPage=page;const open=()=>{if(s)return;s=new EventSource("${channel}?page="+page);s.addEventListener("message",()=>{try{sessionStorage.setItem("minidoc-reloaded","1")}catch{}location.reload()});s.addEventListener("failed",fail);s.addEventListener("built",()=>{if(b){b.remove();b=null}})};const close=()=>{if(s){s.close();s=null}};open();addEventListener("pagehide",close);addEventListener("pageshow",open);document.addEventListener("visibilitychange",()=>document.hidden?close():open())})()</script>`
 
 let inject = html =>
   switch String.lastIndexOf(html, "</body>") {
@@ -305,9 +317,89 @@ let candidates = path =>
     [path]
   }
 
-let serve = async (dir, clients: ref<array<res>>, broken: ref<option<string>>, req, res) => {
+let pageOf: req => string = %raw(`(req) => new URL(req.url, "http://127.0.0.1").searchParams.get("page") || ""`)
+
+/** What a page wrote to a file, by the file's absolute path. */
+type wrote = {text: string, page: string}
+
+let files = channel ++ "/file"
+
+// A page reads and writes the markdown of the folders `edit` names, and
+// nothing else. A page of another site cannot: the header it must send asks
+// the browser for a preflight, which this server never grants, and its
+// origin is refused. A write names the text it was written over, and is
+// refused when the file changed since.
+type nodeModules
+// Node's `path` and `fs/promises`, loaded as every builtin here is.
+let nodeModules = async (): nodeModules => {
+  let path = await import_("node:path")
+  let fs = await import_("node:fs/promises")
+  Obj.magic({"path": path, "fs": fs})
+}
+
+let rawFile: (nodeModules, req, res, string, array<string>, int, dict<wrote>) => promise<unit> = %raw(`async ({path, fs}, req, res, root, folders, port, wrote) => {
+  const say = (code, text, type = "text/plain; charset=utf-8") => {
+    res.writeHead(code, {"content-type": type, "cache-control": "no-store"})
+    res.end(text)
+  }
+  const origin = req.headers.origin
+  const own = ["http://127.0.0.1:" + port, "http://localhost:" + port]
+  if (!req.headers["x-minidoc-edit"] || (origin && !own.includes(origin))) return say(403, "Forbidden")
+  const asked = new URL(req.url, "http://127.0.0.1").searchParams.get("path") || ""
+  const at = path.resolve(root, asked)
+  const inside = folders.some((folder) => at.startsWith(path.resolve(root, folder) + path.sep))
+  if (!inside || asked.includes("..") || !at.endsWith(".md")) return say(403, "Forbidden")
+  let current
+  try { current = await fs.readFile(at, "utf8") } catch { return say(403, "Forbidden") }
+  if (req.method === "GET") return say(200, current, "text/markdown; charset=utf-8")
+  if (req.method !== "PUT") return say(405, "Method not allowed")
+  let body = ""
+  for await (const chunk of req) body += chunk
+  let sent = null
+  try { sent = JSON.parse(body) } catch {}
+  if (!sent || typeof sent.text !== "string" || typeof sent.base !== "string" || typeof sent.page !== "string")
+    return say(400, "A write is {text, base, page}")
+  if (sent.base !== current) return say(409, current, "text/markdown; charset=utf-8")
+  wrote[at] = {text: sent.text, page: sent.page}
+  await fs.writeFile(at, sent.text)
+  say(200, "")
+}`)
+
+// The page whose own writes are every change a build saw, or nothing: each
+// changed file must still hold the text that one page wrote.
+let rawWriter: (nodeModules, array<string>, dict<wrote>) => promise<Nullable.t<string>> = %raw(`async ({path, fs}, changed, wrote) => {
+  const pages = new Set()
+  for (const name of changed) {
+    const at = path.resolve(name)
+    const own = wrote[at]
+    if (!own) return null
+    let text
+    try { text = await fs.readFile(at, "utf8") } catch { return null }
+    if (text !== own.text) return null
+    pages.add(own.page)
+  }
+  return pages.size === 1 ? [...pages][0] : null
+}`)
+
+let file = async (req, res, root, folders, port, wrote) => await rawFile(await nodeModules(), req, res, root, folders, port, wrote)
+let writer = async (changed, wrote) => await rawWriter(await nodeModules(), changed, wrote)
+
+type site = {
+  dir: string,
+  root: string,
+  edit: array<string>,
+  clients: ref<array<(res, string)>>,
+  broken: ref<option<string>>,
+  wrote: dict<wrote>,
+  port: ref<int>,
+}
+
+let serve = async (site: site, req, res) => {
+  let {dir, clients, broken} = site
   let path = decode(target(req)->String.split("?")->Array.getUnsafe(0))
-  if path == channel {
+  if path == files && site.edit->Array.length > 0 {
+    await file(req, res, site.root, site.edit, site.port.contents, site.wrote)
+  } else if path == channel {
     head(
       res,
       200,
@@ -320,8 +412,8 @@ let serve = async (dir, clients: ref<array<res>>, broken: ref<option<string>>, r
     let _ = push(res, ":open\n\n")
     // A page opened while the build is broken is told at once.
     broken.contents->Option.forEach(message => push(res, failed(message))->ignore)
-    clients := [...clients.contents, res]
-    onClose(res, "close", () => clients := clients.contents->Array.filter(r => r !== res))
+    clients := [...clients.contents, (res, pageOf(req))]
+    onClose(res, "close", () => clients := clients.contents->Array.filter(((r, _)) => r !== res))
   } else if String.includes(path, "..") {
     head(res, 403, plain)
     finish(res, "Forbidden")
@@ -394,6 +486,7 @@ type options = {
   extensions?: array<string>,
   serve?: string,
   port?: int,
+  edit?: array<string>,
 }
 
 /** What the runner cannot do itself: build, and remember a port. */
@@ -425,10 +518,18 @@ let watch = async (options: options, rebuild) => {
 let dev = async (options: options, hooks: hooks) => {
   let root = options.root->Option.getOr(cwd())
   let dir = absolute(root, options.serve->Option.getOr("dist"))
-  let clients: ref<array<res>> = ref([])
-  let broken: ref<option<string>> = ref(None)
+  let site = {
+    dir,
+    root,
+    edit: options.edit->Option.getOr([]),
+    clients: ref([]),
+    broken: ref(None),
+    wrote: Dict.make(),
+    port: ref(0),
+  }
+  let {clients, broken} = site
   let http: httpmod = await import_("node:http")
-  let server = http.createServer((req, res) => serve(dir, clients, broken, req, res)->ignore)
+  let server = http.createServer((req, res) => serve(site, req, res)->ignore)
 
   // A port the caller names is the caller's business. A port we remembered is
   // written down the first time, so this site keeps the same address
@@ -441,6 +542,7 @@ let dev = async (options: options, hooks: hooks) => {
   }
   let wanted = remembered->Option.getOr(0)
   let port = await rawListen(server, wanted, host)
+  site.port := port
   if port < 0 {
     if wanted == 0 {
       fail(`dev server could not listen on ${host}`)
@@ -456,13 +558,24 @@ let dev = async (options: options, hooks: hooks) => {
     }
     // The port is written before the first build, so the config a build reads
     // already names it — and before the watcher, so writing it is not a change.
+    // The files changed since the last build that landed or failed.
+    let changed = ref([])
     let trigger = looper(hooks.rebuild, failure => {
       broken := failure
-      let word = switch failure {
-      | None => reload
-      | Some(message) => failed(message)
+      let seen = changed.contents
+      changed := []
+      switch failure {
+      | Some(message) => clients.contents->Array.forEach(((r, _)) => push(r, failed(message))->ignore)
+      | None =>
+        writer(seen, site.wrote)
+        ->Promise.thenResolve(page => {
+          let page = page->Nullable.toOption
+          clients.contents->Array.forEach(((r, own)) =>
+            push(r, Some(own) == page ? built : reload)->ignore
+          )
+        })
+        ->ignore
       }
-      clients.contents->Array.forEach(r => push(r, word)->ignore)
     })
     await trigger()
     let watchers = await watching(
@@ -470,13 +583,14 @@ let dev = async (options: options, hooks: hooks) => {
       options.ignore->Option.getOr(ignored),
       options.extensions->Option.getOr(extensions),
       trigger,
+      ~noted=name => changed := [...changed.contents, name],
     )
     say(`http://${host}:${Int.toString(port)} — watching ${root}`)
     {
       port,
       stop: () => {
         watchers->Array.forEach(unwatch)
-        clients.contents->Array.forEach(r => finish(r, ""))
+        clients.contents->Array.forEach(((r, _)) => finish(r, ""))
         // Kept-alive sockets would still answer on a port we gave up.
         shut(server)
         drop(server)

@@ -83,6 +83,20 @@ async function hear(reader, want, ms = 15000) {
   return said;
 }
 
+/** A page reading or writing a markdown file through the server, as the editor does. */
+const file = (server, at, { write, headers = { "x-minidoc-edit": "1" } } = {}) =>
+  fetch(`http://127.0.0.1:${server.port}/__minidoc/file?path=${encodeURIComponent(at)}`, {
+    method: write ? "PUT" : "GET",
+    headers,
+    ...(write && { body: JSON.stringify(write) }),
+  });
+
+/** The reload stream, opened by the page named `page`. */
+async function stream(server, page) {
+  const res = await fetch(`http://127.0.0.1:${server.port}/__minidoc?page=${page}`);
+  return res.body.getReader();
+}
+
 /** A request `fetch` would not send, path untouched. */
 const raw = (at, target) =>
   new Promise((resolve) => {
@@ -181,7 +195,7 @@ function standIn() {
 
 test("dev serves the output and rebuilds what changed", async (t) => {
   const root = await site();
-  const server = await dev(options(root));
+  const server = await dev({ ...options(root), edit: ["content"] });
   t.after(async () => {
     server.stop();
     await rm(root, { recursive: true, force: true });
@@ -198,7 +212,7 @@ test("dev serves the output and rebuilds what changed", async (t) => {
     const page = await (await fetch(`http://127.0.0.1:${server.port}/`)).text();
     assert.match(page, /<h1>Marmot Docs<\/h1>/);
     assert.match(page, /<p>ONE: Hello \*\*watchers\*\*\.<\/p>/);
-    assert.match(page, /EventSource\("\/__minidoc"\)/);
+    assert.match(page, /EventSource\("\/__minidoc\?page="\+page\)/);
     // injected where the page ends, not appended past it
     assert.ok(page.endsWith("</script></body></html>"));
   });
@@ -208,28 +222,60 @@ test("dev serves the output and rebuilds what changed", async (t) => {
     const browser = standIn();
     vm.runInNewContext(/<script>(.*)<\/script><\/body>/s.exec(page)[1], browser.window);
     assert.equal(browser.streams.length, 1);
-    assert.equal(browser.streams[0].url, "/__minidoc");
+    assert.match(browser.streams[0].url, /^\/__minidoc\?page=\w+$/, "the stream names its page");
 
     browser.hide();
     assert.ok(browser.streams[0].closed);
 
     browser.show();
     assert.equal(browser.streams.length, 2);
-    assert.equal(browser.streams[1].url, "/__minidoc");
+    assert.equal(browser.streams[1].url, browser.streams[0].url, "the same page, by the same name");
     assert.ok(!browser.streams[1].closed);
 
     browser.streams[1].say("reload");
     assert.equal(browser.reloads, 1);
   });
 
-  await t.test("tells the page to reload when a build lands", async () => {
-    const stream = await fetch(`http://127.0.0.1:${server.port}/__minidoc`);
-    const reader = stream.body.getReader();
+  await t.test("tells every page to reload when a build lands, except the page whose own write made it", async () => {
+    const writer = await stream(server, "writer");
+    const other = await stream(server, "other");
+    const base = await (await file(server, "content/home.md")).text();
+    const wrote = await file(server, "content/home.md", { write: { text: "Hello *page*.\n", base, page: "writer" } });
+    assert.equal(wrote.status, 200);
+    assert.match(await hear(other, "data: reload"), /data: reload/);
+    const heard = await hear(writer, "event: built");
+    assert.match(heard, /event: built/, "the page that wrote is told the build landed");
+    assert.doesNotMatch(heard, /data: reload/, "and keeps its caret");
+    assert.match(await until(server, "Hello *page*."), /Hello \*page\*\./);
+
+    // Another program's save reloads every page, the writer too.
     await writeFile(path.join(root, "content", "home.md"), "Hello *again*.\n");
-    const said = await hear(reader, "data: reload");
-    await reader.cancel();
-    assert.match(said, /data: reload/);
+    assert.match(await hear(writer, "data: reload"), /data: reload/);
+    assert.match(await hear(other, "data: reload"), /data: reload/);
+    await writer.cancel();
+    await other.cancel();
     assert.match(await until(server, "Hello *again*."), /Hello \*again\*\./);
+  });
+
+  await t.test("a page writes a markdown file in a folder `edit` names, and the site rebuilds", async () => {
+    const read = await file(server, "content/home.md");
+    assert.equal(read.status, 200);
+    const base = await read.text();
+    assert.equal(base, "Hello *again*.\n");
+    const wrote = await file(server, "content/home.md", { write: { text: "Hello **edited**.\n", base, page: "p" } });
+    assert.equal(wrote.status, 200);
+    assert.equal(await readFile(path.join(root, "content", "home.md"), "utf8"), "Hello **edited**.\n");
+    assert.match(await until(server, "Hello **edited**."), /Hello \*\*edited\*\*\./);
+  });
+
+  await t.test("a write over a file that changed since the page read it is refused, and the file stays", async () => {
+    const base = await (await file(server, "content/home.md")).text();
+    await writeFile(path.join(root, "content", "home.md"), "Hello *elsewhere*.\n");
+    const wrote = await file(server, "content/home.md", { write: { text: "Hello *mine*.\n", base, page: "p" } });
+    assert.equal(wrote.status, 409);
+    assert.equal(await wrote.text(), "Hello *elsewhere*.\n", "the refusal holds the file as it is");
+    assert.equal(await readFile(path.join(root, "content", "home.md"), "utf8"), "Hello *elsewhere*.\n");
+    await until(server, "Hello *elsewhere*.");
   });
 
   // A build broken by a thrown transformer, seen through one stream kept
@@ -459,6 +505,32 @@ test("the filesystem never reaches outside its root unless allowed", async (t) =
   const allowed = nodeFs(root, { allow: [outside] });
   assert.equal(await allowed.readFile(escape), "secret");
   await assert.rejects(allowed.readFile(path.join(outside, "..", "elsewhere.txt")), /Path outside the project root/);
+
+  await t.test("a page writes only the markdown of the folders `edit` names", async (t) => {
+    const at = await site();
+    await writeFile(path.join(at, "notes.md"), "not in content\n");
+    await writeFile(path.join(at, "content", "data.yaml"), "a: 1\n");
+    const server = await dev({ ...options(at), edit: ["content"] });
+    const plain = await dev({ ...options(at), port: 45998 });
+    t.after(async () => {
+      server.stop();
+      plain.stop();
+      await rm(at, { recursive: true, force: true });
+    });
+    const base = "Hello **watchers**.\n";
+    const write = (where, more = {}) => file(server, where, { write: { text: "x\n", base, page: "p" }, ...more });
+    assert.equal((await write("notes.md")).status, 403, "outside the folders");
+    assert.equal((await write(escape)).status, 403, "outside the root");
+    assert.equal((await write("content/../notes.md")).status, 403, "out by a detour");
+    assert.equal((await write("content/new.md")).status, 403, "a new file");
+    assert.equal((await write("content/data.yaml")).status, 403, "not markdown");
+    assert.equal((await write("content/home.md", { headers: {} })).status, 403, "without the editor's header");
+    const foreign = { "x-minidoc-edit": "1", origin: "http://evil.example" };
+    assert.equal((await write("content/home.md", { headers: foreign })).status, 403, "from another site");
+    assert.equal((await file(plain, "content/home.md", { write: { text: "x\n", base, page: "p" } })).status, 404, "without `edit`, no write");
+    assert.equal(await readFile(path.join(at, "content", "home.md"), "utf8"), base);
+    assert.equal(await readFile(path.join(at, "notes.md"), "utf8"), "not in content\n");
+  });
 });
 
 test("frontmatter cannot pull a file from outside the root into the site", async (t) => {

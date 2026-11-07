@@ -1,7 +1,7 @@
 import { fileURLToPath } from "node:url";
 import { nodeFs, run } from "@minidoc/core";
 import { plates } from "./plates.mjs";
-import { md } from "./transforms.mjs";
+import { editFrom, editScript, editTo, md } from "./transforms.mjs";
 
 const root = new URL("../", import.meta.url);
 
@@ -11,7 +11,7 @@ export async function build() {
   await run({
     fs: nodeFs(fileURLToPath(root).replace(/\/$/, ""), { allow: ["../blocks"] }),
     glob: "content/config.yaml",
-    transform: { md, plates },
+    transform: { md, plates, editFrom, editTo, editScript },
   });
 }
 

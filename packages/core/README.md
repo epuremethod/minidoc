@@ -523,6 +523,7 @@ Options:
 | `extensions` | `.md` `.yaml` `.html` `.css` + scripts | trigger a rebuild |
 | `serve` | `dist` | directory served (`dev` only) |
 | `port` | remembered in config | fixed port; writes nothing (`dev` only) |
+| `edit` | `[]` | folders whose markdown a page may read and write (`dev` only) |
 
 A rebuild fires on any matching file under `root` — new files included — so
 `dist`, `node_modules`, `lib` and every dot-name go unwatched and a build
@@ -577,6 +578,17 @@ when a dev server already answers on it — the same site, launched twice —
 `dev` prints its link and returns; when anything else holds it, `dev` fails
 loud. Passing `port` explicitly skips the remembering and writes nothing.
 
+### Pages that edit their markdown
+
+With `edit: ["content"]`, a page may read a markdown file of those folders
+at `/__minidoc/file?path=content/home.md`, and write it with `PUT` and
+`{text, base, page}`. The write is refused when the file is no longer
+`base`, with the file as it is. Anything outside those folders, a new file,
+a file that is not markdown, a request without the `x-minidoc-edit` header,
+and a request from another site are refused. A build made only by one
+page's own writes reloads every other page; that page is told the build
+landed, and keeps its caret.
+
 ## Design
 
 Three source files, ReScript, plus the dev runner:
@@ -629,6 +641,9 @@ stand in for. `pnpm check` runs everything.
     with minidoc's reason above it when it refuses it, and no preview; the
     host redraws the drawing in the page. Its `frame` prop is gone. A
     `Live.Drawing` whose source is refused keeps its last good form.
+  - `dev` takes `edit`, the folders whose markdown a page may read and write
+    through the server. The reload stream names its page, and a build made
+    only by a page's own writes does not reload that page.
   - A host may give `@minidoc/live` its own text field, such as maia's
     editor line: `Live.Editor` then draws every text of the plan in it,
     looking exactly as on a static page. Enter in a todo splits it at the

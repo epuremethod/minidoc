@@ -1394,7 +1394,8 @@ async function dev(options) {
     ignore: options.ignore,
     extensions: options.extensions,
     serve: options.serve,
-    port: options.port
+    port: options.port,
+    edit: options.edit
   }, {
     rebuild: rebuild,
     readPort: async () => Schema.port(await fs$1.readFile(await entry(fs$1, options.glob))),

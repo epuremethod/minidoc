@@ -1176,6 +1176,11 @@ type devOptions = {
   serve?: string,
   /** A fixed port; without one, the port remembered in the entry config. */
   port?: int,
+  /**
+   Folders, relative to `root`, whose markdown files a page may read and write
+   through the server. Without it, the server writes nothing.
+  */
+  edit?: array<string>,
 }
 
 type watcher = Dev.stopper = {stop: unit => unit}
@@ -1244,6 +1249,7 @@ let dev = async (options: devOptions) => {
       extensions: ?options.extensions,
       serve: ?options.serve,
       port: ?options.port,
+      edit: ?options.edit,
     },
     {
       rebuild,

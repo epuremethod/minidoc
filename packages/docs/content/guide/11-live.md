@@ -21,6 +21,14 @@ import { dev } from "@minidoc/core"
 await dev({ glob: "content/**/config.yaml", build: "build.mjs" })
 ```
 
+```sequence Live reload
+you dev page
+you -> dev  save a file
+dev = rebuilds the site
+dev -> page  reload
+page -> you  the new page
+```
+
 `build` is the script from the second chapter. Each rebuild runs it in a
 fresh process. That matters as soon as the site has its own transforms:
 they reach `run` as functions, and a running process cannot reload a module
