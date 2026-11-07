@@ -1,0 +1,146 @@
+feature: A block edited live, in the host's text field
+background:
+  given: a block edited live in a host's text field
+examples:
+  - scenario: a text is the host's field, holding its markdown, with no box of live's own
+    before: |-
+      ::: plan
+      - [ ] Run `pnpm check`
+      :::
+    acts:
+      - click into: todo 1
+    shows: Run `pnpm check`
+    boxes: 0
+
+  - scenario: a text the caret enters and leaves, with nothing written, hands nothing on
+    before: |-
+      ::: plan
+      - [ ] Run __all__ checks
+      :::
+    acts:
+      - click into: todo 1
+      - leave
+    handed: 0
+
+  - scenario: a text written in the host's field hands on the block with that text changed
+    before: |-
+      ::: plan
+      - [ ] Run the check
+      - [ ] Ship __it__
+      :::
+    acts:
+      - click into: todo 1
+      - write: Run **all** checks
+      - leave
+    after: |-
+      ::: plan
+      - [ ] Run **all** checks
+      - [ ] Ship __it__
+      :::
+
+  - scenario: Enter in the host's field adds an empty todo after it, with the caret in it
+    before: |-
+      ::: plan
+      1. [/] **Fixture**
+         - [x] Split it
+         - [ ] Test it
+      :::
+    acts:
+      - click into: stage 1 todo 1
+      - press: Enter
+    caret: stage 1 todo 2
+    after: |-
+      ::: plan
+      1. [/] **Fixture**
+         - [x] Split it
+         - [ ]
+         - [ ] Test it
+      :::
+
+  - scenario: Enter in the middle of a todo splits it, with the caret at the start of the new todo
+    before: |-
+      ::: plan
+      1. [/] **Fixture**
+         - [ ] Split **it** and test it
+      :::
+    acts:
+      - click into: stage 1 todo 1
+      - put the caret after: Split it
+      - press: Enter
+    caret: stage 1 todo 2
+    offset: 0
+    after: |-
+      ::: plan
+      1. [/] **Fixture**
+         - [ ] Split **it**
+         - [ ] and test it
+      :::
+
+  - scenario: Backspace at the start of an empty todo removes it, and the caret goes to the todo before
+    before: |-
+      ::: plan
+      1. [/] **Fixture**
+         - [x] Split it
+         - [ ]
+      :::
+    acts:
+      - click into: stage 1 todo 2
+      - press at the start: Backspace
+    caret: stage 1 todo 1
+    after: |-
+      ::: plan
+      1. [/] **Fixture**
+         - [x] Split it
+      :::
+
+  - scenario: Backspace at the start of a todo with text changes nothing
+    before: |-
+      ::: plan
+      1. [/] **Fixture**
+         - [x] Split it
+         - [ ] Test it
+      :::
+    acts:
+      - click into: stage 1 todo 2
+      - press at the start: Backspace
+    caret: stage 1 todo 2
+    handed: 0
+
+  - scenario: a long plan picks the stage whose text has the caret
+    before: |-
+      ::: plan
+      1. [x] **One**
+      2. [/] **Two**
+      3. [ ] **Three**
+      4. [ ] **Four**
+      5. [ ] **Five**
+         - [ ] Ship it
+      :::
+    acts:
+      - click into: stage 5 title
+    picked: stage 5
+
+  - scenario: a stage with no message takes one in its message line, picked, and keeps the caret while it is written
+    before: |-
+      ::: plan
+      1. [x] **One**
+      2. [/] **Two** now
+      3. [ ] **Three**
+      4. [ ] **Four**
+      5. [ ] **Five**
+      :::
+    acts:
+      - click into: stage 3 message
+      - write: next
+      - write: next week
+    picked: stage 3
+    caret: stage 3 message
+    handed: 2
+    after: |-
+      ::: plan
+      1. [x] **One**
+      2. [/] **Two** now
+      3. [ ] **Three** next week
+      4. [ ] **Four**
+      5. [ ] **Five**
+      :::

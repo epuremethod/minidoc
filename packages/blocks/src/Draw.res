@@ -6,13 +6,40 @@
 // `rescript.json`: a project that builds this package as a dependency, such
 // as maia through `@minidoc/live`, would otherwise give it React's JSX.
 
+/** What the person does to a block. A field is named by its key. */
+type act =
+  | Write({key: string, text: string})
+  | Tick(string)
+  | MoveAlong(string)
+  | AddTodoAfter(string)
+  /** Enter in a todo: it keeps `before`, and a todo after it holds `after`. With no `after`, the todo stays as written. */
+  | SplitTodo({key: string, before: string, after: string})
+  | AddTodoIn(string)
+  | AddStage
+  | Remove(string)
+
+/** How the person edits a field. */
+type input =
+  /**
+   * Text written where it stands. Enter may carry an act, made from the
+   * text before the caret and the text after it. Backspace in an empty
+   * text may carry an act.
+   */
+  | Typed({enter: option<(string, string) => act>, erase: option<act>})
+  /** A click carries an act. */
+  | Clicked(act)
+
 type rec element =
   | Element({tag: string, attributes: dict<JSON.t>, children: array<element>})
   | Text(string)
   /** HTML that markdown-it gives, for prose and inline markdown only. */
   | Raw(string)
-  /** A value the person may edit: its key, its source text, and how it shows. */
-  | Field({key: string, value: string, shown: element})
+  /** A value the person may edit: its key, its source text, how it shows, and how it is edited. */
+  | Field({key: string, value: string, shown: element, input: input})
+  /** A part drawn only where the person may edit, which carries an act, such as "+ stage". */
+  | Act({act: act, shown: element})
+  /** A part drawn only where the person may edit, which carries no act, such as an empty message's place. */
+  | Edited({shown: element})
   | Many(array<element>)
   | Nothing
 
@@ -33,7 +60,14 @@ let null = Nothing
 let string = text => Text(text)
 let array = items => Many(items)
 let raw = html => Raw(html)
-let field = (~key, ~value, shown) => Field({key, value, shown})
+let field = (~key, ~value, ~input=Typed({enter: None, erase: None}), shown) => Field({
+  key,
+  value,
+  shown,
+  input,
+})
+let act = (act, shown) => Act({act, shown})
+let edited = shown => Edited({shown: shown})
 
 module Elements = {
   // The attributes the blocks write, each named as in HTML. ReScript writes
@@ -116,7 +150,7 @@ let attribute = ((name, value): (string, JSON.t)) =>
   | _ => ""
   }
 
-/** The HTML of a drawing. A field is written as it shows. */
+/** The HTML of a drawing. A field is written as it shows, and an act or an edited part not at all. */
 let rec write = element =>
   switch element {
   | Element({tag, attributes, children}) =>
@@ -132,7 +166,7 @@ let rec write = element =>
   | Raw(html) => html
   | Field({shown}) => write(shown)
   | Many(items) => items->Array.map(write)->Array.join("")
-  | Nothing => ""
+  | Act(_) | Edited(_) | Nothing => ""
   }
 
 /** The fields of a drawing, each key once, in the order they are drawn. */
@@ -141,11 +175,12 @@ let fields = element => {
   let rec walk = element =>
     switch element {
     | Element({children}) | Many(children) => children->Array.forEach(walk)
+    | Edited({shown}) => walk(shown)
     | Field({key, value}) =>
       if !(found->Array.some(((k, _)) => k == key)) {
         found->Array.push((key, value))
       }
-    | Text(_) | Raw(_) | Nothing => ()
+    | Text(_) | Raw(_) | Act(_) | Nothing => ()
     }
   walk(element)
   found
@@ -162,5 +197,6 @@ let rec under = (element, prefix) =>
   | Element(e) => Element({...e, children: e.children->Array.map(child => under(child, prefix))})
   | Field(f) => Field({...f, key: prefix ++ f.key})
   | Many(items) => Many(items->Array.map(item => under(item, prefix)))
-  | Text(_) | Raw(_) | Nothing => element
+  | Edited({shown}) => Edited({shown: under(shown, prefix)})
+  | Text(_) | Raw(_) | Act(_) | Nothing => element
   }

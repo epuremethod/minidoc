@@ -13,14 +13,19 @@ stage.
 
 A stage starts with its mark: `[x]` is done, `[/]` is in progress, and
 `[ ]` is not started. Its bold text is its title. The text after the title
-is a message, shown beside the stage's number: `2. [/] **Add a plan block** building`.
+is a message: `2. [/] **Add a plan block** building`. A stage shows its
+number and its title on one line, and its message, if it has one, under
+them, small and muted. In the band, the rule above each stage shows its
+state.
 A todo is `[x]` done or `[ ]` open. The title after `::: plan` is
-optional.
+optional. A stage or a todo may have no text yet, as one just added has.
 
-A plan of more than four stages lists them one under the other instead.
-A click on a stage shows its todos beside the list, and the page opens on
-the stage in progress. On a narrow screen, the todos open under their
-stage. In print, every stage shows its todos.
+A plan of more than four stages lists them one under the other instead,
+in a third of the plan's width, each with its state at the right: a check
+when done, a dot in progress, nothing when not started. A click on a stage shows its todos beside
+the list, and the page opens on the stage in progress. In a plan narrower
+than 30em, the todos open under their stage. In print, every stage shows
+its todos.
 
 A plan with no bullets is only the band. A bullet list with no stages is
 only the todos. A stage marked done that still has an open todo stops the

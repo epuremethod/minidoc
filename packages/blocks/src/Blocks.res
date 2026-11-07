@@ -390,6 +390,36 @@ let draw = (nodes, options) => drawPage(context(options), nodes, Markdown.env())
 
 let render = (nodes, options) => Draw.write(draw(nodes, options))
 
+type edited = Plan.edited = {source: string, caret: option<string>}
+
+// The one block of a source, apart from the blank text around it.
+let alone = nodes =>
+  switch nodes->Array.filter(node =>
+    switch node {
+    | Markdown(text) => String.trim(text) != ""
+    | _ => true
+    }
+  ) {
+  | [node] => Some(node)
+  | _ => None
+  }
+
+let editable = nodes =>
+  switch alone(nodes) {
+  | Some(Plan(_)) => true
+  | _ => false
+  }
+
+let edit = (source, act, options) => {
+  let edited = switch alone(read(source, options)) {
+  | Some(Plan({stages, todos, line})) => Plan.edit(source, ~stages, ~todos, ~line, act)
+  | Some(_) => Html.fail("Only a plan can be edited where it stands")
+  | None => Html.fail("Only a source of one block can be edited where it stands")
+  }
+  read(edited.source, options)->ignore
+  edited
+}
+
 let blocks = options => {
   let ctx = context(options)
   source => {

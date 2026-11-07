@@ -1,0 +1,254 @@
+feature: A block edited live, where it stands
+background:
+  given: a block edited live
+examples:
+  - scenario: a click on a todo's box hands on the block with the todo ticked
+    before: |-
+      ::: plan
+      1. [/] **Fixture**
+         - [ ] Split it
+      :::
+    acts:
+      - click the box of: stage 1 todo 1
+    after: |-
+      ::: plan
+      1. [/] **Fixture**
+         - [x] Split it
+      :::
+
+  - scenario: a click on a ticked todo's box hands on the block with the todo open again
+    before: |-
+      ::: plan
+      1. [/] **Fixture**
+         - [X] Split it
+      :::
+    acts:
+      - click the box of: stage 1 todo 1
+    after: |-
+      ::: plan
+      1. [/] **Fixture**
+         - [ ] Split it
+      :::
+
+  - scenario: a click on a ticked todo's box in a done stage moves the stage back in progress
+    before: |-
+      ::: plan
+      1. [x] **Fixture**
+         - [x] Split it
+         - [x] Test it
+      :::
+    acts:
+      - click the box of: stage 1 todo 2
+    after: |-
+      ::: plan
+      1. [/] **Fixture**
+         - [x] Split it
+         - [ ] Test it
+      :::
+
+  - scenario: a click on a stage's number hands on the block with the stage moved along
+    before: |-
+      ::: plan
+      1. [x] **Intention**
+      2. [ ] **Fixture**
+      :::
+    acts:
+      - click the number of: stage 2
+    after: |-
+      ::: plan
+      1. [x] **Intention**
+      2. [/] **Fixture**
+      :::
+
+  - scenario: a text with the caret in it shows its markdown
+    before: |-
+      ::: plan
+      - [ ] Run `pnpm check`
+      :::
+    acts:
+      - click into: todo 1
+    shows: Run `pnpm check`
+
+  - scenario: a text written shows its drawing once the caret leaves it
+    before: |-
+      ::: plan
+      - [ ] Run the check
+      :::
+    acts:
+      - click into: todo 1
+      - write: Run **all** checks
+      - leave
+    drawn: Run <strong>all</strong> checks
+    after: |-
+      ::: plan
+      - [ ] Run **all** checks
+      :::
+
+  - scenario: Enter in a todo adds an empty todo after it, with the caret in it
+    before: |-
+      ::: plan
+      1. [/] **Fixture**
+         - [x] Split it
+         - [ ] Test it
+      :::
+    acts:
+      - click into: stage 1 todo 1
+      - press: Enter
+    caret: stage 1 todo 2
+    after: |-
+      ::: plan
+      1. [/] **Fixture**
+         - [x] Split it
+         - [ ]
+         - [ ] Test it
+      :::
+
+  - scenario: Enter that confirms a word in an input method adds no todo
+    before: |-
+      ::: plan
+      - [ ] Split it
+      :::
+    acts:
+      - click into: todo 1
+      - press while composing: Enter
+    caret: todo 1
+    inputs: 3
+
+  - scenario: Enter in the middle of a todo splits it, with the caret at the start of the new todo
+    before: |-
+      ::: plan
+      1. [/] **Fixture**
+         - [ ] Split it and test it
+      :::
+    acts:
+      - click into: stage 1 todo 1
+      - put the caret after: Split it
+      - press: Enter
+    caret: stage 1 todo 2
+    offset: 0
+    after: |-
+      ::: plan
+      1. [/] **Fixture**
+         - [ ] Split it
+         - [ ] and test it
+      :::
+
+  - scenario: Backspace in an empty todo removes it, and the caret goes to the todo before
+    before: |-
+      ::: plan
+      1. [/] **Fixture**
+         - [x] Split it
+         - [ ]
+      :::
+    acts:
+      - click into: stage 1 todo 2
+      - press: Backspace
+    caret: stage 1 todo 1
+    after: |-
+      ::: plan
+      1. [/] **Fixture**
+         - [x] Split it
+      :::
+
+  - scenario: "+ stage adds a stage after the last, with the caret in its title"
+    before: |-
+      ::: plan
+      1. [x] **Intention**
+      :::
+    acts:
+      - click: + stage
+    caret: stage 2 title
+    after: |-
+      ::: plan
+      1. [x] **Intention**
+      2. [ ]
+      :::
+
+  - scenario: "+ todo adds a first todo to a stage with none, with the caret in it"
+    before: |-
+      ::: plan
+      1. [/] **Fixture**
+      :::
+    acts:
+      - click the + todo of: stage 1
+    caret: stage 1 todo 1
+    after: |-
+      ::: plan
+      1. [/] **Fixture**
+         - [ ]
+      :::
+
+  - scenario: a long plan picks the stage whose text has the caret
+    before: |-
+      ::: plan
+      1. [x] **One**
+      2. [/] **Two**
+      3. [ ] **Three**
+      4. [ ] **Four**
+      5. [ ] **Five**
+         - [ ] Ship it
+      :::
+    acts:
+      - click into: stage 5 title
+    picked: stage 5
+
+  - scenario: a fifth stage added turns the band into the long layout
+    before: |-
+      ::: plan
+      1. [x] **One**
+      2. [/] **Two**
+      3. [ ] **Three**
+      4. [ ] **Four**
+      :::
+    acts:
+      - click: + stage
+    layout: long
+    picked: stage 5
+
+  - scenario: two long plans on one page each keep the stage picked in them
+    before: |-
+      ::: plan
+      1. [x] **One**
+      2. [/] **Two**
+      3. [ ] **Three**
+      4. [ ] **Four**
+      5. [ ] **Five**
+      :::
+
+      ::: plan
+      1. [x] **Uno**
+      2. [/] **Dos**
+      3. [ ] **Tres**
+      4. [ ] **Cuatro**
+      5. [ ] **Cinco**
+      :::
+    acts:
+      - click the stage of: block 1 stage 5
+      - click the stage of: block 2 stage 1
+    picked: block 1 stage 5, block 2 stage 1
+
+  - scenario: a plan given from outside is drawn at once
+    before: |-
+      ::: plan
+      1. [/] **Fixture**
+      :::
+    acts:
+      - given from outside: |-
+          ::: plan
+          1. [x] **Fixture**
+          2. [/] **Build**
+          :::
+    fields: |-
+      stage 1 mark: [x]
+      stage 1 title: Fixture
+      stage 2 mark: [/]
+      stage 2 title: Build
+
+  - scenario: a flow drawn where the person may edit is drawn as on a page, with no input
+    before: |-
+      ::: flow
+      1. **Upload**
+         1. The file arrives
+      :::
+    acts: []
+    inputs: 0

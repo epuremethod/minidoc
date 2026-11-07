@@ -22,6 +22,13 @@ value is its source text. A static page writes a field as its text.
 `blocks/test/fields.test.yaml` lists the fields of a plan, a flow, a
 screen and an API call.
 
+A plan can be edited where it stands. Its marks are fields too, such as
+`stage 2 mark` or `stage 2 todo 1 mark`, and its drawing names what a
+click or a key does: tick a todo, move a stage along, add or remove a
+todo or a stage. `edit` applies one of these to the block's source, and
+changes only the characters it touches. `blocks/test/edits.test.yaml`
+holds these edits, and `@minidoc/live` draws the plan with its inputs.
+
 A theme sets variables and nothing else. Every colour comes from a
 `--tone-*` variable, and a block mixes its fill and its edge from it.
 Shapes are variables too: radii, padding, the label's case and spacing,

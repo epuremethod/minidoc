@@ -132,8 +132,8 @@ let nl = Draw$MinidocBlocks.string("\n");
 
 function draw(formOpt, md, owner, title, widgets) {
   let form = formOpt !== undefined ? formOpt : false;
-  let inline = (key, source) => Draw$MinidocBlocks.field(key, source, Draw$MinidocBlocks.raw(md.renderInline(source, Markdown$MinidocBlocks.env())));
-  let plain = (key, value) => Draw$MinidocBlocks.field(key, value, Draw$MinidocBlocks.string(value));
+  let inline = (key, source) => Draw$MinidocBlocks.field(key, source, undefined, Draw$MinidocBlocks.raw(md.renderInline(source, Markdown$MinidocBlocks.env())));
+  let plain = (key, value) => Draw$MinidocBlocks.field(key, value, undefined, Draw$MinidocBlocks.string(value));
   let buttons = (list, at) => Draw$MinidocBlocks.array(list.map((b, i) => {
     let key = at + ` button ` + (i + 1 | 0).toString();
     return Draw$MinidocBlocks.Elements.jsx("span", {

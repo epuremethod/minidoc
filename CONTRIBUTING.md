@@ -26,9 +26,10 @@ One pnpm workspace. The root holds no code.
   are `packages/blocks/test/*.test.yaml`, and the site draws them on its
   Blocks page.
 - `packages/live/` is `@minidoc/live`: the same drawings as React
-  elements, a block's source read into a value that keeps a refusal, and a
-  pane with the source above a live preview. It runs in jsdom, its own
-  scenarios and the blocks' `html.test.yaml`.
+  elements, a block's source read into a value that keeps a refusal, a
+  pane with the source above a live preview, and an editor that draws a
+  plan's fields as inputs. The edits themselves are in `@minidoc/blocks`.
+  It runs in jsdom, its own scenarios and the blocks' `html.test.yaml`.
 - `packages/deprecated/` is `@epure/minidoc`, the former name. It
   re-exports `@minidoc/core` and is published deprecated.
 - `packages/docs/` is the documentation site, package `minidoc-docs`, private. It is
@@ -64,6 +65,16 @@ Two things cannot run on the in-memory filesystem, and they have plain
 fixtures, the dev tests and the package test; in `packages/blocks/` the scenarios;
 in `packages/live/` its scenarios and the blocks' HTML contract, drawn live;
 in `packages/docs/` the site's build, which fails when a plate cannot be drawn.
+
+`pnpm live:hit` at the root is the hit check. It draws each block that has
+inputs, in editing mode, and asks headless Chrome whether each field and
+act takes the click at its centre. jsdom has no layout, so the scenarios
+cannot see a drawing's pseudo-element over a button. It also draws plans
+with a stand-in for a host's text field, and checks that each text in it
+has the font, size, colour and place of the same text on a static page,
+and that a long plan's side list is a third of its width. Run it at the end of every build that touches live, `blocks.css` or a
+theme. It needs Chrome or Chromium, or `CHROME` set to its path, so it
+stays out of `pnpm check`, which CI runs.
 
 ## Architecture
 

@@ -98,7 +98,7 @@ let nl = Draw$MinidocBlocks.string("\n");
 
 function draw(method, path, title, parts, labels) {
   let label = name => Stdlib_Option.getOr(labels[name], name);
-  let plain = (key, value) => Draw$MinidocBlocks.field(key, value, Draw$MinidocBlocks.string(value));
+  let plain = (key, value) => Draw$MinidocBlocks.field(key, value, undefined, Draw$MinidocBlocks.string(value));
   let value = (v, at) => {
     if (v === null) {
       return Draw$MinidocBlocks.Elements.jsx("span", {

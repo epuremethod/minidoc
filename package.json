@@ -10,6 +10,7 @@
     "build": "pnpm -r build",
     "check": "pnpm -r check",
     "docs:dev": "pnpm --filter minidoc-docs dev",
+    "live:hit": "pnpm --filter @minidoc/live hit",
     "pub": "bin/publish.sh",
     "test": "pnpm -r test"
   }

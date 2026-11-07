@@ -2,7 +2,8 @@ import { Given } from "@epure/vitest";
 import { act, createElement } from "react";
 import { createRoot } from "react-dom/client";
 import { expect } from "vitest";
-import { Drawing, Pane, read } from "../src/Live.res.mjs";
+import { Drawing, Editor, Pane, read } from "../src/Live.res.mjs";
+import { before as beforeCaret, Field, html, markdownOf, place } from "./field.mjs";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -52,6 +53,148 @@ Given("a block's pane", (_steps, data) => {
     expect(container.querySelector(".pane__reason")?.textContent).toBe(error);
   }
 });
+
+/**
+ * A block edited live: the `before` is drawn where the person may edit,
+ * and the `acts` are what the person does, one after the other. Then the
+ * last source handed on is the `after`, and what shows matches the other
+ * keys: the text under the caret (`shows`), the drawing of the last text
+ * left (`drawn`), the field with the caret (`caret`), the picked stage of
+ * each long plan (`picked`), the plan's layout (`layout`), fields as they
+ * show (`fields`), how many fields are drawn to edit (`inputs`), how many
+ * text areas of live's own are drawn (`boxes`), how many sources were
+ * handed on (`handed`), and where the caret is in its text as shown
+ * (`offset`).
+ */
+Given("a block edited live", (_steps, data) => editedLive(data));
+
+/** The same, with the stand-in for a host's text field: each text is drawn in it. */
+Given("a block edited live in a host's text field", (_steps, data) => editedLive(data, Field));
+
+function editedLive(data: Record<string, unknown>, field?: unknown) {
+  const { acts, shows, drawn: left, caret, picked, layout, fields, inputs, boxes, handed, offset, ...rest } = data;
+  const { before, after, options } = readScenario({ after: "", ...rest });
+  if (!Array.isArray(acts)) throw new Error(`An editing scenario needs "acts", a list of what the person does`);
+  const changes: string[] = [];
+  const onChange = (source: string) => changes.push(source);
+  const container = document.createElement("div");
+  document.body.append(container);
+  const root = createRoot(container);
+  const show = (source: string) =>
+    act(() => root.render(createElement(Editor.make, { value: read(source, options), options, onChange, field })));
+  show(before);
+  const at = (selector: string): HTMLElement => {
+    const found = container.querySelector<HTMLElement>(selector);
+    if (found === null) throw new Error(`Nothing drawn at ${selector}`);
+    return found;
+  };
+  /** The element with the focus: the text area, or the host's field. */
+  const focused = (): HTMLElement => {
+    const active = document.activeElement;
+    if (!(active instanceof HTMLElement) || !container.contains(active)) throw new Error("No field has the focus");
+    return active;
+  };
+  const press = (key: string, isComposing = false) =>
+    act(() => {
+      focused().dispatchEvent(new KeyboardEvent("keydown", { key, bubbles: true, cancelable: true, isComposing }));
+    });
+  let last = "";
+  for (const one of acts) {
+    if (one === "leave") act(() => focused().blur());
+    else if (!isRecord(one)) throw new Error(`Unknown act: ${JSON.stringify(one)}`);
+    else {
+      const [[name, value]] = Object.entries(one);
+      const key = String(value);
+      if (name === "click the box of") click(at(`button[data-field="${key} mark"]`));
+      else if (name === "click the number of") click(at(`button[data-field="${key} mark"]`));
+      else if (name === "click into") {
+        last = key;
+        if (field === undefined) act(() => at(`span[data-field="${key}"]`).focus());
+        else {
+          // As the box does, the host's field takes the caret at its end.
+          const line = at(`span[data-field="${key}"] > [contenteditable]`);
+          act(() => line.focus());
+          place(line, line.textContent?.length ?? 0);
+        }
+      } else if (name === "write") {
+        const target = focused();
+        if (target instanceof HTMLTextAreaElement) type(target, key);
+        else write(target, key);
+      } else if (name === "press") press(key);
+      else if (name === "press while composing") press(key, true);
+      else if (name === "press at the start") {
+        const selection = document.getSelection();
+        selection?.removeAllRanges();
+        const range = document.createRange();
+        range.selectNodeContents(focused());
+        range.collapse(true);
+        selection?.addRange(range);
+        press(key);
+      } else if (name === "put the caret after") {
+        const target = focused();
+        const text = target instanceof HTMLTextAreaElement ? target.value : (target.textContent ?? "");
+        const found = text.indexOf(key);
+        if (found < 0) throw new Error(`"${key}" is not in ${JSON.stringify(text)}`);
+        const at = found + key.length;
+        if (target instanceof HTMLTextAreaElement) target.setSelectionRange(at, at);
+        else place(target, at);
+      } else if (name === "click" && key === "+ stage") click(at(`[data-act=""]`));
+      else if (name === "click the + todo of") click(at(`[data-act="${key}"]`));
+      else if (name === "click the stage of") {
+        const [, block, stage] = /^block (\d+) stage (\d+)$/.exec(key) ?? [];
+        const plan = container.querySelectorAll(".plan")[Number(block) - 1];
+        click(plan.querySelectorAll<HTMLElement>("label.plan__stage")[Number(stage) - 1]);
+      } else if (name === "given from outside") show(key);
+      else throw new Error(`Unknown act: ${name}`);
+    }
+  }
+  if (rest.after !== undefined) expect(changes.at(-1)).toBe(trimEnd(after ?? ""));
+  if (shows !== undefined) {
+    const target = focused();
+    expect(target instanceof HTMLTextAreaElement ? target.value : markdownOf(target)).toBe(shows);
+  }
+  if (left !== undefined) expect(at(`span[data-field="${last}"]`).innerHTML).toBe(left);
+  if (caret !== undefined) expect(focused().closest<HTMLElement>("[data-field]")?.dataset.field).toBe(caret);
+  if (picked !== undefined) {
+    const plans = [...container.querySelectorAll(".plan--long")];
+    const pickedIn = (plan: Element) => {
+      const labels = [...plan.querySelectorAll("label.plan__stage")];
+      return `stage ${labels.findIndex((label) => label.querySelector<HTMLInputElement>("input")?.checked) + 1}`;
+    };
+    const listed = plans.length === 1 ? pickedIn(plans[0]) : plans.map((plan, i) => `block ${i + 1} ${pickedIn(plan)}`).join(", ");
+    expect(listed).toBe(picked);
+  }
+  if (layout !== undefined) expect(at(".plan").classList.contains(`plan--${layout}`)).toBe(true);
+  if (fields !== undefined) {
+    const shown = String(fields)
+      .split("\n")
+      .map((line) => {
+        const key = line.slice(0, line.indexOf(": "));
+        const element = at(`[data-field="${key}"]`);
+        return `${key}: ${element instanceof HTMLButtonElement ? element.value : element.textContent}`;
+      });
+    expect(shown.join("\n")).toBe(String(fields));
+  }
+  if (inputs !== undefined) expect(container.querySelectorAll("[data-field], textarea").length).toBe(inputs);
+  if (boxes !== undefined) expect(container.querySelectorAll("textarea").length).toBe(boxes);
+  if (handed !== undefined) expect(changes.length).toBe(handed);
+  if (offset !== undefined) {
+    const target = focused();
+    expect(target instanceof HTMLTextAreaElement ? target.selectionStart : beforeCaret(target)?.length).toBe(offset);
+  }
+}
+
+/** Write into a host's field as a person does: its text changes, and it hears the input event. */
+function write(field: HTMLElement, markdown: string) {
+  act(() => {
+    field.innerHTML = html(markdown);
+    field.dispatchEvent(new Event("input", { bubbles: true }));
+  });
+}
+
+function click(element: HTMLElement) {
+  act(() => element.click());
+}
 
 type Scenario = {
   before: string;

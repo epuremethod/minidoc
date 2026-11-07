@@ -89,9 +89,16 @@ type stageState =
   | Doing
   | NotStarted
 
-type todo = {text: string, done: bool}
-/** A stage of a plan: its state, its title, the message beside its number, and its todos. */
-type stage = {state: stageState, title: string, message: option<string>, todos: array<todo>}
+/** A todo of a plan, and the line it starts on in the page, from 1. */
+type todo = {text: string, done: bool, line: int}
+/** A stage of a plan: its state, its title, the message beside its number, its todos, and its line. */
+type stage = {
+  state: stageState,
+  title: string,
+  message: option<string>,
+  todos: array<todo>,
+  line: int,
+}
 
 type rec t =
   | Markdown(string)
@@ -120,7 +127,7 @@ type rec t =
   | Annexe
   | Flow({label: string, columns: array<column>})
   /** A plan holds stages, or todos only. */
-  | Plan({title: option<string>, stages: array<stage>, todos: array<todo>})
+  | Plan({title: option<string>, stages: array<stage>, todos: array<todo>, line: int})
   | Dialog({owner: option<(string, string)>, title: option<string>, widgets: array<widget>})
   | Form({owner: option<(string, string)>, title: option<string>, widgets: array<widget>})
   | Screens({caption: option<string>, children: array<t>})

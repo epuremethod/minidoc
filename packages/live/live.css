@@ -29,3 +29,51 @@
   resize: vertical;
 }
 .pane__source:focus { outline: 0; border-color: var(--blocks-stroke); }
+
+/* A block edited where it stands. A text shows its drawing until the caret
+   enters it, then its source in a text area that wraps as the drawing does,
+   unless the host gives a text field of its own.
+   A todo's box keeps the drawing's own box, with a button over it. */
+.field[tabindex] { outline: 0; border-bottom: 1px solid transparent; cursor: text; }
+.field[tabindex]:hover { border-bottom-color: var(--blocks-line); }
+.field--empty { display: inline-block; min-width: 1.5em; }
+.field--empty::before { content: "…"; color: var(--blocks-muted); font-weight: 400; }
+.field--empty[data-field="title"]::before { content: "title"; }
+/* An empty message takes no room. It shows as a "message" line when its
+   stage is hovered, picked, or has the caret. */
+.plan__message:has(> .field--empty) { display: none; }
+.plan__stage:is(:hover, :focus-within, :has(.plan__pick:checked)) > .plan__message:has(> .field--empty) { display: block; }
+.plan__message > .field--empty { display: block; min-width: 0; }
+.plan__message > .field--empty::before { content: "message"; }
+/* A host's text field, such as maia's editor, has no look of its own: it
+   takes the text's, as on a static page. An empty one shows its hint until
+   the caret enters it. */
+.field > [contenteditable] { outline: 0; }
+.field--empty:focus-within::before { content: none; }
+.field--caret {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 4ch;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-bottom: 1px solid var(--blocks-stroke);
+  outline: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  line-height: inherit;
+  text-transform: none;
+  resize: none;
+  overflow: hidden;
+  field-sizing: content;
+}
+.field--click { margin: 0; padding: 0; border: 0; background: none; color: inherit; font: inherit; cursor: pointer; }
+.field--click:hover { text-decoration: underline; text-underline-offset: 3px; }
+/* Above the check mark a done todo draws over its box, which would take
+   the click. */
+.plan__todo > .field--click { position: absolute; z-index: 1; left: 0; top: .2em; width: 1em; height: 1em; }
+.plan__add { margin: .5em 0 0; color: var(--blocks-muted); font-size: .85em; font-weight: 500; cursor: pointer; }
+.plan__add:hover, .plan__add:focus-visible { color: var(--blocks-ink); outline: 0; }

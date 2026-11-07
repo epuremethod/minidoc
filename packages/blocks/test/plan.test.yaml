@@ -74,6 +74,21 @@ examples:
         todo done "Tag the version"
         todo "Publish the package"
 
+  - scenario: a stage or a todo with no text yet reads, with an empty text
+    before: |-
+      ::: plan
+      1. [/] **Fixture**
+         - [x] Split it
+         - [ ]
+      2. [ ]
+      :::
+    after: |-
+      plan
+        stage doing "Fixture"
+          todo done "Split it"
+          todo ""
+        stage ""
+
   - scenario: a done stage with an open todo stops the build, with the todo's line in the page
     before: |-
       ::: plan

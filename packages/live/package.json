@@ -27,7 +27,8 @@
     "build": "rescript build",
     "check": "pnpm test",
     "test": "rescript build && vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "hit": "rescript build && node test/hit.mjs"
   },
   "dependencies": {
     "@minidoc/blocks": "workspace:^",

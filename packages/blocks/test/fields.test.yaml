@@ -2,7 +2,7 @@ feature: The fields of a block
 background:
   given: a block's fields
 examples:
-  - scenario: a plan's fields are its title, each stage's message and title, and each todo's text
+  - scenario: a plan's fields are its title, each stage's mark, title and message, and each todo's mark and text
     before: |-
       ::: plan Release
       1. [x] **Publish** released
@@ -12,12 +12,27 @@ examples:
       :::
     after: |-
       title: Release
-      stage 1 message: released
+      stage 1 mark: [x]
       stage 1 title: Publish
-      stage 2 message: building
+      stage 1 message: released
+      stage 2 mark: [/]
       stage 2 title: Ship
+      stage 2 message: building
+      stage 2 todo 1 mark: [x]
       stage 2 todo 1: Push the tags
+      stage 2 todo 2 mark: [ ]
       stage 2 todo 2: Install in a scratch project
+
+  - scenario: a plan with no title, and a stage with no message, still have those fields, empty
+    before: |-
+      ::: plan
+      1. [ ] **Build**
+      :::
+    after: |-
+      title: ""
+      stage 1 mark: [ ]
+      stage 1 title: Build
+      stage 1 message: ""
 
   - scenario: a flow's fields are its column titles, its steps and their details
     before: |-

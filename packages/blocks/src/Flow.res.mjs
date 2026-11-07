@@ -106,7 +106,7 @@ function read(md, body, label) {
 let nl = Draw$MinidocBlocks.string("\n");
 
 function draw(md, label, columns) {
-  let inline = (key, source) => Draw$MinidocBlocks.field(key, source, Draw$MinidocBlocks.raw(md.renderInline(source, Markdown$MinidocBlocks.env())));
+  let inline = (key, source) => Draw$MinidocBlocks.field(key, source, undefined, Draw$MinidocBlocks.raw(md.renderInline(source, Markdown$MinidocBlocks.env())));
   let column = (c, index) => {
     let at = `column ` + (index + 1 | 0).toString();
     let t = c.title;

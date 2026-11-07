@@ -1,6 +1,6 @@
 import { Given } from "@epure/vitest";
 import { expect } from "vitest";
-import { blocks, draw, read, write } from "../src/Blocks.res.mjs";
+import { blocks, draw, edit, read, write } from "../src/Blocks.res.mjs";
 import { fields } from "../src/Draw.res.mjs";
 
 /**
@@ -40,6 +40,53 @@ Given("a block's fields", (_steps, data) => {
     .join("\n");
   expect(listed).toBe(trimEnd(after ?? ""));
 });
+
+/**
+ * An edit scenario: the person's `edits` are applied to the `before`, one
+ * after the other. Each hands on a block minidoc reads, and the last gives
+ * the `after`.
+ */
+Given("a plan edited", (_steps, data) => {
+  const { edits, ...rest } = data;
+  const { before, after, error, options } = readScenario(rest);
+  if (error !== undefined) throw new Error(`An edit scenario has no "error": it checks the source`);
+  if (!Array.isArray(edits)) throw new Error(`An edit scenario needs "edits", a list of what the person does`);
+  let source = before;
+  for (const one of edits) {
+    source = edit(source, act(one), options).source;
+    expect(() => read(source, options), `after ${JSON.stringify(one)}`).not.toThrow();
+  }
+  expect(source).toBe(trimEnd(after ?? ""));
+});
+
+/** What the person does, as a scenario names it, as `Draw.act`. */
+export function act(one: unknown): unknown {
+  if (one === "add a stage") return "AddStage";
+  if (!isRecord(one)) throw new Error(`Unknown edit: ${JSON.stringify(one)}`);
+  const [[name, key], ...others] = Object.entries(one);
+  if (name === "write") {
+    if (others.length !== 1 || others[0][0] !== "text") throw new Error(`"write" takes a "text"`);
+    return { TAG: "Write", key, text: String(others[0][1]) };
+  }
+  if (name === "split") {
+    const parts = Object.fromEntries(others);
+    if (others.length !== 2 || typeof parts.before !== "string" || typeof parts.after !== "string") {
+      throw new Error(`"split" takes a "before" and an "after"`);
+    }
+    return { TAG: "SplitTodo", key, before: parts.before, after: parts.after };
+  }
+  if (others.length > 0) throw new Error(`"${name}" takes only a key`);
+  const tags: Record<string, string> = {
+    tick: "Tick",
+    "move along": "MoveAlong",
+    "add a todo after": "AddTodoAfter",
+    "add a todo in": "AddTodoIn",
+    remove: "Remove",
+  };
+  const tag = tags[name];
+  if (tag === undefined) throw new Error(`Unknown edit: ${name}`);
+  return { TAG: tag, _0: key };
+}
 
 type Scenario = {
   before: string;

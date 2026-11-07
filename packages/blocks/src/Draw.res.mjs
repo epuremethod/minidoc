@@ -37,11 +37,32 @@ function raw(html) {
   };
 }
 
-function field(key, value, shown) {
+function field(key, value, inputOpt, shown) {
+  let input = inputOpt !== undefined ? inputOpt : ({
+      TAG: "Typed",
+      enter: undefined,
+      erase: undefined
+    });
   return {
     TAG: "Field",
     key: key,
     value: value,
+    shown: shown,
+    input: input
+  };
+}
+
+function act(act$1, shown) {
+  return {
+    TAG: "Act",
+    act: act$1,
+    shown: shown
+  };
+}
+
+function edited(shown) {
+  return {
+    TAG: "Edited",
     shown: shown
   };
 }
@@ -140,37 +161,45 @@ function write(_element) {
         continue;
       case "Many" :
         return element._0.map(write).join("");
+      default:
+        return "";
     }
   };
 }
 
 function fields(element) {
   let found = [];
-  let walk = element => {
-    if (typeof element !== "object") {
-      return;
-    }
-    switch (element.TAG) {
-      case "Element" :
-        element.children.forEach(walk);
+  let walk = _element => {
+    while (true) {
+      let element = _element;
+      if (typeof element !== "object") {
         return;
-      case "Field" :
-        let key = element.key;
-        if (!found.some(param => param[0] === key)) {
-          found.push([
-            key,
-            element.value
-          ]);
+      }
+      switch (element.TAG) {
+        case "Element" :
+          element.children.forEach(walk);
           return;
-        } else {
+        case "Field" :
+          let key = element.key;
+          if (!found.some(param => param[0] === key)) {
+            found.push([
+              key,
+              element.value
+            ]);
+            return;
+          } else {
+            return;
+          }
+        case "Edited" :
+          _element = element.shown;
+          continue;
+        case "Many" :
+          element._0.forEach(walk);
           return;
-        }
-      case "Many" :
-        element._0.forEach(walk);
-        return;
-      default:
-        return;
-    }
+        default:
+          return;
+      }
+    };
   };
   walk(element);
   return found;
@@ -212,7 +241,13 @@ function under(element, prefix) {
         TAG: "Field",
         key: prefix + element.key,
         value: element.value,
-        shown: element.shown
+        shown: element.shown,
+        input: element.input
+      };
+    case "Edited" :
+      return {
+        TAG: "Edited",
+        shown: under(element.shown, prefix)
       };
     case "Many" :
       return {
@@ -241,6 +276,8 @@ export {
   array,
   raw,
   field,
+  act,
+  edited,
   Elements,
   leaves,
   voids,

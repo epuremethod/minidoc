@@ -620,8 +620,25 @@ stand in for. `pnpm check` runs everything.
     marks the fields a person may edit in plans, flows, screens and API
     calls. A label in a sequence, a state machine or a model now writes
     `text-anchor` after `x` and `y`.
+  - A plan is edited where it stands in `@minidoc/live`: a click ticks a
+    todo or moves a stage along, and its texts are written in place.
+    `@minidoc/blocks` gains `edit`, which changes only the characters an
+    edit touches in the block's source. A stage or a todo with no text yet
+    now reads, and `****` is an empty title.
+  - A host may give `@minidoc/live` its own text field, such as maia's
+    editor line: `Live.Editor` then draws every text of the plan in it,
+    looking exactly as on a static page. Enter in a todo splits it at the
+    caret, and a done stage that takes an open todo moves back in
+    progress.
+  - A plan's stage shows its number and title on one line, and its message
+    under them, small and muted. No count of todos is shown, and the band's
+    columns are further apart. A long plan's stages take a third of its
+    width, each with its state at the right (a check when done, a dot in
+    progress), and a plan narrower than 30em stacks them. The stage's HTML
+    is `plan__line`, then `plan__message`; `plan__state` and `plan__count`
+    are gone.
   - The `plan` block shows where a piece of work stands: its stages as a
-    band, done, in progress or not started, with a message beside each,
+    band, done, in progress or not started, with a message under each,
     and the todos under each stage. A plan of more than four stages lists
     them one under the other, and a click on a stage shows its todos. A
     theme sets `--tone-done` and `--tone-doing`.

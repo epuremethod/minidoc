@@ -51,5 +51,14 @@ let draw: (array<node>, options) => Draw.element
 /** The HTML of nodes: their drawing, written. */
 let render: (array<node>, options) => string
 
+/** A source with an act applied, and the field the caret goes to; `None` leaves the caret where it is. */
+type edited = Plan.edited = {source: string, caret: option<string>}
+
+/** Whether a person may edit the nodes where they stand: a source of one plan, in this version. */
+let editable: array<node> => bool
+
+/** Apply what the person does to the one block of `source`. Fails when the act names no field of it, or when the result would not read. */
+let edit: (string, Draw.act, options) => edited
+
 /** A minidoc transform: markdown in, HTML out, blocks included. */
 let blocks: options => string => string

@@ -630,6 +630,39 @@ function render(nodes, options) {
   return Draw$MinidocBlocks.write(draw(nodes, options));
 }
 
+function alone(nodes) {
+  let match = nodes.filter(node => {
+    if (typeof node !== "object" || node.TAG !== "Markdown") {
+      return true;
+    } else {
+      return node._0.trim() !== "";
+    }
+  });
+  if (match.length !== 1) {
+    return;
+  } else {
+    return match[0];
+  }
+}
+
+function editable(nodes) {
+  let match = alone(nodes);
+  if (typeof match === "object") {
+    return match.TAG === "Plan";
+  } else {
+    return false;
+  }
+}
+
+function edit(source, act, options) {
+  let match = alone(read(source, options));
+  let edited = match !== undefined ? (
+      typeof match !== "object" || match.TAG !== "Plan" ? Html$MinidocBlocks.fail("Only a plan can be edited where it stands") : Plan$MinidocBlocks.edit(source, match.stages, match.todos, match.line, act)
+    ) : Html$MinidocBlocks.fail("Only a source of one block can be edited where it stands");
+  read(edited.source, options);
+  return edited;
+}
+
 function blocks(options) {
   let ctx = context(options);
   return source => {
@@ -646,6 +679,8 @@ export {
   write,
   draw,
   render,
+  editable,
+  edit,
   blocks,
 }
 /* byInfo Not a pure module */

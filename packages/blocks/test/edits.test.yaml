@@ -1,0 +1,329 @@
+feature: A plan edited where it stands
+background:
+  given: a plan edited
+examples:
+  - scenario: ticking a todo changes its mark, and the rest of the block stays as written
+    before: |-
+      ::: plan Release
+      1) [x] __Publish__ released
+      2) [/] __Ship__
+         * [ ] Push the tags
+         * [ ] Install in a scratch project
+      :::
+    edits:
+      - tick: stage 2 todo 1
+    after: |-
+      ::: plan Release
+      1) [x] __Publish__ released
+      2) [/] __Ship__
+         * [x] Push the tags
+         * [ ] Install in a scratch project
+      :::
+
+  - scenario: unticking a todo of a done stage moves the stage back in progress
+    before: |-
+      ::: plan
+      1. [x] **Fixture**
+         - [x] Split it
+         - [x] Test it
+      :::
+    edits:
+      - tick: stage 1 todo 2
+    after: |-
+      ::: plan
+      1. [/] **Fixture**
+         - [x] Split it
+         - [ ] Test it
+      :::
+
+  - scenario: a stage not started moves in progress
+    before: |-
+      ::: plan
+      1. [ ] **Build**
+      :::
+    edits:
+      - move along: stage 1
+    after: |-
+      ::: plan
+      1. [/] **Build**
+      :::
+
+  - scenario: a stage in progress moves to done, with its todos ticked
+    before: |-
+      ::: plan
+      1. [/] **Fixture** waiting
+         - [x] Split it
+         - [ ] Test it
+      :::
+    edits:
+      - move along: stage 1
+    after: |-
+      ::: plan
+      1. [x] **Fixture** waiting
+         - [x] Split it
+         - [x] Test it
+      :::
+
+  - scenario: a done stage moves back to not started, and its todos stay ticked
+    before: |-
+      ::: plan
+      1. [x] **Fixture**
+         - [x] Split it
+      :::
+    edits:
+      - move along: stage 1
+    after: |-
+      ::: plan
+      1. [ ] **Fixture**
+         - [x] Split it
+      :::
+
+  - scenario: a todo's text is written as typed, its inline markdown with it
+    before: |-
+      ::: plan
+      - [ ] Run the check
+      :::
+    edits:
+      - write: todo 1
+        text: Run `pnpm check` at the **root**
+    after: |-
+      ::: plan
+      - [ ] Run `pnpm check` at the **root**
+      :::
+
+  - scenario: a stage's title keeps its bold, and a message is written after it
+    before: |-
+      ::: plan
+      1. [/] **Fixture**
+      :::
+    edits:
+      - write: stage 1 title
+        text: Fixtures
+      - write: stage 1 message
+        text: waiting
+    after: |-
+      ::: plan
+      1. [/] **Fixtures** waiting
+      :::
+
+  - scenario: a stage's title emptied, then written again, keeps its bold and its message
+    before: |-
+      ::: plan
+      1. [/] __Fixture__ waiting
+      :::
+    edits:
+      - write: stage 1 title
+        text: ""
+      - write: stage 1 title
+        text: Tests
+    after: |-
+      ::: plan
+      1. [/] __Tests__ waiting
+      :::
+
+  - scenario: a message emptied leaves the title as it was
+    before: |-
+      ::: plan
+      1. [/] **Fixture** waiting
+      :::
+    edits:
+      - write: stage 1 message
+        text: ""
+    after: |-
+      ::: plan
+      1. [/] **Fixture**
+      :::
+
+  - scenario: the plan's title is written on the block's first line
+    before: |-
+      ::: plan
+      1. [/] **Fixture**
+      :::
+    edits:
+      - write: title
+        text: Release
+    after: |-
+      ::: plan Release
+      1. [/] **Fixture**
+      :::
+
+  - scenario: a todo added after another takes its indent and its bullet, and is empty and open
+    before: |-
+      ::: plan
+      1. [/] **Fixture**
+         * [x] Split it
+         * [ ] Test it
+      :::
+    edits:
+      - add a todo after: stage 1 todo 1
+    after: |-
+      ::: plan
+      1. [/] **Fixture**
+         * [x] Split it
+         * [ ]
+         * [ ] Test it
+      :::
+
+  - scenario: a todo split in the middle keeps the text before, and a todo after it, with its indent and bullet, holds the rest
+    before: |-
+      ::: plan
+      1. [/] __Ship__
+         * [ ] Push the tags and the release
+         * [ ] Install it
+      :::
+    edits:
+      - split: stage 1 todo 1
+        before: Push the tags
+        after: and the release
+    after: |-
+      ::: plan
+      1. [/] __Ship__
+         * [ ] Push the tags
+         * [ ] and the release
+         * [ ] Install it
+      :::
+
+  - scenario: a todo split at its end stays as written, and an empty todo follows it
+    before: |-
+      ::: plan
+      - [ ] Ship __it__
+      :::
+    edits:
+      - split: todo 1
+        before: Ship **it**
+        after: ""
+    after: |-
+      ::: plan
+      - [ ] Ship __it__
+      - [ ]
+      :::
+
+  - scenario: a todo split at its start is left empty, and the todo after it holds the whole text
+    before: |-
+      ::: plan
+      - [ ] Ship it
+      :::
+    edits:
+      - split: todo 1
+        before: ""
+        after: Ship it
+    after: |-
+      ::: plan
+      - [ ]
+      - [ ] Ship it
+      :::
+
+  - scenario: both halves of a ticked todo split in the middle stay ticked
+    before: |-
+      ::: plan
+      1. [x] **Fixture**
+         - [x] Split it and test it
+      :::
+    edits:
+      - split: stage 1 todo 1
+        before: Split it
+        after: and test it
+    after: |-
+      ::: plan
+      1. [x] **Fixture**
+         - [x] Split it
+         - [x] and test it
+      :::
+
+  - scenario: a todo added to a done stage moves the stage back in progress
+    before: |-
+      ::: plan
+      1. [x] **Fixture**
+         - [x] Split it
+      :::
+    edits:
+      - split: stage 1 todo 1
+        before: Split it
+        after: ""
+    after: |-
+      ::: plan
+      1. [/] **Fixture**
+         - [x] Split it
+         - [ ]
+      :::
+
+  - scenario: a first todo added to a done stage moves the stage back in progress
+    before: |-
+      ::: plan
+      1. [x] **Fixture**
+      2. [ ] **Build**
+      :::
+    edits:
+      - add a todo in: stage 1
+    after: |-
+      ::: plan
+      1. [/] **Fixture**
+         - [ ]
+      2. [ ] **Build**
+      :::
+
+  - scenario: a stage's first todo goes under it
+    before: |-
+      ::: plan
+      1. [x] **Intention**
+      2. [/] **Fixture**
+      :::
+    edits:
+      - add a todo in: stage 2
+      - write: stage 2 todo 1
+        text: Split it
+    after: |-
+      ::: plan
+      1. [x] **Intention**
+      2. [/] **Fixture**
+         - [ ] Split it
+      :::
+
+  - scenario: a todo removed takes its line with it
+    before: |-
+      ::: plan
+      1. [/] **Fixture**
+         - [x] Split it
+         - [ ]
+      :::
+    edits:
+      - remove: stage 1 todo 2
+    after: |-
+      ::: plan
+      1. [/] **Fixture**
+         - [x] Split it
+      :::
+
+  - scenario: a stage added after the last one is numbered next, not started, and empty
+    before: |-
+      ::: plan
+      1. [x] **Intention**
+         - [x] Agree on it
+      :::
+    edits:
+      - add a stage
+      - write: stage 2 title
+        text: Build
+      - write: stage 2 message
+        text: waiting
+    after: |-
+      ::: plan
+      1. [x] **Intention**
+         - [x] Agree on it
+      2. [ ] **Build** waiting
+      :::
+
+  - scenario: a stage removed renumbers the stages after it
+    before: |-
+      ::: plan
+      1. [x] **Intention**
+      2. [ ]
+      3. [ ] **Build**
+      :::
+    edits:
+      - remove: stage 2
+    after: |-
+      ::: plan
+      1. [x] **Intention**
+      2. [ ] **Build**
+      :::

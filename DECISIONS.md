@@ -600,3 +600,172 @@ Refused, for now: the editor's pane under a selected block, the final
 shape. It comes with stage 5, when the drawing itself holds inputs.
 
 Costs: maia keeps its own click-to-edit editor until then.
+
+## 2026-11-07: An edit changes only the characters it touches
+
+`Blocks.edit(source, act, options)` is a pure function in
+`@minidoc/blocks`. It answers the new source and the field the caret goes
+to. A plan, each stage and each todo keep the line they start on. An edit
+reads that one line again with the reader's own patterns, and replaces
+only the mark, the title, the message or the text it names. Removing a
+stage renumbers only the numbers of the stages after it. Only a source of
+one plan takes an act.
+
+Refused: writing the whole block again from its nodes. Lines nobody
+touched would change: numbering style, bullets, `__bold__`, spacing.
+Refused too: a character span for each field from the reader, which
+markdown-it cannot give without a second scanner, and edits in live, in
+React, which a flow's edits could then not be tested without a DOM.
+
+Costs: an edit reads its line again, and a source of several blocks is not
+editable in live.
+
+## 2026-11-07: A drawing names how each field is edited, and its acts
+
+A field carries its input: `Typed`, where Enter and Backspace in an empty
+text may carry an act, or `Clicked(act)`. A stage's number is the field
+`stage N mark`, and a todo's box is `… todo M mark`, drawn as nothing on a
+static page. `Act` draws "+ stage" and "+ todo", and a static page writes
+it as nothing. The HTML contract does not change for them.
+
+Refused: live finding a plan's boxes and numbers by their classes. live
+would then know each block's HTML.
+
+Costs: `Draw` carries an act type and an element that a static page never
+writes.
+
+## 2026-11-07: A part drawn only where the person may edit is `Draw.edited`
+
+`Edited({shown})` is drawn by live while the person may edit, and written
+as nothing on a static page. `fields` walks into it. A plan draws an empty
+message inside it, in the same `plan__message` span as a written one, so
+the first letter written does not move the field and lose the caret.
+
+Refused: `write` dropping any element whose content is empty, which would
+also drop an empty todo's `<li>`. Refused too: an `Act` with no act, which
+blurs what an act is.
+
+Costs: one more kind of element for a host that reads the drawing.
+
+## 2026-11-07: An empty stage or todo reads, and `****` is an empty title
+
+A stage or a todo with no text yet reads, as one just added has. An
+emptied title leaves `****`, which reads as an empty title, so the message
+after it stays a message. A stage with no text, or a plain title given a
+message, gets `**` around its title.
+
+Refused: refusing an empty stage or todo. A stage just added would break
+the plan until it has a title.
+
+Costs: `****` can no longer stand for literal asterisks in a title.
+
+## 2026-11-07: Each live plan scopes its radio buttons with `useId`
+
+`Live.Editor` puts a prefix of its own, from React's `useId`, before each
+radio button's `name`, so two long plans on one page keep separate groups.
+`Live.Drawing` and a static page keep `plan-1`.
+
+Refused: a prefix passed through the blocks' options, which changes the
+public API for something only live needs.
+
+Costs: an edited plan's `name` attributes differ from the static page's.
+
+## 2026-11-07: A host may give live its text field, drawn for every text
+
+`Live.Editor ~field` takes the host's one-line editor, with `markdown`,
+`onChange`, `onEnter(cut)`, `onBackspaceAtStart`, `onLeave` and a handle
+whose `focus` takes `"start"`, `"end"` or an offset in the shown text.
+When a host gives one, every text of the plan is that field all the time,
+and a click puts the caret where the person clicked. It has no look of its
+own: it looks exactly like the static page's text. maia gives
+`TiliaEditor.Line`, and minidoc does not depend on the editor. Without a
+field, a text shows its drawing, and its markdown in a text area under the
+caret. An edited text may come back in the editor's form, `__bold__` as
+`**bold**`. A text nobody touched never changes.
+
+Refused: the host's field only under the caret, where a text would change
+shape on each click and live would have to find where the person clicked.
+Refused too: a look of the field's own, and `contenteditable` in live
+itself, whose caret in a shadow root is hard to control.
+
+Costs: a plan opens one editor for each of its texts, and syntax the
+editor does not know, such as `~~struck~~`, shows as typed.
+
+## 2026-11-07: Enter splits a todo at the caret
+
+A `Typed` field's Enter is a function of the text before and after the
+caret, which makes the act. In a todo it gives `SplitTodo({key, before,
+after})`. The todo keeps `before`, and a new todo after it holds `after`,
+with the todo's indent, bullet and mark, and the caret at its start. Both
+halves of a ticked todo stay ticked. At the end of a todo, the todo stays
+as written. The space at the cut goes. Enter in a title or a message does
+nothing.
+
+Refused: Enter that only adds an empty todo after, leaving the text after
+the caret where it was.
+
+Costs: the field must hand live the two halves, as the host's
+`onEnter({before, after})` and the box's selection do.
+
+## 2026-11-07: A done stage that takes an open todo moves back in progress
+
+Enter in a done stage's todo, or "+ todo", turns the stage's `x` into `/`,
+as unticking one of its todos does.
+
+Refused: leaving the stage done, which the reader refuses because a done
+stage with an open todo stops the build.
+
+Costs: an edit changes a mark the person did not click.
+
+## 2026-11-07: The hit and look check runs in headless Chrome, by hand
+
+`pnpm live:hit` draws the editable plans in jsdom, writes their DOM to a
+page with `blocks.css`, the themes and `live.css`, and asks Chrome what
+lies at the centre of each field and act. It also compares each text in a
+host's field with the same text on the static page: the holder's size,
+and each word's font, colour and box, word by word, because the field
+keeps typed spaces. An empty text is skipped. It checks that a long plan's
+side list is a third of its width. `HIT_FIELD` names a host's field to
+check in place of the stand-in.
+
+Refused: Playwright as a dependency, and a check on the CSS text, which
+misses a pseudo-element over a button.
+
+Costs: it is outside `pnpm check`, because CI has no Chrome, and is run by
+hand at the end of every build that touches live, `blocks.css` or a theme.
+
+## 2026-11-07: maia draws its plan as an ordinary `minidoc` atom
+
+The first plan of maia's notes keeps the atom id `plan`, with the format
+`minidoc`, under LiveBlock's one rule. LiveBlock takes `blocks.css`, its
+themes and `live.css` from the app's links to minidoc. maia's docs keep
+their own copy of the blocks until the packages are published.
+
+Refused: a `plan` format with a rule of its own; stage 3 refused a rule
+for each kind of block. Refused too: linking maia's docs to minidoc now,
+which would make them follow minidoc's uncommitted tree.
+
+Costs: maia carries two copies of the blocks for a while.
+
+## 2026-11-07: A plan draws each stage as a line, its message under it
+
+A stage draws `plan__line`, its number and its title on one line, then
+`plan__message`, small and muted, only when it has a message. No count of
+todos shows anywhere. In a long plan, the line ends with the state, drawn
+by CSS from `--tone`: a check when done, a round dot in progress, nothing
+when not started. The band has no mark, because its coloured rule above
+each stage shows the state, and its columns are `--flow-gap` apart. A long
+plan's side list is a third of the plan's width, has no coloured rule, and
+draws the picked stage on `--blocks-surface` with a bold title. A plan
+narrower than 30em stacks its stages, by a container query on the plan.
+While editing, an empty message shows as a "message" line only when its
+stage is hovered, picked, or has the caret.
+
+Refused: reordering the old markup with CSS alone, which keeps the reading
+order number, message, title. Refused too: a mark element of its own,
+which would hold no text, and the window's width, because maia's card is
+narrow in a wide window.
+
+Costs: `plan__state` and `plan__count` leave the HTML contract, and in a
+theme whose surface is its canvas, as graphic's is, the picked stage shows
+only by its bold title.
