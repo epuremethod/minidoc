@@ -914,3 +914,24 @@ and the editor bundled into `dist`, where a host could not share its React.
 Costs: a ReScript project that builds `@epure/blocks` compiles live too,
 and needs `@rescript/react`. Each package's `exports` lists `./src/*`,
 because ReScript output imports compiled files by path.
+
+## 2026-11-07: Each section of a page gives the editor its prefix
+
+The editor now keys a section's blocks with the `prefix` it is given, so
+`@epure/minidoc/edit` gives each section's `View` a prefix from React's
+`useId`, and `Page.read` names its blocks and atoms `b0`, `a0` again. This
+supersedes "Each section names its own block ids, until the editor
+prefixes them".
+
+Refused: keeping the page's own ids, a workaround for a bug that is gone.
+
+## 2026-11-07: maia gives live the editor's block as its text field
+
+The editor's `TiliaEditor.Line` is now `TiliaEditor.Block`, an editor of
+one block whose root takes a `tag`. It is the field maia gives
+`Live.Editor ~field`. This supersedes, in "A host may give live its text
+field, drawn for every text", the name `TiliaEditor.Line` and "one-line
+editor"; the rest of that entry holds.
+
+Refused: a field of live's own for each tag, which the editor's block
+already draws.

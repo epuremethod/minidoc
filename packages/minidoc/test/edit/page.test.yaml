@@ -179,3 +179,14 @@ examples:
     written: |
       The tab reads {{title}}, from the
       page.
+
+  - scenario: a code span that holds a backtick keeps its fence when another word of its paragraph is edited
+    file: |
+      `title` is itself a template: ``"{{`site`}} — dates, small"``. When the
+      script runs, minidoc renders it.
+    edits:
+      - replace: "When the"
+        with: "Each time the"
+    written: |
+      `title` is itself a template: ``"{{`site`}} — dates, small"``. Each time the
+      script runs, minidoc renders it.

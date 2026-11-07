@@ -224,6 +224,9 @@ module Section = {
   @react.component
   let make = (~page: Page.t, ~path: string, ~base: string, ~options: options) => {
     let state = React.useMemo0(() => View.prepare(page.section, ~rules=rules(options)))
+    // Each section keys its blocks' DOM ids with a prefix of its own, so the
+    // sections of one page never share an id.
+    let prefix = TiliaEditor.Block.prefixOf(React.useId())
     // The page saves on its own: the editor's port is never asked to save.
     let storage: Editor.Section.storage = {
       sections: [],
@@ -274,10 +277,8 @@ module Section = {
       )
       None
     })
-    // The ids of the blocks are the page's own (see `mount`): the editor's
-    // prefix is not given to the blocks of a section, in this version.
     <div className="edit-section" ref={ReactDOM.Ref.domRef(host)}>
-      <View state storage paneAt=slot />
+      <View state storage paneAt=slot prefix />
     </div>
   }
 }
@@ -285,7 +286,6 @@ module Section = {
 @module("react-dom/client") external createRoot: Dom.element => ReactDOM.Client.Root.t = "createRoot"
 
 let noticed = ref(false)
-let sections = ref(0)
 
 /** Draw the file at `path` as its editor, in place of `element`'s content. */
 let mount = async (element: Dom.element, ~path: string, ~options: options) => {
@@ -297,8 +297,7 @@ let mount = async (element: Dom.element, ~path: string, ~options: options) => {
   }
   switch await fetchFile(path) {
   | {status: 200, body} =>
-    sections := sections.contents + 1
-    let page = Page.read(body, ~options, ~ids=`s${Int.toString(sections.contents)}`)
+    let page = Page.read(body, ~options)
     createRoot(element)->ReactDOM.Client.Root.render(<Section page path base=body options />)
   | {status, body} => say(`${path} cannot be edited (${Int.toString(status)}): ${body}`)
   }

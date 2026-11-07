@@ -314,6 +314,7 @@ function Edit$Section(props) {
   let path = props.path;
   let page = props.page;
   let state = React.useMemo(() => View$TiliaEditor.prepare(page.section, rules(options), undefined, undefined), []);
+  let prefix = Block$TiliaEditor.prefixOf(React.useId());
   let storage_sections = [];
   let storage_update = param => {};
   let storage_merge = (param, local, param$1) => local;
@@ -376,7 +377,8 @@ function Edit$Section(props) {
     children: JsxRuntime.jsx(View$TiliaEditor.make, {
       state: state,
       storage: storage,
-      paneAt: Primitive_option.some(slot)
+      paneAt: Primitive_option.some(slot),
+      prefix: prefix
     }),
     ref: Primitive_option.some(host),
     className: "edit-section"
@@ -389,10 +391,6 @@ let Section = {
 
 let noticed = {
   contents: false
-};
-
-let sections = {
-  contents: 0
 };
 
 async function mount(element, path, options) {
@@ -408,8 +406,7 @@ async function mount(element, path, options) {
     return say(path + ` cannot be edited (` + status.toString() + `): ` + match.body);
   }
   let body = match.body;
-  sections.contents = sections.contents + 1 | 0;
-  let page = Page.read(body, options, `s` + sections.contents.toString());
+  let page = Page.read(body, options);
   Client.createRoot(element).render(JsxRuntime.jsx(Edit$Section, {
     page: page,
     path: path,
@@ -453,7 +450,6 @@ export {
   panel,
   Section,
   noticed,
-  sections,
   mount,
 }
 /* fetchFile Not a pure module */

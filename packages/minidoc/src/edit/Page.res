@@ -170,8 +170,8 @@ let isPlan = line =>
   | None => false
   }
 
-/** A page's markdown, read as the editor's section. Its ids start with `ids`, so that the sections of one page never share an id. */
-let read = (text: string, ~options: EpureBlocks.Blocks.options, ~ids=""): t => {
+/** A page's markdown, read as the editor's section. */
+let read = (text: string, ~options: EpureBlocks.Blocks.options): t => {
   let front = switch RegExp.exec(frontmatter, text) {
   | Some(m) => RegExp.Result.fullMatch(m)
   | None => ""
@@ -212,7 +212,7 @@ let read = (text: string, ~options: EpureBlocks.Blocks.options, ~ids=""): t => {
   let rows = []
   let at = ref(0)
   found->Array.forEachWithIndex(((start, end, kind, text), index) => {
-    let id = `${ids}b${Int.toString(index)}`
+    let id = `b${Int.toString(index)}`
     let own = lines->Array.slice(~start, ~end)
     blocks->Dict.set(id, {gap: lines->Array.slice(~start=at.contents, ~end=start), lines: own, kind})
     at := end
@@ -221,7 +221,7 @@ let read = (text: string, ~options: EpureBlocks.Blocks.options, ~ids=""): t => {
     | Atom =>
       let source = own->Array.join("\n")
       let format = own->Array.get(0)->Option.mapOr(false, isPlan) ? planFormat : blockFormat
-      let atom = `${ids}a${Int.toString(index)}`
+      let atom = `a${Int.toString(index)}`
       atoms->Array.push({Section.id: atom, format, value: JSON.String(source), placement: Dict.make()})
       rows->Array.push((id, `:: {{${atom}}}`))
     }

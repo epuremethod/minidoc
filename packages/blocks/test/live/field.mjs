@@ -1,4 +1,4 @@
-// A stand-in for a host's text field, such as maia's `TiliaEditor.Line`:
+// A stand-in for a host's text field, such as `TiliaEditor.Block` in maia:
 // a `contenteditable` span with no class and no look of its own, which
 // keeps typed spaces and draws marks as markdown-it does, as bare
 // `<strong>`, `<em>`, `<code>` and `<a href>`. It keeps the props and the

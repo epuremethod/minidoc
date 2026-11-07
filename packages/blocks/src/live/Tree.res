@@ -73,7 +73,7 @@ type cut = {before: string, after: string}
 type handle = {focus: place => unit}
 
 /**
- * The props of a host's text field: a one-line editor of a text's
+ * The props of a host's text field: an editor of one block of a text's
  * markdown. It hands on the whole text after each change, and never hands
  * on a text the person did not change. `onEnter` gives the text cut at the
  * caret, in markdown; with none, the caret is at the end.

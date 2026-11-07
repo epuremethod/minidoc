@@ -57,8 +57,8 @@ type cut = Tree.cut
  * ticks a todo or moves a stage along. Each change hands on the block's
  * new source. A source handed in that this editor did not hand out
  * replaces what it shows. Any other block draws as `Drawing` does. A host
- * may give its own `field`, a one-line editor: each text is then drawn in
- * it, all the time.
+ * may give its own `field`, an editor of one block of text: each text is
+ * then drawn in it, all the time.
  */
 module Editor = {
   @react.component

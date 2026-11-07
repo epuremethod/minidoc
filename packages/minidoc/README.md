@@ -651,10 +651,10 @@ stand in for. `pnpm check` runs everything.
   - `dev` takes `edit`, the folders whose markdown a page may read and write
     through the server. The reload stream names its page, and a build made
     only by a page's own writes does not reload that page.
-  - A host may give `@epure/blocks/live` its own text field, such as maia's
-    editor line: `Live.Editor` then draws every text of the plan in it,
-    looking exactly as on a static page. Enter in a todo splits it at the
-    caret, and a done stage that takes an open todo moves back in
+  - A host may give `@epure/blocks/live` its own text field, such as the
+    editor's block in maia: `Live.Editor` then draws every text of the plan
+    in it, looking exactly as on a static page. Enter in a todo splits it
+    at the caret, and a done stage that takes an open todo moves back in
     progress.
   - A plan's stage shows its number and title on one line, and its message
     under them, small and muted. No count of todos is shown, and the band's

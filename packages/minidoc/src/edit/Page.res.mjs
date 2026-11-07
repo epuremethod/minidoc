@@ -232,8 +232,7 @@ function isPlan(line) {
   }
 }
 
-function read(text, options, idsOpt) {
-  let ids = idsOpt !== undefined ? idsOpt : "";
+function read(text, options) {
   let m = frontmatter.exec(text);
   let front = (m == null) ? "" : m[0];
   let lines = text.slice(front.length).split("\n");
@@ -302,7 +301,7 @@ function read(text, options, idsOpt) {
     let kind = param[2];
     let end = param[1];
     let start = param[0];
-    let id = ids + `b` + index.toString();
+    let id = `b` + index.toString();
     let own = lines.slice(start, end);
     blocks[id] = {
       gap: lines.slice(at.contents, start),
@@ -313,7 +312,7 @@ function read(text, options, idsOpt) {
     if (typeof kind !== "object") {
       let source = own.join("\n");
       let format = Stdlib_Option.mapOr(own[0], false, isPlan) ? planFormat : blockFormat;
-      let atom = ids + `a` + index.toString();
+      let atom = `a` + index.toString();
       atoms.push({
         id: atom,
         format: format,

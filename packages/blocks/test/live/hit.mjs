@@ -30,7 +30,7 @@ const { act, createElement } = await import("react");
 const { createRoot } = await import("react-dom/client");
 const { Drawing, Editor, read } = await import("../../src/live/Live.res.mjs");
 // HIT_FIELD names a module whose `Field` is a host's own text field, such
-// as maia's editor line, to check in place of the stand-in.
+// as the editor's block in maia, to check in place of the stand-in.
 const { Field } = await import(process.env.HIT_FIELD ?? "./field.mjs");
 
 const plan = `::: plan Release
