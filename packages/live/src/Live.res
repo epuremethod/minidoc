@@ -1,6 +1,7 @@
 // minidoc's blocks, live: a block's source read into a value, its drawing as
-// React, and a pane that shows its source above a live preview. A host such
-// as maia makes its editor's rule from these.
+// React, and a pane that holds its source. A host such as maia makes its
+// editor's rule from these: the pane's changes redraw the drawing in the
+// page.
 
 module Blocks = MinidocBlocks.Blocks
 module Draw = MinidocBlocks.Draw
@@ -17,19 +18,31 @@ let read = (source, options: Blocks.options) => {
   },
 }
 
-/** A value's drawing: its nodes as on a static page, or the reason above the source. */
+/**
+ * A value's drawing: its nodes as on a static page. A refused value draws
+ * the last value this drawing read well, so a source being typed keeps its
+ * drawing; with none yet, it shows the reason above the source.
+ */
 module Drawing = {
   @react.component
-  let make = (~value: value, ~options: Blocks.options) => React.useMemo2(() =>
-      switch value.read {
-      | Ok(nodes) => Tree.make(Blocks.draw(nodes, options))
-      | Error(reason) =>
+  let make = (~value: value, ~options: Blocks.options) => {
+    let good = React.useRef(None)
+    switch value.read {
+    | Ok(nodes) => good.current = Some(nodes)
+    | Error(_) => ()
+    }
+    let kept = value.read->Result.isError ? good.current : None
+    React.useMemo3(() =>
+      switch (value.read, kept) {
+      | (Ok(nodes), _) | (Error(_), Some(nodes)) => Tree.make(Blocks.draw(nodes, options))
+      | (Error(reason), None) =>
         <div className="refused">
           <p className="refused__reason"> {React.string(reason)} </p>
           <pre className="refused__source"> {React.string(value.source)} </pre>
         </div>
       }
-    , (value, options))
+    , (value, kept, options))
+  }
 }
 
 /** The props of a host's text field, and its handle. See `Tree.textField`. */
@@ -149,22 +162,20 @@ module Editor = {
 }
 
 /**
- * The source in a text field, above the drawing it makes. Each change is
- * handed on. `frame` places the preview, for a host that draws it apart,
- * such as in a shadow root.
+ * A block's source in a text box, with the reason above it when minidoc
+ * refuses it. Each change is handed on; the host redraws the drawing from
+ * it, in the page.
  */
 module Pane = {
   @react.component
-  let make = (
-    ~value: value,
-    ~options: Blocks.options,
-    ~onChange: string => unit,
-    ~autoFocus=false,
-    ~frame: React.element => React.element=preview => preview,
-  ) => {
+  let make = (~value: value, ~options: Blocks.options, ~onChange: string => unit, ~autoFocus=false) => {
     let (draft, drafts) = React.useState(() => value.source)
     let shown = React.useMemo2(() => read(draft, options), (draft, options))
     <div className="pane">
+      {switch shown.read {
+      | Ok(_) => React.null
+      | Error(reason) => <p className="pane__reason"> {React.string(reason)} </p>
+      }}
       <textarea
         className="pane__source"
         value=draft
@@ -177,10 +188,6 @@ module Pane = {
           onChange(next)
         }}
       />
-      {switch shown.read {
-      | Ok(_) => <div className="pane__preview"> {frame(<Drawing value=shown options />)} </div>
-      | Error(reason) => <p className="pane__reason"> {React.string(reason)} </p>
-      }}
     </div>
   }
 }

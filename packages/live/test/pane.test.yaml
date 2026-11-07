@@ -2,7 +2,7 @@ feature: A block's pane
 background:
   given: a block's pane
 examples:
-  - scenario: what the person types is handed on, and the preview under the source follows it
+  - scenario: what the person types is handed on
     before: |-
       ::: note
       Keep each page short.
@@ -11,12 +11,8 @@ examples:
       ::: note
       Keep each page **short**.
       :::
-    after: |-
-      <aside class="callout callout--note" aria-label="Note"><p class="callout__label">Note</p><div class="callout__body">
-      <p>Keep each page <strong>short</strong>.</p>
-      </div></aside>
 
-  - scenario: a source minidoc refuses is still handed on, and shows the reason under it
+  - scenario: a source minidoc refuses is still handed on, and shows the reason above it
     before: |-
       ::: plan
       1. [/] **Draw the band**

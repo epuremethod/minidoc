@@ -769,3 +769,18 @@ narrow in a wide window.
 Costs: `plan__state` and `plan__count` leave the HTML contract, and in a
 theme whose surface is its canvas, as graphic's is, the picked stage shows
 only by its bold title.
+
+## 2026-11-07: A drawing is edited through its source; the page shows it
+
+The page is the editor. Text, the plan and callouts are edited where they
+stand. A drawing is not: a click selects it, and `Live.Pane` holds only its
+source, with minidoc's reason above it when minidoc refuses it. The drawing
+in the page follows each key, so the pane has no preview and no `frame`.
+`Live.Drawing` keeps the last value that read, and draws it while a new
+source is refused.
+
+Refused: each host keeping the last good form, which every host would
+repeat. Refused too: the editor's line for the source. A source has many
+lines, so it is a plain text box until a code editor is chosen.
+
+Costs: a drawing keeps its last good form only while it stays mounted.

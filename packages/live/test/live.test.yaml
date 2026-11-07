@@ -25,3 +25,50 @@ examples:
       1. [x] **Draw the band**
          - [ ] Pick the tones
       :::</pre></div>
+
+  - scenario: a drawing whose source becomes refused keeps its last good form, and follows the source when it reads again
+    before: |-
+      ::: flow
+      1. Upload
+      2. Check
+      :::
+    next:
+      - |-
+        ::: flow
+        - Upload
+        :::
+      - |-
+        ::: flow
+        1. Upload
+        2. Check
+        3. Store
+        :::
+    shows:
+      - |-
+        <aside class="callout callout--flow" aria-label="Flow"><p class="callout__label">Flow</p><div class="callout__body">
+        <ol class="flow">
+        <li class="flow__column">
+        <ol class="flow__steps">
+        <li class="flow__step"><p class="flow__text">Upload</p>
+        </li>
+        <li class="flow__step"><p class="flow__text">Check</p>
+        </li>
+        </ol>
+        </li>
+        </ol>
+        </div></aside>
+      - |-
+        <aside class="callout callout--flow" aria-label="Flow"><p class="callout__label">Flow</p><div class="callout__body">
+        <ol class="flow">
+        <li class="flow__column">
+        <ol class="flow__steps">
+        <li class="flow__step"><p class="flow__text">Upload</p>
+        </li>
+        <li class="flow__step"><p class="flow__text">Check</p>
+        </li>
+        <li class="flow__step"><p class="flow__text">Store</p>
+        </li>
+        </ol>
+        </li>
+        </ol>
+        </div></aside>

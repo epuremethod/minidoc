@@ -27,9 +27,9 @@ One pnpm workspace. The root holds no code.
   Blocks page.
 - `packages/live/` is `@minidoc/live`: the same drawings as React
   elements, a block's source read into a value that keeps a refusal, a
-  pane with the source above a live preview, and an editor that draws a
-  plan's fields as inputs. The edits themselves are in `@minidoc/blocks`.
-  It runs in jsdom, its own scenarios and the blocks' `html.test.yaml`.
+  pane that holds the source, and an editor that draws a plan's fields as
+  inputs. The edits themselves are in `@minidoc/blocks`. It runs in jsdom,
+  its own scenarios and the blocks' `html.test.yaml`.
 - `packages/deprecated/` is `@epure/minidoc`, the former name. It
   re-exports `@minidoc/core` and is published deprecated.
 - `packages/docs/` is the documentation site, package `minidoc-docs`, private. It is

@@ -615,16 +615,20 @@ stand in for. `pnpm check` runs everything.
 
 - Unreleased
   - `@minidoc/live` draws the blocks as React elements, exactly as a static
-    page draws them, with a pane that shows a block's source above a live
-    preview. `@minidoc/blocks` gains `draw`, the tree that both write, and
-    marks the fields a person may edit in plans, flows, screens and API
-    calls. A label in a sequence, a state machine or a model now writes
+    page draws them, with a pane that holds a block's source.
+    `@minidoc/blocks` gains `draw`, the tree that both write, and marks the
+    fields a person may edit in plans, flows, screens and API calls. A
+    label in a sequence, a state machine or a model now writes
     `text-anchor` after `x` and `y`.
   - A plan is edited where it stands in `@minidoc/live`: a click ticks a
     todo or moves a stage along, and its texts are written in place.
     `@minidoc/blocks` gains `edit`, which changes only the characters an
     edit touches in the block's source. A stage or a todo with no text yet
     now reads, and `****` is an empty title.
+  - A drawing is edited through its source: `Live.Pane` holds the source,
+    with minidoc's reason above it when it refuses it, and no preview; the
+    host redraws the drawing in the page. Its `frame` prop is gone. A
+    `Live.Drawing` whose source is refused keeps its last good form.
   - A host may give `@minidoc/live` its own text field, such as maia's
     editor line: `Live.Editor` then draws every text of the plan in it,
     looking exactly as on a static page. Enter in a todo splits it at the

@@ -13,7 +13,7 @@
 .refused__reason, .pane__reason { margin: 0 0 .4em; color: var(--tone); font-family: ui-monospace, "SFMono-Regular", Consolas, monospace; font-size: .85em; }
 .refused__source { margin: 0; color: var(--blocks-muted); font-family: ui-monospace, "SFMono-Regular", Consolas, monospace; font-size: .85em; white-space: pre-wrap; }
 
-.pane { display: grid; gap: .8em; }
+.pane { display: grid; }
 .pane__source {
   display: block;
   box-sizing: border-box;

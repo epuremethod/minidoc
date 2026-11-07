@@ -23,18 +23,44 @@ Given("a page", (_steps, data) => {
  * `html`, with `{info}` and `{body}` filled in.
  */
 Given("a block drawn live", (_steps, data) => {
-  const { before, after, error, options } = readScenario(data);
+  const { next, shows, ...rest } = data;
+  if (next !== undefined) return drawnAgain(rest, next, shows);
+  const { before, after, error, options } = readScenario(rest);
   if (error !== undefined) throw new Error(`A live scenario has no "error": a refusal is drawn`);
   expectSame(drawn(before, options), after ?? "");
 });
 
 /**
+ * A drawing handed one source after another: the `before`, then each of
+ * the `next`. After each of the `next`, its DOM must be the matching DOM of
+ * `shows`.
+ */
+function drawnAgain(data: Record<string, unknown>, next: unknown, shows: unknown) {
+  if (!Array.isArray(next) || !next.every((n) => typeof n === "string")) throw new Error(`"next" must be a list of sources`);
+  if (!Array.isArray(shows) || shows.length !== next.length || !shows.every((s) => typeof s === "string")) {
+    throw new Error(`"shows" must be a list of HTML, one for each of "next"`);
+  }
+  if (data.after !== undefined) throw new Error(`A scenario with "next" checks "shows", not "after"`);
+  const { before, options } = readScenario({ ...data, after: "" });
+  const container = document.createElement("div");
+  document.body.append(container);
+  const root = createRoot(container);
+  const show = (source: string) => act(() => root.render(createElement(Drawing.make, { value: read(source, options), options })));
+  show(before);
+  next.forEach((source, i) => {
+    show(source);
+    expectSame(container, shows[i]);
+  });
+}
+
+/**
  * A block's pane: the person replaces the `before` with the `typed`
- * source. The pane hands the typed source on, and shows its preview, the
- * `after`, or the reason minidoc refuses it, the `error`.
+ * source. The pane hands the typed source on. It shows no preview, and
+ * shows the reason minidoc refuses the source, the `error`, above it.
  */
 Given("a block's pane", (_steps, data) => {
-  const { before, after, error, options, typed } = readScenario(data);
+  if (data.after !== undefined) throw new Error(`A pane scenario has no "after": the pane shows no preview`);
+  const { before, error, options, typed } = readScenario(data.error === undefined ? { ...data, after: "" } : data);
   if (typed === undefined) throw new Error(`A pane scenario needs a "typed" string: the new source`);
   const changes: string[] = [];
   const container = mount(
@@ -44,13 +70,13 @@ Given("a block's pane", (_steps, data) => {
   if (field === null) throw new Error("The pane shows no text field");
   type(field, typed);
   expect(changes).toEqual([typed]);
-  if (error === undefined) {
-    const preview = container.querySelector(".pane__preview");
-    expect(preview, "the pane should show a preview").not.toBeNull();
-    expectSame(preview as Element, after ?? "");
-  } else {
-    expect(container.querySelector(".pane__preview"), "a refused source has no preview").toBeNull();
-    expect(container.querySelector(".pane__reason")?.textContent).toBe(error);
+  expect(container.querySelector(".pane")?.children.length, "the pane holds the source, and the reason when refused").toBe(
+    error === undefined ? 1 : 2,
+  );
+  if (error !== undefined) {
+    const reason = container.querySelector(".pane__reason");
+    expect(reason?.textContent).toBe(error);
+    expect(reason?.nextElementSibling, "the reason sits above the source").toBe(field);
   }
 });
 

@@ -4,6 +4,7 @@ import * as React from "react";
 import * as Stdlib_Dict from "@rescript/runtime/lib/es6/Stdlib_Dict.js";
 import * as Stdlib_JsExn from "@rescript/runtime/lib/es6/Stdlib_JsExn.js";
 import * as Stdlib_Option from "@rescript/runtime/lib/es6/Stdlib_Option.js";
+import * as Stdlib_Result from "@rescript/runtime/lib/es6/Stdlib_Result.js";
 import * as Primitive_object from "@rescript/runtime/lib/es6/Primitive_object.js";
 import * as Tree$MinidocLive from "./Tree.res.mjs";
 import * as JsxRuntime from "react/jsx-runtime";
@@ -37,15 +38,23 @@ function read(source, options) {
 function Live$Drawing(props) {
   let options = props.options;
   let value = props.value;
+  let good = React.useRef(undefined);
+  let nodes = value.read;
+  if (nodes.TAG === "Ok") {
+    good.current = nodes._0;
+  }
+  let kept = Stdlib_Result.isError(value.read) ? good.current : undefined;
   return React.useMemo(() => {
-    let nodes = value.read;
-    if (nodes.TAG === "Ok") {
-      return Tree$MinidocLive.make(undefined, undefined, Blocks$MinidocBlocks.draw(nodes._0, options));
+    let match = value.read;
+    if (match.TAG === "Ok") {
+      return Tree$MinidocLive.make(undefined, undefined, Blocks$MinidocBlocks.draw(match._0, options));
+    } else if (kept !== undefined) {
+      return Tree$MinidocLive.make(undefined, undefined, Blocks$MinidocBlocks.draw(kept, options));
     } else {
       return JsxRuntime.jsxs("div", {
         children: [
           JsxRuntime.jsx("p", {
-            children: nodes._0,
+            children: match._0,
             className: "refused__reason"
           }),
           JsxRuntime.jsx("pre", {
@@ -58,6 +67,7 @@ function Live$Drawing(props) {
     }
   }, [
     value,
+    kept,
     options
   ]);
 }
@@ -219,13 +229,11 @@ let Editor = {
 };
 
 function Live$Pane(props) {
-  let __frame = props.frame;
   let __autoFocus = props.autoFocus;
   let onChange = props.onChange;
   let options = props.options;
   let value = props.value;
   let __autoFocus_value = __autoFocus !== undefined ? __autoFocus : false;
-  let __frame_value = __frame !== undefined ? __frame : preview => preview;
   let match = React.useState(() => value.source);
   let drafts = match[1];
   let draft = match[0];
@@ -235,18 +243,13 @@ function Live$Pane(props) {
   ]);
   let reason = shown.read;
   let tmp;
-  tmp = reason.TAG === "Ok" ? JsxRuntime.jsx("div", {
-      children: __frame_value(JsxRuntime.jsx(Live$Drawing, {
-        value: shown,
-        options: options
-      })),
-      className: "pane__preview"
-    }) : JsxRuntime.jsx("p", {
+  tmp = reason.TAG === "Ok" ? null : JsxRuntime.jsx("p", {
       children: reason._0,
       className: "pane__reason"
     });
   return JsxRuntime.jsxs("div", {
     children: [
+      tmp,
       JsxRuntime.jsx("textarea", {
         className: "pane__source",
         spellCheck: false,
@@ -258,8 +261,7 @@ function Live$Pane(props) {
           drafts(param => next);
           onChange(next);
         }
-      }),
-      tmp
+      })
     ],
     className: "pane"
   });

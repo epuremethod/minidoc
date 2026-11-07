@@ -40,7 +40,9 @@ in the colours of the blocks theme.
 An app that shows blocks in React, such as an editor, uses
 `@minidoc/live`. It reads a block's source, keeping minidoc's reason when
 it refuses it, draws the block exactly as a static page does, and gives a
-pane: the source above a live preview. The app loads `blocks.css`, a theme
+pane that holds the source, with the reason above it when minidoc refuses
+it. Each change redraws the block in the page, and a drawing whose source
+is refused keeps its last good form. The app loads `blocks.css`, a theme
 and `live.css`.
 
 Each plate below is a scenario of the package. The **markdown** is what an
