@@ -935,3 +935,48 @@ editor"; the rest of that entry holds.
 
 Refused: a field of live's own for each tag, which the editor's block
 already draws.
+
+## 2026-11-07: A callout of text is the editor's callout on the page
+
+On the dev page, a `::: ` callout of a known kind, with three colons, whose
+body holds only paragraphs, `- ` items and `#` to `###` titles, is read as
+the editor's callout: its start line, and each block in it behind `> `.
+Written back, the start and the marked blocks after it are the start line,
+the blocks, and the close as the file had it, or `:::`. The editor gets the
+site's kinds, common ones first, from `callouts` of `@epure/blocks`.
+
+Refused: every callout an atom, edited in the panel, as before. A person
+then could not type a note where it stands, nor make one with `::: note `.
+
+Costs: a callout that holds a table, a code block, a numbered list or
+another `:::` block stays an atom, so a page has callouts of two sorts.
+
+## 2026-11-07: A code fence that is not a drawing is the editor's code block
+
+On the dev page, a closed fence at the start of its line, whose language is
+not one of the drawings (`sequence`, `states`, `model`, a site's own), is
+read as the editor's code block: its row is its lines, as they are, so its
+fence's character and length stay. In a callout its lines are behind `> `,
+and a callout that holds one is edited in place. `@epure/blocks` gives the
+drawings with `drawings`.
+
+Refused: every fence an atom, edited in the panel, as before. Code is
+common in a page, and a person could not type it where it stands.
+
+Costs: the code has no highlighting while it is edited; Prism colours it
+on the static page only. A fence with no close, or an indented one, stays
+an atom.
+
+## 2026-11-09: `dev` draws a new site's port at random, from 11000 to 32767
+
+A site with no port draws a random one from 11000 to 32767, tries it, and
+draws again when it is taken, up to 50 times. The range is above 10080, the
+last port that browsers refuse, and below the ports that macOS and Linux give
+to outgoing connections. A site that names a port keeps it.
+
+Refused: `listen(0)`, as before. The system gives the next port of a counter,
+in the range of outgoing connections, so a connection could take a site's
+port, and two sites could draw the same port while one was down.
+
+Costs: a new site can still draw the port of a stopped site, about once in
+21,800 draws for each stopped site. Then the second to start fails loud.

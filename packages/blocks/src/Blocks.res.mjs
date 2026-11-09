@@ -83,13 +83,23 @@ let nameTail = new RegExp(`^(.*?)(?:^|\\s)#(` + Markdown$EpureBlocks.name + `)$`
 
 let urlTail = new RegExp("^(.*?)(?:^|\\s)<([^<>\\s]+)>$");
 
+function drawings(options) {
+  return Belt_Array.concatMany([
+    [
+      "sequence",
+      "states",
+      "model"
+    ],
+    Stdlib_Option.getOr(options.extra, []).filter(e => Stdlib_Option.getOr(e.fence, false)).map(e => e.name)
+  ]);
+}
+
 function context(options) {
   let callouts = Object.fromEntries(Belt_Array.concatMany([
     common,
     Stdlib_Option.mapOr(options.callouts, [], prim => Object.entries(prim))
   ]));
   let extras = Stdlib_Option.getOr(options.extra, []);
-  let isFence = e => Stdlib_Option.getOr(e.fence, false);
   return {
     md: Markdown$EpureBlocks.make(options.markdown),
     callouts: callouts,
@@ -116,14 +126,7 @@ function context(options) {
         ],
         extras.filter(e => !Stdlib_Option.getOr(e.fence, false)).map(e => e.name)
       ]),
-      fences: Belt_Array.concatMany([
-        [
-          "sequence",
-          "states",
-          "model"
-        ],
-        extras.filter(isFence).map(e => e.name)
-      ])
+      fences: drawings(options)
     },
     plans: 0
   };
@@ -663,6 +666,13 @@ function edit(source, act, options) {
   return edited;
 }
 
+function callouts(options) {
+  return Object.entries(Object.fromEntries(Belt_Array.concatMany([
+    common,
+    Stdlib_Option.mapOr(options.callouts, [], prim => Object.entries(prim))
+  ])));
+}
+
 function blocks(options) {
   let ctx = context(options);
   return source => {
@@ -681,6 +691,8 @@ export {
   render,
   editable,
   edit,
+  callouts,
+  drawings,
   blocks,
 }
 /* byInfo Not a pure module */

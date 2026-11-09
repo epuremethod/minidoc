@@ -8,6 +8,7 @@ import * as Stdlib_Option from "@rescript/runtime/lib/es6/Stdlib_Option.js";
 import * as Stdlib_Result from "@rescript/runtime/lib/es6/Stdlib_Result.js";
 import * as Stdlib_Promise from "@rescript/runtime/lib/es6/Stdlib_Promise.js";
 import * as Storage$Editor from "@epure/editor/src/domain/feature/Storage.res.mjs";
+import * as Shortcut$Editor from "@epure/editor/src/domain/feature/Shortcut.res.mjs";
 import * as Live$EpureBlocks from "@epure/blocks/src/live/Live.res.mjs";
 import * as Primitive_option from "@rescript/runtime/lib/es6/Primitive_option.js";
 import * as Rule$TiliaEditor from "@tilia/editor/src/view/Rule.res.mjs";
@@ -263,12 +264,12 @@ function rules(options) {
 }
 
 let fetchFile = (async (path) => {
-  const res = await fetch("/__minidoc/file?path=" + encodeURIComponent(path), {headers: {"x-minidoc-edit": "1"}})
+  const res = await fetch((window.__minidocBase || "") + "/__minidoc/file?path=" + encodeURIComponent(path), {headers: {"x-minidoc-edit": "1"}})
   return {status: res.status, body: await res.text()}
 });
 
 let putFile = (async (path, text, base) => {
-  const res = await fetch("/__minidoc/file?path=" + encodeURIComponent(path), {
+  const res = await fetch((window.__minidocBase || "") + "/__minidoc/file?path=" + encodeURIComponent(path), {
     method: "PUT",
     headers: {"x-minidoc-edit": "1", "content-type": "application/json"},
     body: JSON.stringify({text, base, page: window.__minidocPage || ""}),
@@ -313,7 +314,8 @@ function Edit$Section(props) {
   let base = props.base;
   let path = props.path;
   let page = props.page;
-  let state = React.useMemo(() => View$TiliaEditor.prepare(page.section, rules(options), undefined, undefined), []);
+  let kinds = React.useMemo(() => Blocks$EpureBlocks.callouts(options), []);
+  let state = React.useMemo(() => View$TiliaEditor.prepare(page.section, rules(options), Shortcut$Editor.markdown.concat([Shortcut$Editor.callout(kinds.map(prim => prim[0]))]), undefined), []);
   let prefix = Block$TiliaEditor.prefixOf(React.useId());
   let storage_sections = [];
   let storage_update = param => {};
@@ -378,7 +380,8 @@ function Edit$Section(props) {
       state: state,
       storage: storage,
       paneAt: Primitive_option.some(slot),
-      prefix: prefix
+      prefix: prefix,
+      kinds: kinds
     }),
     ref: Primitive_option.some(host),
     className: "edit-section"

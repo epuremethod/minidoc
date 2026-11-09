@@ -2,10 +2,13 @@
 //
 // minidoc reads the markdown as CommonMark groups it: a paragraph, a `- `
 // item and a `#` to `###` title are each one block of the editor, with
-// one id, however the file wraps them. Every other block, a table, a
-// numbered list, a quote, a `####` title, a code block or a `:::` block,
-// is an atom of minidoc's, which holds its source exactly. The frontmatter
-// and the blank lines between blocks are kept aside, as they are.
+// one id, however the file wraps them. A closed code fence that is not a
+// drawing is the editor's code block, its lines as they are. A callout
+// that holds only such blocks is the editor's callout: its start line, and
+// its blocks behind `> `. Every other block, a table, a numbered list, a
+// quote, a `####` title, a drawing or another `:::` block, is an atom of
+// minidoc's, which holds its source exactly. The frontmatter and the blank lines
+// between blocks are kept aside, as they are.
 //
 // Written back, a block nobody changed is its lines as they were. An
 // edited paragraph keeps its line breaks after the same words, so the file
@@ -26,9 +29,14 @@ let planFormat = "plan"
 type kind =
   | Text(Editor.Doc.form)
   | Atom
+  /** A callout's start line. `close` is the lines after its last block, its `:::` included, and `upto` the line after them. */
+  | Start({close: array<string>, upto: int})
 
-/** A block of the file: the blank lines before it, and its own lines. */
-type kept = {gap: array<string>, lines: array<string>, kind: kind}
+/** A block of the file: the blank lines before it, its own lines, and whether it is in a callout. */
+type kept = {gap: array<string>, lines: array<string>, kind: kind, inside: bool}
+
+/** A block found in the file, as a range of its lines. */
+type found = {start: int, end: int, kind: kind, text: string, inside: bool}
 
 type t = {
   /** The frontmatter, with its fences and the line break after them. */
@@ -88,8 +96,26 @@ let flat = (all: array<token>, from, to) =>
     }
   )
 
+/**
+ The code block of the fence at `start`, when the editor holds it: it
+ opens at the line's start, it closes, and it is not one of the
+ `drawings`. Its text is empty: its row is its lines.
+*/
+let code = (lines: array<string>, ~start, ~end, ~drawings: array<string>) =>
+  switch RegExp.exec(Scan.codeLine, lines->Array.getUnsafe(start)) {
+  | Some(m) =>
+    let marker = Scan.capture(m, 0)
+    let closed = Scan.fenceEnd(lines, start, marker) == end - 1 && end - 1 > start
+    let language = Scan.split(Scan.capture(m, 1))->Pair.first
+    switch Editor.Code.read(lines->Array.getUnsafe(start)) {
+    | Some((form, _)) if closed && !(drawings->Array.includes(language)) => Some(Text(form))
+    | _ => None
+    }
+  | None => None
+  }
+
 /** The blocks of a run of markdown with no `:::` block, as line ranges of the run. */
-let grouped = (md, lines: array<string>): array<(int, int, kind, string)> => {
+let grouped = (md, lines: array<string>, ~drawings): array<(int, int, kind, string)> => {
   let all = tokens(md, lines->Array.join("\n"))
   let out = []
   let range = (t: token) =>
@@ -154,6 +180,9 @@ let grouped = (md, lines: array<string>): array<(int, int, kind, string)> => {
           out->Array.push((start, end, Atom, ""))
         }
         walk(close + 1)
+      | ("fence", Some((start, end))) =>
+        out->Array.push((start, end, code(lines, ~start, ~end, ~drawings)->Option.getOr(Atom), ""))
+        walk(i + 1)
       | (kind, Some((start, end))) =>
         out->Array.push((start, end, Atom, ""))
         walk(String.endsWith(kind, "_open") ? closing(i, kind) + 1 : i + 1)
@@ -162,6 +191,37 @@ let grouped = (md, lines: array<string>): array<(int, int, kind, string)> => {
   walk(0)
   out
 }
+
+/**
+ The blocks in the callout that `lines` open, when the editor holds it: its
+ start is `::: ` and one of `kinds`, and every block in it is text. `end`
+ is the line that closes it.
+*/
+let callout = (md, lines: array<string>, ~start, ~end, ~kinds: array<string>, ~drawings) => {
+  let opening = lines->Array.getUnsafe(start)
+  let body = lines->Array.slice(~start=start + 1, ~end)
+  let known = switch Editor.Callout.read(opening) {
+  | Some((Callout({kind}), _)) => kinds->Array.includes(kind)
+  | _ => false
+  }
+  let nested = body->Array.some(line =>
+    switch RegExp.exec(Scan.colonLine, line) {
+    | Some(m) => Scan.capture(m, 1) != ""
+    | None => false
+    }
+  )
+  if !known || nested {
+    None
+  } else {
+    let blocks = grouped(md, body, ~drawings)
+    blocks->Array.every(((_, _, kind, _)) => kind != Atom)
+      ? Some(blocks->Array.map(((from, to, kind, text)) => {start: start + 1 + from, end: start + 1 + to, kind, text, inside: true}))
+      : None
+  }
+}
+
+/** A row in a callout: each of its lines behind `> `, or `>` alone when it is empty. */
+let marks = row => row->String.split("\n")->Array.map(line => line == "" ? ">" : "> " ++ line)->Array.join("\n")
 
 /** The plan of a `:::` block, when it is one. */
 let isPlan = line =>
@@ -178,12 +238,14 @@ let read = (text: string, ~options: EpureBlocks.Blocks.options): t => {
   }
   let lines = text->String.slice(~start=String.length(front))->String.split("\n")
   let md = Markdown.make(options.markdown)
+  let kinds = EpureBlocks.Blocks.callouts(options)->Array.map(Pair.first)
+  let drawings = EpureBlocks.Blocks.drawings(options)
   // The blocks of the file, as line ranges.
-  let found: array<(int, int, kind, string)> = []
+  let found: array<found> = []
   let run = ref(0)
   let flush = upto => {
-    grouped(md, lines->Array.slice(~start=run.contents, ~end=upto))->Array.forEach(((start, end, kind, text)) =>
-      found->Array.push((run.contents + start, run.contents + end, kind, text))
+    grouped(md, lines->Array.slice(~start=run.contents, ~end=upto), ~drawings)->Array.forEach(((start, end, kind, text)) =>
+      found->Array.push({start: run.contents + start, end: run.contents + end, kind, text, inside: false})
     )
   }
   let rec go = i =>
@@ -199,7 +261,20 @@ let read = (text: string, ~options: EpureBlocks.Blocks.options): t => {
           let end = try Scan.blockEnd(lines, i, Scan.capture(m, 0), 1) catch {
           | _ => lines->Array.length - 1
           }
-          found->Array.push((i, end + 1, Atom, ""))
+          let closed =
+            end > i &&
+            switch lines->Array.get(end)->Option.flatMap(line => RegExp.exec(Scan.colonLine, line)) {
+            | Some(m) => Scan.capture(m, 1) == ""
+            | None => false
+            }
+          switch closed ? callout(md, lines, ~start=i, ~end, ~kinds, ~drawings) : None {
+          | Some(inside) =>
+            let last = inside->Array.at(-1)->Option.mapOr(i + 1, block => block.end)
+            let close = lines->Array.slice(~start=last, ~end=end + 1)
+            found->Array.push({start: i, end: i + 1, kind: Start({close, upto: end + 1}), text: "", inside: false})
+            inside->Array.forEach(block => found->Array.push(block))
+          | None => found->Array.push({start: i, end: end + 1, kind: Atom, text: "", inside: false})
+          }
           run := end + 1
           go(end + 1)
         | _ => go(i + 1)
@@ -211,13 +286,31 @@ let read = (text: string, ~options: EpureBlocks.Blocks.options): t => {
   let atoms = []
   let rows = []
   let at = ref(0)
-  found->Array.forEachWithIndex(((start, end, kind, text), index) => {
+  // The line after the callout the last block was in, which the next
+  // block outside it starts its gap from.
+  let closing = ref(None)
+  let leave = () => {
+    closing.contents->Option.forEach(upto => at := upto)
+    closing := None
+  }
+  found->Array.forEachWithIndex(({start, end, kind, text, inside}, index) => {
+    if !inside {
+      leave()
+    }
     let id = `b${Int.toString(index)}`
     let own = lines->Array.slice(~start, ~end)
-    blocks->Dict.set(id, {gap: lines->Array.slice(~start=at.contents, ~end=start), lines: own, kind})
+    blocks->Dict.set(id, {gap: lines->Array.slice(~start=at.contents, ~end=start), lines: own, kind, inside})
     at := end
     switch kind {
-    | Text(form) => rows->Array.push((id, Form.write(form, escape(text))))
+    | Start({upto}) =>
+      closing := Some(upto)
+      rows->Array.push((id, own->Array.join("")))
+    | Text(form) =>
+      let row = switch form {
+      | Code(_) => own->Array.join("\n")
+      | _ => Form.write(form, escape(text))
+      }
+      rows->Array.push((id, inside ? marks(row) : row))
     | Atom =>
       let source = own->Array.join("\n")
       let format = own->Array.get(0)->Option.mapOr(false, isPlan) ? planFormat : blockFormat
@@ -226,6 +319,7 @@ let read = (text: string, ~options: EpureBlocks.Blocks.options): t => {
       rows->Array.push((id, `:: {{${atom}}}`))
     }
   })
+  leave()
   let section: Section.t = {id: "page", blocks: rows, atoms, uses: []}
   let given = Storage.write(Storage.read(section), ~id="page").blocks->Dict.fromArray
   let good = atoms->Array.map(atom => (atom.id, atom.value->JSON.Decode.string->Option.getOr("")))->Dict.fromArray
@@ -338,6 +432,27 @@ let display = /^:: \{\{([^{}]+)\}\}$/
 /** The text of a block the editor wrote, as the lines of the file. */
 let fresh = (form: Editor.Doc.form, text) => [Form.lead(form) ++ unescape(text)]
 
+/** A row of a block in a callout, each line behind `> `, without them. */
+let marked = (row: string) => {
+  let lines = row->String.split("\n")
+  lines->Array.every(line => line == ">" || line->String.startsWith("> "))
+    ? Some(lines->Array.map(line => line->String.slice(~start=2))->Array.join("\n"))
+    : None
+}
+
+let isStart = (form: Editor.Doc.form) =>
+  switch form {
+  | Callout(_) => true
+  | _ => false
+  }
+
+/** Whether a block is its row on the port, as a start or a code block is: neither the notation nor a line break touches it. */
+let isPlain = (form: Editor.Doc.form) =>
+  switch form {
+  | Callout(_) | Code(_) => true
+  | _ => false
+  }
+
 /**
  The page's markdown, from the section the editor holds. `reads` says
  whether minidoc reads an atom's source: one it refuses is written as the
@@ -346,46 +461,90 @@ let fresh = (form: Editor.Doc.form, text) => [Form.lead(form) ++ unescape(text)]
 let write = (page: t, section: Section.t, ~reads: string => bool): string => {
   let sources = section.atoms->Array.map(atom => (atom.id, atom.value))->Dict.fromArray
   let out = []
+  let push = lines => lines->Array.forEach(line => out->Array.push(line))
   let previous = ref(None)
+  // The lines that close the callout the last block is in, when it is in one.
+  let open_ = ref(None)
+  // Whether the last block is a callout's start.
+  let started = ref(false)
+  let close = () =>
+    open_.contents->Option.forEach(lines => {
+      push(lines)
+      open_ := None
+      previous := Some(Editor.Doc.Display)
+    })
   section.blocks->Array.forEach(((id, row)) => {
-    let atom = switch RegExp.exec(display, row) {
+    let (form, text) = Form.read(row)
+    let start = isStart(form)
+    // A block is in a callout when it is marked and the blocks above it,
+    // up to a start, are marked too, as the editor reads it.
+    let body = marked(row)
+    if start || body->Option.isNone {
+      close()
+    }
+    let inside = open_.contents->Option.isSome
+    let first = started.contents
+    let (own, form, text) = switch body {
+    | Some(body) if !start =>
+      let (form, text) = Form.read(body)
+      (body, form, text)
+    | _ => (row, form, text)
+    }
+    let atom = start ? None : switch RegExp.exec(display, Form.write(form, text)) {
     | Some(m) => Some(Scan.capture(m, 0))
     | None => None
     }
-    let (form, text) = Form.read(row)
-    let (gap, lines) = switch (page.blocks->Dict.get(id), atom) {
-    | (kept, Some(atom)) =>
+    let kept = page.blocks->Dict.get(id)
+    // The gap of a block that moved into a callout or out of one.
+    let made = () =>
+      switch (previous.contents, form) {
+      | _ if first => []
+      | (None, _) => []
+      | (Some(Editor.Doc.Item), Item) => []
+      | _ => [""]
+      }
+    let gap = switch kept {
+    | _ if first && inside => kept->Option.mapOr([], kept => kept.inside ? kept.gap : [])
+    | Some(kept) if kept.inside == inside => kept.gap
+    | _ => made()
+    }
+    let lines = switch (kept, atom) {
+    | (_, Some(atom)) =>
       let source = switch sources->Dict.get(atom)->Option.flatMap(JSON.Decode.string) {
       | Some(source) if reads(source) =>
         page.good->Dict.set(atom, source)
         source
       | _ => page.good->Dict.get(atom)->Option.getOr("")
       }
-      let lines = switch kept {
+      switch kept {
       | Some(kept) if kept.lines->Array.join("\n") == source => kept.lines
       | _ => source->String.split("\n")
       }
-      (kept->Option.mapOr(["" ], kept => kept.gap), lines)
     | (Some(kept), None) =>
-      let lines = switch kept.kind {
+      switch kept.kind {
       | _ if page.given->Dict.get(id) == Some(row) => kept.lines
+      | _ if isPlain(form) => own->String.split("\n")
       | Text(was) if was == form => rebroken(kept.lines, unescape(text), ~form)
       | _ => fresh(form, text)
       }
-      (kept.gap, lines)
-    | (None, None) =>
-      let gap = switch (previous.contents, form) {
-      | (None, _) => []
-      | (Some(Editor.Doc.Item), Item) => []
-      | _ => [""]
-      }
-      (gap, fresh(form, text))
+    | (None, None) => isPlain(form) ? own->String.split("\n") : fresh(form, text)
     }
-    let gap = out->Array.length == 0 && page.blocks->Dict.get(id)->Option.isNone ? [] : gap
-    gap->Array.forEach(line => out->Array.push(line))
-    lines->Array.forEach(line => out->Array.push(line))
+    let gap = out->Array.length == 0 && kept->Option.isNone ? [] : gap
+    push(gap)
+    push(lines)
     previous := Some(atom->Option.isSome ? Editor.Doc.Display : form)
+    started := start
+    if start {
+      open_ :=
+        Some(
+          switch kept {
+          | Some({kind: Start({close})}) => close
+          | _ => [":::"]
+          },
+        )
+    }
   })
+  close()
   page.tail->Array.forEach(line => out->Array.push(line))
   page.front ++ out->Array.join("\n")
 }

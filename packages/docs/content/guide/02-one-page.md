@@ -77,8 +77,8 @@ await run({ glob: "content/**/config.yaml" })
 writes the two files.
 
 ::: story
-Mara opens `dist/index.html`. The tab reads *Marmot — dates, small*. She
-changes `site` to `marmot`, runs the script again, and both the tab and the
+Mara opens `dist/index.html`. The tab reads _Marmot — dates, small_. She
+changes `site` to `marmot`, runs the script again, and **hello** both the tab and the
 heading follow.
 :::
 

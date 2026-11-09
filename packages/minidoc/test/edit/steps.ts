@@ -23,20 +23,39 @@ const forms: Record<string, (text: string) => string> = {
 function named(form: unknown): string {
   if (form === "Paragraph") return "paragraph";
   if (form === "Item") return "item";
-  if (typeof form === "object" && form !== null && "_0" in form) return `title ${(form as { _0: number })._0}`;
+  if (typeof form === "object" && form !== null && "TAG" in form) {
+    const { TAG, _0 } = form as { TAG: string; _0: unknown };
+    if (TAG === "Heading") return `title ${_0}`;
+    if (TAG === "Callout") return `callout ${(_0 as { kind: string }).kind}`;
+    if (TAG === "Code") return "code";
+  }
   throw new Error(`No name for the form ${JSON.stringify(form)}`);
 }
 
-/** Each block as the editor holds it: its form and its plain text, or an atom's format and first line. */
+/**
+ Each block as the editor holds it: its form and its plain text, or an
+ atom's format and first line. A callout's start shows its kind, author
+ and date as its line does, a code block its language and its lines after
+ a slash each, and a block in a callout starts with `> `.
+*/
 function shown(section: Section): string[] {
   const doc = Storage.read(section);
-  return doc.blocks.map((block: { form: unknown; content: { text: string } }) => {
+  return doc.blocks.map((block: { form: unknown; content: { text: string }; inCallout?: boolean }) => {
     const atom = /^\{\{(.+)\}\}$/.exec(block.content.text);
+    const marker = block.inCallout ? "> " : "";
     if (block.form === "Display" && atom) {
       const held = section.atoms.find((a) => a.id === atom[1])!;
-      return `${held.format}: ${String(held.value).split("\n")[0]}`;
+      return `${marker}${held.format}: ${String(held.value).split("\n")[0]}`;
     }
-    return `${named(block.form)}: ${block.content.text}`;
+    if (named(block.form).startsWith("callout")) {
+      const [author, date] = block.content.text.split("\n");
+      return `${named(block.form)}${author ? ` "${author}"` : ""}${date ? ` ${date}` : ""}`;
+    }
+    if (named(block.form) === "code") {
+      const [language, ...code] = block.content.text.split("\n");
+      return `${marker}code ${language}: ${code.join(" / ")}`;
+    }
+    return `${marker}${named(block.form)}: ${block.content.text}`;
   });
 }
 
@@ -52,13 +71,20 @@ function edited(section: Section, edit: Edit): Section {
     return { ...section, blocks };
   }
   if (edit.after !== undefined) {
-    const [form, ...rest] = String(edit.add).split(": ");
+    const [kind, ...rest] = String(edit.add).split(": ");
+    const text = rest.join(": ");
+    // A start and a code block are their rows on the port; a block in a
+    // callout is its row with each line behind `> `.
+    const inside = kind.startsWith("> ");
+    const form = inside ? kind.slice(2) : kind;
     const make = forms[form];
-    if (!make) throw new Error(`"add" starts with a form: ${Object.keys(forms).join(", ")}`);
+    if (!make && form !== "callout" && form !== "code") throw new Error(`"add" starts with a form: callout, code, ${Object.keys(forms).join(", ")}, each of them but callout behind "> "`);
+    const row = make ? Form.write(Form.read(make(text))[0], text) : text;
     const at = section.blocks.findIndex(([, row]) => row.includes(edit.after!));
     if (at < 0) throw new Error(`No block holds "${edit.after}"`);
     const blocks = [...section.blocks];
-    blocks.splice(at + 1, 0, [`new${at}`, Form.write(Form.read(make(rest.join(": ")))[0], rest.join(": "))]);
+    const marked = row.split("\n").map((line) => (line === "" ? ">" : `> ${line}`)).join("\n");
+    blocks.splice(at + 1, 0, [`new${at}`, inside ? marked : row]);
     return { ...section, blocks };
   }
   throw new Error(`An edit is "replace" with "with", or "after" with "add"`);

@@ -1,6 +1,7 @@
 // The dev page as an editor, in a real Chrome: what jsdom cannot show.
-// Typing keeps the caret and writes the file; a drawing opens its source
-// in the panel and follows each key; a save by another program reloads the
+// Typing keeps the caret and writes the file; `::: note ` makes a callout
+// written as minidoc's, and ```` ```js ```` a code block written as a fence; a drawing opens its source in the panel and follows
+// each key; a save by another program reloads the
 // page; and the edited text looks as on the static page, word by word.
 //
 // It runs on a copy of the docs, beside them in `packages/`, so the real
@@ -135,9 +136,9 @@ async function browse() {
       await pause(120);
     },
     type: (text) => on("Input.insertText", { text }),
-    async press(key, code, keyCode) {
-      for (const type of ["rawKeyDown", "keyUp"]) {
-        await on("Input.dispatchKeyEvent", { type, key, code, windowsVirtualKeyCode: keyCode });
+    async press(key, code, keyCode, text) {
+      for (const type of text ? ["keyDown", "keyUp"] : ["rawKeyDown", "keyUp"]) {
+        await on("Input.dispatchKeyEvent", { type, key, code, windowsVirtualKeyCode: keyCode, ...(type === "keyDown" && { text }) });
       }
     },
     async close() {
@@ -240,6 +241,63 @@ try {
       "a click on the sequence opens its source in the panel, the drawing follows each key, and Escape gives the caret back",
       opened && follows && file("guide/11-live.md").includes("you -> dev  save a page") && left,
       `opened ${opened}, follows ${follows}, left ${left}`,
+    );
+
+    // A callout typed in place.
+    await page.go(`${site}/`);
+    await mounted();
+    await page.click(first);
+    await page.evaluate(`(() => {
+      const block = document.querySelector(${JSON.stringify(first)})
+      const range = document.createRange()
+      range.selectNodeContents(block)
+      range.collapse(false)
+      getSelection().removeAllRanges()
+      getSelection().addRange(range)
+    })()`);
+    await page.press("Enter", "Enter", 13, "\r");
+    await page.type("::: note");
+    await page.type(" ");
+    const made = await page.until(`!!document.querySelector("#one-page .editor .callout--note .callout__byline")`, 2000);
+    await page.type("Anna");
+    await page.press("Tab", "Tab", 9);
+    await page.type("2026-11-07");
+    await page.press("Tab", "Tab", 9);
+    await page.type("Mara keeps it open.");
+    await pause(1200);
+    const label = await page.evaluate(`document.querySelector("#one-page .editor .callout--note .callout__label")?.textContent ?? ""`);
+    const callout = `::: note "Anna" 2026-11-07\nMara keeps it open.\n:::`;
+    report(
+      "`::: note ` and a space makes a callout, Tab goes from its author to its date and its body, and the file holds it",
+      made && label === "Note" && file("guide/02-one-page.md").includes(callout),
+      `made ${made}, label ${JSON.stringify(label)}, file ${JSON.stringify(file("guide/02-one-page.md").split("\n").slice(8, 16).join(" / "))}`,
+    );
+
+    // A code block typed in place.
+    const last = `#one-page .editor .callout--note > p:last-child`;
+    await page.click(last);
+    await page.evaluate(`(() => {
+      const block = document.querySelector(${JSON.stringify(last)})
+      const range = document.createRange()
+      range.selectNodeContents(block)
+      range.collapse(false)
+      getSelection().removeAllRanges()
+      getSelection().addRange(range)
+    })()`);
+    await page.press("Enter", "Enter", 13, "\r");
+    await page.press("Enter", "Enter", 13, "\r");
+    await page.type("```js");
+    await page.press("Enter", "Enter", 13, "\r");
+    const coded = await page.until(`!!document.querySelector("#one-page .editor pre.code")`, 2000);
+    await page.type("await dev()");
+    await page.press("Enter", "Enter", 13, "\r");
+    await page.type("  await build()");
+    await pause(1200);
+    const fence = "```js\nawait dev()\n  await build()\n```";
+    report(
+      "```js and Enter makes a code block after the callout, its lines keep their spaces, and the file holds its fence",
+      coded && file("guide/02-one-page.md").includes(fence),
+      `made ${coded}, file ${JSON.stringify(file("guide/02-one-page.md").split("\n").slice(8, 22).join(" / "))}`,
     );
 
     // A save by another program.

@@ -298,13 +298,24 @@ let built = "event: built\ndata: \n\n"
 let banner = "position:fixed;left:0;right:0;bottom:0;max-height:50vh;overflow:auto;padding:12px 16px;background:#3b0a0a;color:#ffd9d9;font:12px/1.4 ui-monospace,monospace;z-index:2147483647"
 let closer = "float:right;margin:-4px -8px 0 12px;padding:0 6px;border:0;background:none;color:inherit;font:16px/1 ui-monospace,monospace;cursor:pointer"
 // Closing the failure hides it; the next failure opens a new one.
-let live = `<script>(()=>{let s=null,b=null,m=null;const fail=e=>{if(!b){b=document.createElement("div");b.id="__minidoc";b.style.cssText="${banner}";const x=document.createElement("button");x.type="button";x.title="Close";x.textContent="\\u00d7";x.style.cssText="${closer}";x.onclick=()=>{b.remove();b=null};m=document.createElement("pre");m.style.cssText="margin:0;white-space:pre-wrap";b.append(x,m);document.body.appendChild(b)}m.textContent=JSON.parse(e.data)};const page=Math.random().toString(36).slice(2);window.__minidocPage=page;const open=()=>{if(s)return;s=new EventSource("${channel}?page="+page);s.addEventListener("message",()=>{try{sessionStorage.setItem("minidoc-reloaded","1")}catch{}location.reload()});s.addEventListener("failed",fail);s.addEventListener("built",()=>{if(b){b.remove();b=null}})};const close=()=>{if(s){s.close();s=null}};open();addEventListener("pagehide",close);addEventListener("pageshow",open);document.addEventListener("visibilitychange",()=>document.hidden?close():open())})()</script>`
+// Behind a proxy that serves the site under a prefix, the page reaches this
+// server under it: its stream, and the editor's writes. The proxy names the
+// prefix; only a plain path is taken, since it lands in the script.
+let live = prefix =>
+  `<script>(()=>{window.__minidocBase="${prefix}";let s=null,b=null,m=null;const fail=e=>{if(!b){b=document.createElement("div");b.id="__minidoc";b.style.cssText="${banner}";const x=document.createElement("button");x.type="button";x.title="Close";x.textContent="\\u00d7";x.style.cssText="${closer}";x.onclick=()=>{b.remove();b=null};m=document.createElement("pre");m.style.cssText="margin:0;white-space:pre-wrap";b.append(x,m);document.body.appendChild(b)}m.textContent=JSON.parse(e.data)};const page=Math.random().toString(36).slice(2);window.__minidocPage=page;const open=()=>{if(s)return;s=new EventSource("${prefix}${channel}?page="+page);s.addEventListener("message",()=>{try{sessionStorage.setItem("minidoc-reloaded","1")}catch{}location.reload()});s.addEventListener("failed",fail);s.addEventListener("built",()=>{if(b){b.remove();b=null}})};const close=()=>{if(s){s.close();s=null}};open();addEventListener("pagehide",close);addEventListener("pageshow",open);document.addEventListener("visibilitychange",()=>document.hidden?close():open())})()</script>`
 
-let inject = html =>
+let prefixOf: req => string = %raw(`(req) => {
+  const given = req.headers["x-forwarded-prefix"]
+  return typeof given === "string" && /^(\/[A-Za-z0-9._~%-]+)+$/.test(given) ? given : ""
+}`)
+
+let inject = (~prefix="", html) => {
+  let live = live(prefix)
   switch String.lastIndexOf(html, "</body>") {
   | -1 => html ++ live
   | at => String.slice(html, ~start=0, ~end=at) ++ live ++ String.slice(html, ~start=at)
   }
+}
 
 // `/guide/` -> its index, `/guide` -> `guide.html` then `guide/index.html`:
 // what a static host answers, so the dev site is the deployed site.
@@ -437,7 +448,7 @@ let serve = async (site: site, req, res) => {
       head(res, 200, Dict.fromArray([("content-type", kind), ("cache-control", "no-store")]))
       // Only html carries the reload stream; everything else travels as bytes.
       if String.startsWith(kind, "text/html") {
-        finish(res, inject(bytes->text("utf8")))
+        finish(res, inject(~prefix=prefixOf(req), bytes->text("utf8")))
       } else {
         finish(res, bytes)
       }
@@ -460,6 +471,21 @@ let rawListen: (server, int, string) => promise<int> = %raw(`(server, port, host
     server.once("listening", ready)
     server.listen(port, host)
   })`)
+
+// A random port from 11000 to 32767: above the last port that browsers refuse
+// (10080), and below the ports that macOS and Linux give to outgoing
+// connections, so that none takes a site's port.
+let randomPort: unit => int = %raw(`() => 11000 + Math.floor(Math.random() * 21768)`)
+
+// Listens on a random port, trying again when one is taken. Resolves to the
+// port bound, or -1 after the last try.
+let rec rawDraw = async (server, host, tries) =>
+  if tries == 0 {
+    -1
+  } else {
+    let port = await rawListen(server, randomPort(), host)
+    port < 0 ? await rawDraw(server, host, tries - 1) : port
+  }
 
 // Whether a minidoc dev server answers at `port`: its reload channel opens an
 // event stream. The stream is dropped as soon as its headers arrive.
@@ -541,7 +567,10 @@ let dev = async (options: options, hooks: hooks) => {
   | None => await hooks.readPort()
   }
   let wanted = remembered->Option.getOr(0)
-  let port = await rawListen(server, wanted, host)
+  let port = switch remembered {
+  | Some(port) => await rawListen(server, port, host)
+  | None => await rawDraw(server, host, 50)
+  }
   site.port := port
   if port < 0 {
     if wanted == 0 {

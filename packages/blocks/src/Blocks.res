@@ -78,6 +78,13 @@ type context = {
   mutable plans: int,
 }
 
+let drawings = (options: options) => [
+  "sequence",
+  "states",
+  "model",
+  ...options.extra->Option.getOr([])->Array.filter(e => e.fence->Option.getOr(false))->Array.map(e => e.name),
+]
+
 let context = (options: options) => {
   let callouts = Dict.fromArray([...common, ...options.callouts->Option.mapOr([], Dict.toArray)])
   let extras = options.extra->Option.getOr([])
@@ -106,7 +113,7 @@ let context = (options: options) => {
         "api",
         ...extras->Array.filter(e => !isFence(e))->Array.map(e => e.name),
       ],
-      fences: ["sequence", "states", "model", ...extras->Array.filter(isFence)->Array.map(e => e.name)],
+      fences: drawings(options),
     },
     plans: 0,
   }
@@ -419,6 +426,9 @@ let edit = (source, act, options) => {
   read(edited.source, options)->ignore
   edited
 }
+
+let callouts = (options: options) =>
+  Dict.fromArray([...common, ...options.callouts->Option.mapOr([], Dict.toArray)])->Dict.toArray
 
 let blocks = options => {
   let ctx = context(options)

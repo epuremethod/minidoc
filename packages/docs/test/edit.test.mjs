@@ -28,15 +28,21 @@ test("every docs page read into the editor and written back is the same file", (
   }
 });
 
-/** The lines of each block in the file, by its id. */
+/** The lines of each block in the file, by its id. A callout's close follows its last block. */
 function ranges(page) {
   let at = page.front.split("\n").length - 1;
+  let close = [];
   const out = {};
   for (const [id] of page.section.blocks) {
     const kept = page.blocks[id];
+    if (!kept.inside) {
+      at += close.length;
+      close = [];
+    }
     at += kept.gap.length;
     out[id] = [at, at + kept.lines.length];
     at += kept.lines.length;
+    if (kept.kind.TAG === "Start") close = kept.kind.close;
   }
   return out;
 }

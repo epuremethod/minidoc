@@ -31,7 +31,7 @@ examples:
       - "item: The look. You design one HTML layout, or have one designed."
       - "item: The words."
       - "minidoc: | Name | Does |"
-      - "minidoc: ```sh"
+      - "code sh: pnpm add -D @epure/minidoc"
 
   - scenario: a word changed in a paragraph keeps its line breaks after the same words, and nothing else moves
     file: |
@@ -69,7 +69,7 @@ examples:
         start from a theme.
       - **The words.** You write them.
 
-  - scenario: a table, a numbered list, a quote, a `####` title, a code block and a `:::` block are each one block drawn by minidoc, and a change through the panel is written in its place
+  - scenario: a table, a numbered list, a quote, a `####` title and a callout that holds one of them are each one block drawn by minidoc, a code block is the editor's, and a change through the panel is written in its place
     file: |
       #### Options
 
@@ -88,14 +88,14 @@ examples:
       ```
 
       ::: note
-      Mara keeps the dev server open.
+      1. Mara keeps the dev server open.
       :::
     blocks:
       - "minidoc: #### Options"
       - "minidoc: | Name | Does |"
       - "minidoc: 1. **Design** the layout first."
       - "minidoc: > A **context** is a tree of templates."
-      - "minidoc: ```js"
+      - "code js: await dev({ glob: \"content/config.yaml\" })"
       - "minidoc: ::: note"
     edits:
       - replace: "markdown to HTML"
@@ -120,7 +120,7 @@ examples:
       ```
 
       ::: note
-      Sam keeps the dev server open.
+      1. Sam keeps the dev server open.
       :::
 
   - scenario: a plan is a block of its own, edited where it stands
@@ -190,3 +190,250 @@ examples:
     written: |
       `title` is itself a template: ``"{{`site`}} — dates, small"``. Each time the
       script runs, minidoc renders it.
+
+  - scenario: a callout is a start and the blocks in it, and read and written back unchanged it is the same file
+    file: |
+      Before.
+
+      ::: note "Anna" 2026-11-07
+      Mara keeps the dev server open,
+      all day.
+      :::
+
+      After.
+    blocks:
+      - "paragraph: Before."
+      - 'callout note "Anna" 2026-11-07'
+      - "> paragraph: Mara keeps the dev server open, all day."
+      - "paragraph: After."
+
+  - scenario: a word changed in a callout keeps its line breaks, and nothing else moves
+    file: |
+      ::: proposed
+      The page saves on its own,
+      300 ms after the last key.
+
+      - One file per section.
+      - One editor per file.
+
+      ### A title
+      :::
+    blocks:
+      - "callout proposed"
+      - "> paragraph: The page saves on its own, 300 ms after the last key."
+      - "> item: One file per section."
+      - "> item: One editor per file."
+      - "> title 3: A title"
+    edits:
+      - replace: "page saves"
+        with: "page writes"
+    written: |
+      ::: proposed
+      The page writes on its own,
+      300 ms after the last key.
+
+      - One file per section.
+      - One editor per file.
+
+      ### A title
+      :::
+
+  - scenario: another kind, author or date changes the start line only
+    file: |
+      ::: note "Anna" 2026-11-07 #saving
+      The page saves on its own.
+      :::
+    blocks:
+      - 'callout note "Anna" 2026-11-07'
+      - "> paragraph: The page saves on its own."
+    edits:
+      - replace: "::: note"
+        with: "::: settled"
+      - replace: "2026-11-07"
+        with: "2026-11-08"
+    written: |
+      ::: settled "Anna" 2026-11-08 #saving
+      The page saves on its own.
+      :::
+
+  - scenario: a callout that holds a table or a drawing, of a kind minidoc does not know, or with more than three colons, is one block drawn by minidoc
+    file: |
+      ::: note
+      | Name | Does |
+      | --- | --- |
+      | `md` | markdown to HTML |
+      :::
+
+      ::: risk
+      The page may lose a key.
+      :::
+
+      :::: note
+      The page saves on its own.
+      ::::
+
+      ::: note
+      ```sequence
+      browser app
+      browser -> app  sign in
+      ```
+      :::
+    blocks:
+      - "minidoc: ::: note"
+      - "minidoc: ::: risk"
+      - "minidoc: :::: note"
+      - "minidoc: ::: note"
+
+  - scenario: a callout the caret makes is written with its blocks between its start line and its close
+    file: |
+      Before.
+
+      After.
+    edits:
+      - after: "Before."
+        add: "callout: ::: note"
+      - after: "::: note"
+        add: "> paragraph: Mara keeps the dev server open."
+      - after: "Mara keeps"
+        add: "> item: One file per section."
+      - after: "One file per section."
+        add: "> item: One editor per file."
+      - replace: "::: note"
+        with: "::: note \"Anna\" 2026-11-07"
+    written: |
+      Before.
+
+      ::: note "Anna" 2026-11-07
+      Mara keeps the dev server open.
+
+      - One file per section.
+      - One editor per file.
+      :::
+
+      After.
+
+  - scenario: a block that leaves a callout is written after its close
+    file: |
+      ::: note
+      Mara keeps the dev server open.
+
+      Sam closes it.
+      :::
+
+      After.
+    edits:
+      - replace: "> Sam closes it."
+        with: "Sam closes it."
+    written: |
+      ::: note
+      Mara keeps the dev server open.
+      :::
+
+      Sam closes it.
+
+      After.
+
+  - scenario: a block that enters a callout is written before its close
+    file: |
+      ::: note
+      Mara keeps the dev server open.
+      :::
+
+      After.
+    edits:
+      - replace: "After."
+        with: "> After."
+    written: |
+      ::: note
+      Mara keeps the dev server open.
+
+      After.
+      :::
+
+  - scenario: a code block is one block of the editor, and read and written back unchanged it is the same file
+    file: |
+      Install it.
+
+      ```sh
+      pnpm add -D @epure/minidoc
+
+        indented,  with trailing spaces  
+      ```
+
+      ```
+      no language
+      ```
+    blocks:
+      - "paragraph: Install it."
+      - "code sh: pnpm add -D @epure/minidoc /  /   indented,  with trailing spaces  "
+      - "code : no language"
+
+  - scenario: a line of code changed changes that line only, and the fence stays as it was written
+    file: |
+      ~~~~js
+      await dev({ glob: "content/config.yaml" })
+      await build()
+      ~~~~
+    edits:
+      - replace: "await build()"
+        with: "await build({ watch: true })"
+    written: |
+      ~~~~js
+      await dev({ glob: "content/config.yaml" })
+      await build({ watch: true })
+      ~~~~
+
+  - scenario: a drawing in a fence and a fence that does not close are each one block drawn by minidoc
+    file: |
+      ```sequence
+      browser app
+      browser -> app  sign in
+      ```
+
+      ```sh
+      pnpm docs:dev
+    blocks:
+      - "minidoc: ```sequence"
+      - "minidoc: ```sh"
+
+  - scenario: a code block the caret makes is written after a blank line
+    file: |
+      Install it.
+    edits:
+      - after: "Install it."
+        add: "code: ```sh\npnpm add -D @epure/minidoc\n```"
+    written: |
+      Install it.
+
+      ```sh
+      pnpm add -D @epure/minidoc
+      ```
+
+  - scenario: a callout that holds a code block is edited in place, and written back unchanged it is the same file
+    file: |
+      ::: note
+      Run it once:
+
+      ```sh
+      pnpm docs:dev
+
+      pnpm docs:edit-check
+      ```
+      :::
+    blocks:
+      - "callout note"
+      - "> paragraph: Run it once:"
+      - "> code sh: pnpm docs:dev /  / pnpm docs:edit-check"
+    edits:
+      - replace: "pnpm docs:edit-check"
+        with: "pnpm check"
+    written: |
+      ::: note
+      Run it once:
+
+      ```sh
+      pnpm docs:dev
+
+      pnpm check
+      ```
+      :::

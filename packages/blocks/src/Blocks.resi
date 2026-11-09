@@ -60,5 +60,11 @@ let editable: array<node> => bool
 /** Apply what the person does to the one block of `source`. Fails when the act names no field of it, or when the result would not read. */
 let edit: (string, Draw.act, options) => edited
 
+/** The callouts a site knows, by name with their label: the common ones first, then the site's own. */
+let callouts: options => array<(string, string)>
+
+/** The names of the fences minidoc draws, such as `sequence`: the common ones, then the site's own. */
+let drawings: options => array<string>
+
 /** A minidoc transform: markdown in, HTML out, blocks included. */
 let blocks: options => string => string

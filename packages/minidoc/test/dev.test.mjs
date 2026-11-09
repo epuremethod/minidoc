@@ -236,6 +236,25 @@ test("dev serves the output and rebuilds what changed", async (t) => {
     assert.equal(browser.reloads, 1);
   });
 
+  await t.test("behind a proxy, the page reaches the server under the prefix the proxy names", async () => {
+    const asked = { headers: { "x-forwarded-prefix": "/docs/muse" } };
+    const page = await (await fetch(`http://127.0.0.1:${server.port}/`, asked)).text();
+    const browser = standIn();
+    vm.runInNewContext(/<script>(.*)<\/script><\/body>/s.exec(page)[1], browser.window);
+    assert.match(browser.streams[0].url, /^\/docs\/muse\/__minidoc\?page=\w+$/);
+    assert.equal(browser.window.__minidocBase, "/docs/muse", "the editor writes under it too");
+  });
+
+  await t.test("a prefix that is not a plain path is ignored", async () => {
+    const asked = { headers: { "x-forwarded-prefix": '/x"</script><script>alert(1)' } };
+    const page = await (await fetch(`http://127.0.0.1:${server.port}/`, asked)).text();
+    assert.doesNotMatch(page, /alert/);
+    const browser = standIn();
+    vm.runInNewContext(/<script>(.*)<\/script><\/body>/s.exec(page)[1], browser.window);
+    assert.match(browser.streams[0].url, /^\/__minidoc\?page=\w+$/);
+    assert.equal(browser.window.__minidocBase, "");
+  });
+
   await t.test("tells every page to reload when a build lands, except the page whose own write made it", async () => {
     const writer = await stream(server, "writer");
     const other = await stream(server, "other");

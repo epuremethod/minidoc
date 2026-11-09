@@ -1,6 +1,7 @@
 // A page of a minidoc site as its editor, in `dev`. Each file a page is
 // made of is one section, edited by one editor, in the page where its body
-// was. Prose is edited where it stands. A block minidoc draws opens its
+// was. Prose is edited where it stands, and a callout of the site's kinds
+// too: `::: ` and a kind makes one. A block minidoc draws opens its
 // source in the panel on a click, and the drawing follows each key. A plan
 // is edited where it stands. Each change is written to the file through the
 // dev server, 300 ms after the last key.
@@ -163,12 +164,12 @@ let rules = (options: options) =>
 type answer = {status: int, body: string}
 
 let fetchFile: string => promise<answer> = %raw(`async (path) => {
-  const res = await fetch("/__minidoc/file?path=" + encodeURIComponent(path), {headers: {"x-minidoc-edit": "1"}})
+  const res = await fetch((window.__minidocBase || "") + "/__minidoc/file?path=" + encodeURIComponent(path), {headers: {"x-minidoc-edit": "1"}})
   return {status: res.status, body: await res.text()}
 }`)
 
 let putFile: (string, string, string) => promise<answer> = %raw(`async (path, text, base) => {
-  const res = await fetch("/__minidoc/file?path=" + encodeURIComponent(path), {
+  const res = await fetch((window.__minidocBase || "") + "/__minidoc/file?path=" + encodeURIComponent(path), {
     method: "PUT",
     headers: {"x-minidoc-edit": "1", "content-type": "application/json"},
     body: JSON.stringify({text, base, page: window.__minidocPage || ""}),
@@ -223,7 +224,16 @@ type key = {key: string, metaKey: bool, ctrlKey: bool}
 module Section = {
   @react.component
   let make = (~page: Page.t, ~path: string, ~base: string, ~options: options) => {
-    let state = React.useMemo0(() => View.prepare(page.section, ~rules=rules(options)))
+    let kinds = React.useMemo0(() => Live.Blocks.callouts(options))
+    let state = React.useMemo0(() =>
+      View.prepare(
+        page.section,
+        ~rules=rules(options),
+        ~shortcuts=Editor.Shortcut.markdown->Array.concat([
+          Editor.Shortcut.callout(~kinds=kinds->Array.map(Pair.first)),
+        ]),
+      )
+    )
     // Each section keys its blocks' DOM ids with a prefix of its own, so the
     // sections of one page never share an id.
     let prefix = TiliaEditor.Block.prefixOf(React.useId())
@@ -278,7 +288,7 @@ module Section = {
       None
     })
     <div className="edit-section" ref={ReactDOM.Ref.domRef(host)}>
-      <View state storage paneAt=slot prefix />
+      <View state storage paneAt=slot prefix kinds />
     </div>
   }
 }

@@ -315,14 +315,23 @@ let banner = "position:fixed;left:0;right:0;bottom:0;max-height:50vh;overflow:au
 
 let closer = "float:right;margin:-4px -8px 0 12px;padding:0 6px;border:0;background:none;color:inherit;font:16px/1 ui-monospace,monospace;cursor:pointer";
 
-let live = `<script>(()=>{let s=null,b=null,m=null;const fail=e=>{if(!b){b=document.createElement("div");b.id="__minidoc";b.style.cssText="` + banner + `";const x=document.createElement("button");x.type="button";x.title="Close";x.textContent="\\u00d7";x.style.cssText="` + closer + `";x.onclick=()=>{b.remove();b=null};m=document.createElement("pre");m.style.cssText="margin:0;white-space:pre-wrap";b.append(x,m);document.body.appendChild(b)}m.textContent=JSON.parse(e.data)};const page=Math.random().toString(36).slice(2);window.__minidocPage=page;const open=()=>{if(s)return;s=new EventSource("` + channel + `?page="+page);s.addEventListener("message",()=>{try{sessionStorage.setItem("minidoc-reloaded","1")}catch{}location.reload()});s.addEventListener("failed",fail);s.addEventListener("built",()=>{if(b){b.remove();b=null}})};const close=()=>{if(s){s.close();s=null}};open();addEventListener("pagehide",close);addEventListener("pageshow",open);document.addEventListener("visibilitychange",()=>document.hidden?close():open())})()</script>`;
+function live(prefix) {
+  return `<script>(()=>{window.__minidocBase="` + prefix + `";let s=null,b=null,m=null;const fail=e=>{if(!b){b=document.createElement("div");b.id="__minidoc";b.style.cssText="` + banner + `";const x=document.createElement("button");x.type="button";x.title="Close";x.textContent="\\u00d7";x.style.cssText="` + closer + `";x.onclick=()=>{b.remove();b=null};m=document.createElement("pre");m.style.cssText="margin:0;white-space:pre-wrap";b.append(x,m);document.body.appendChild(b)}m.textContent=JSON.parse(e.data)};const page=Math.random().toString(36).slice(2);window.__minidocPage=page;const open=()=>{if(s)return;s=new EventSource("` + prefix + channel + `?page="+page);s.addEventListener("message",()=>{try{sessionStorage.setItem("minidoc-reloaded","1")}catch{}location.reload()});s.addEventListener("failed",fail);s.addEventListener("built",()=>{if(b){b.remove();b=null}})};const close=()=>{if(s){s.close();s=null}};open();addEventListener("pagehide",close);addEventListener("pageshow",open);document.addEventListener("visibilitychange",()=>document.hidden?close():open())})()</script>`;
+}
 
-function inject(html) {
+let prefixOf = ((req) => {
+  const given = req.headers["x-forwarded-prefix"]
+  return typeof given === "string" && /^(\/[A-Za-z0-9._~%-]+)+$/.test(given) ? given : ""
+});
+
+function inject(prefixOpt, html) {
+  let prefix = prefixOpt !== undefined ? prefixOpt : "";
+  let live$1 = live(prefix);
   let at = html.lastIndexOf("</body>");
   if (at !== -1) {
-    return html.slice(0, at) + live + html.slice(at);
+    return html.slice(0, at) + live$1 + html.slice(at);
   } else {
-    return html + live;
+    return html + live$1;
   }
 }
 
@@ -476,7 +485,7 @@ async function serve(site, req, res) {
       ]
     ]));
     if (kind.startsWith("text/html")) {
-      res.end(inject(bytes.toString("utf8")));
+      res.end(inject(prefixOf(req), bytes.toString("utf8")));
     } else {
       res.end(bytes);
     }
@@ -500,6 +509,20 @@ let rawListen = ((server, port, host) =>
     server.once("listening", ready)
     server.listen(port, host)
   }));
+
+let randomPort = (() => 11000 + Math.floor(Math.random() * 21768));
+
+async function rawDraw(server, host, tries) {
+  if (tries === 0) {
+    return -1;
+  }
+  let port = await rawListen(server, randomPort(), host);
+  if (port < 0) {
+    return await rawDraw(server, host, tries - 1 | 0);
+  } else {
+    return port;
+  }
+}
 
 let rawProbe = (async (host, port, channel) => {
   const abort = new AbortController()
@@ -567,7 +590,7 @@ async function dev(options, hooks) {
   let port = options.port;
   let remembered = port !== undefined ? port : await hooks.readPort();
   let wanted = Stdlib_Option.getOr(remembered, 0);
-  let port$1 = await rawListen(server, wanted, host);
+  let port$1 = remembered !== undefined ? await rawListen(server, remembered, host) : await rawDraw(server, host, 50);
   site_port.contents = port$1;
   if (port$1 < 0) {
     if (wanted === 0) {
@@ -658,6 +681,7 @@ export {
   banner,
   closer,
   live,
+  prefixOf,
   inject,
   candidates,
   pageOf,
@@ -669,6 +693,8 @@ export {
   writer,
   serve,
   rawListen,
+  randomPort,
+  rawDraw,
   rawProbe,
   host,
   watch,
