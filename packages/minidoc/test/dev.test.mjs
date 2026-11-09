@@ -2,6 +2,7 @@
 // the YAML fixtures cannot stand in for.
 
 import assert from "node:assert/strict";
+import { existsSync } from "node:fs";
 import net from "node:net";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
@@ -570,4 +571,52 @@ test("frontmatter cannot pull a file from outside the root into the site", async
   await writeFile(path.join(root, "pages", "a.md"), `---\naside:\n  file: ${steer}\n  transform: none\n---\nhi\n`);
 
   await assert.rejects(run({ fs: nodeFs(root), glob: "config.yaml" }), /Path outside the project root/);
+});
+
+test("a page's write that arrives as a build lands does not reload that page", async (t) => {
+  const root = await site();
+  const gate = await mkdtemp(path.join(os.tmpdir(), "minidoc-gate-"));
+  const at = (name) => path.join(gate, name);
+  await writeFile(
+    path.join(root, "src", "build.mjs"),
+    [
+      build,
+      'import { existsSync, writeFileSync } from "node:fs";',
+      `if (existsSync(${JSON.stringify(at("hold"))})) {`,
+      `  writeFileSync(${JSON.stringify(at("reached"))}, "");`,
+      `  while (!existsSync(${JSON.stringify(at("release"))})) await new Promise((resolve) => setTimeout(resolve, 2));`,
+      "}",
+      "",
+    ].join("\n"),
+  );
+  const server = await dev({ ...options(root), edit: ["content"] });
+  t.after(async () => {
+    server.stop();
+    await rm(root, { recursive: true, force: true });
+    await rm(gate, { recursive: true, force: true });
+  });
+  const pause = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+  const writer = await stream(server, "writer");
+  const other = await stream(server, "other");
+  const heard = hear(writer, "never said");
+  const told = hear(other, "never said");
+  const base = await (await file(server, "content/home.md")).text();
+
+  await writeFile(at("hold"), "");
+  const first = "Hello *first*.\n";
+  await file(server, "content/home.md", { write: { text: first, base, page: "writer" } });
+  for (let tries = 0; tries < 2000 && !existsSync(at("reached")); tries++) await pause(5);
+  await file(server, "content/home.md", { write: { text: "Hello *second*.\n", base: first, page: "writer" } });
+  await pause(20);
+  await rm(at("hold"));
+  await writeFile(at("release"), "");
+
+  await until(server, "Hello *second*.");
+  await pause(600);
+  await writer.cancel();
+  await other.cancel();
+  const said = await heard;
+  assert.match(said, /event: built/, "the page that wrote is told each build landed");
+  assert.doesNotMatch(said, /data: reload/, "and keeps its caret");
+  assert.match(await told, /data: reload/, "another page reloads");
 });

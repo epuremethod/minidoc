@@ -36,27 +36,44 @@
    - [x] d. Built: guide, Blocks and API editable; core 131 + 28 dev, blocks 129, live 52, edit 8, docs 3
    - [x] e. You edited the docs: it works; 9 decisions
    - [x] Committed in three commits, each checked on its own
-7. [ ] **Callouts in place** intention → tests → technical → build → next
-   - [ ] A callout's title and text edited where they stand, as text, tested in the docs
-   - [ ] The editor's session: `Block ~tag`, code spans with a backtick, the prefix fix (waiting for you there)
-   - [ ] Then minidoc drops its block-id workaround and renames `Line` where it names it
-8. [ ] **Prepare the versions**
-   - [ ] The names: one family, épure (your answer)
-   - [ ] Versions for core, blocks, the live package and `@epure/minidoc`
+7. [/] **Callouts in place** tried: ready to commit
+   - [x] a. Intention agreed: one editor for the page; a callout is a start block plus blocks marked as in it; the view draws the frame
+   - [x] `::: kind` and space makes a callout, caret in its author; Tab to the date, then the body; Shift-Tab back
+   - [x] The frame: no title of its own, the kind from the label, author and date in place, quotes too, maia's notes too
+   - [x] The editor's session builds callouts in the editor (editor 41320d8)
+   - [x] The editor's session commits `Block ~tag`, code spans with a backtick, the prefix fix (editor 16900d9)
+   - [x] minidoc drops its block-id workaround (minidoc dd5c306)
+   - [x] minidoc gives the editor its callout kinds and labels
+   - [x] minidoc reads a `:::` callout as a start and its rows, and writes it back
+   - [x] The callout's head and byline styled in edit.css; a Chrome check types one
+   - [x] You tried it on the dev page: it works
+   - [ ] Commit in minidoc
+   - [ ] maia's session follows
+8. [/] **Code blocks in place** built: you try it on the dev page
+   - [x] The editor's session builds code blocks in the editor (editor 30cb1d4)
+   - [x] minidoc reads a fence that is not a drawing as a code row, and writes it back
+   - [x] A code block in a callout keeps the callout in place
+   - [x] The language field styled in edit.css; a Chrome check types one
+   - [ ] You try it on the dev page
+   - [ ] Commit in minidoc
+9. [/] **Prepare the versions** renamed: minidoc 7badccf
+   - [x] The names agreed: `@epure/minidoc` with `/edit`; `@epure/blocks` with `/live`; the editor and React as optional peers
+   - [x] The rename agreed: `packages/minidoc` and `packages/blocks`; live, edit and deprecated go; existing tests moved
+   - [x] Nina 6 built the rename: minidoc 139 + 28 dev, blocks 181, docs green, Chrome checks unchanged
+   - [x] maia's session follows the new names (354 tests, uncommitted)
+   - [ ] Versions for `@epure/minidoc` and `@epure/blocks`
    - [ ] maia's docs move to the published blocks
    - [ ] Changelog: "Unreleased" gets the release date
-   - [ ] `pnpm pub` knows the live package and its tag
-9. [ ] **Get npm access** needs you
+10. [ ] **Get npm access** needs you
    - [ ] `npm login` on this machine
-   - [ ] The `@minidoc` scope exists and you can publish to it
+   - [ ] You can publish to the `@epure` scope
    - [ ] You publish the editor 0.1 (`@tilia/editor`, `@epure/editor`) before minidoc is pushed
-10. [ ] **Publish**
-   - [ ] `pnpm pub core`, then blocks, then the live package
-   - [ ] `pnpm pub deprecated`, after core; it runs `npm deprecate`
-11. [ ] **Ship**
+11. [ ] **Publish**
+   - [ ] `pnpm pub minidoc`, then `pnpm pub blocks`
+12. [ ] **Ship**
    - [ ] Push main and the tags; the docs deploy to GitHub Pages
    - [ ] Install the packages in a scratch project and build a page
-   - [ ] Move radif, vs/* and muse to `@minidoc/core` and `@minidoc/blocks`
+   - [ ] Move radif, vs/* and muse to `@epure/minidoc` and `@epure/blocks`
 :::
 
 ## hello

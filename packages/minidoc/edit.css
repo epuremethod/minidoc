@@ -21,6 +21,11 @@
 .edit-block > :first-child { margin-top: 0; }
 .edit-section .display:has(+ :is(h1, h2, h3)) .edit-block > :last-child { margin-bottom: 0; }
 
+/* A table edited where it stands. The site's theme gives its colors. */
+.edit-section .table { width: auto; margin: 1.6em auto; border-collapse: collapse; }
+.edit-section .table th, .edit-section .table td { min-width: 5em; padding: .45em .8em; border: 1px solid var(--blocks-line); }
+.edit-section .table th { border-bottom: 2px solid var(--blocks-ink); color: var(--blocks-ink); font-weight: 650; }
+
 /* A callout edited where it stands. blocks.css draws its frame and its
    label; its blocks sit right in the frame, with no body around them, and
    take the body's spacing. The byline is its first line, where the caret

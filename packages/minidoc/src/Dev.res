@@ -589,12 +589,23 @@ let dev = async (options: options, hooks: hooks) => {
     // already names it — and before the watcher, so writing it is not a change.
     // The files changed since the last build that landed or failed.
     let changed = ref([])
-    let trigger = looper(hooks.rebuild, failure => {
-      broken := failure
-      let seen = changed.contents
+    // A file changed during a build belongs to the next build, so each build
+    // takes its files when it starts. A build that took none only repeats the
+    // output of the build before it.
+    let taken = ref([])
+    let rebuild = () => {
+      taken := [...taken.contents, ...changed.contents]
       changed := []
+      hooks.rebuild()
+    }
+    let trigger = looper(rebuild, failure => {
+      broken := failure
+      let seen = taken.contents
+      taken := []
       switch failure {
       | Some(message) => clients.contents->Array.forEach(((r, _)) => push(r, failed(message))->ignore)
+      | None if seen->Array.length == 0 =>
+        clients.contents->Array.forEach(((r, _)) => push(r, built)->ignore)
       | None =>
         writer(seen, site.wrote)
         ->Promise.thenResolve(page => {

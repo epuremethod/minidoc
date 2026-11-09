@@ -611,13 +611,28 @@ async function dev(options, hooks) {
   let changed = {
     contents: []
   };
-  let trigger = looper(hooks.rebuild, failure => {
-    broken.contents = failure;
-    let seen = changed.contents;
+  let taken = {
+    contents: []
+  };
+  let rebuild = () => {
+    taken.contents = Belt_Array.concatMany([
+      taken.contents,
+      changed.contents
+    ]);
     changed.contents = [];
+    return hooks.rebuild();
+  };
+  let trigger = looper(rebuild, failure => {
+    broken.contents = failure;
+    let seen = taken.contents;
+    taken.contents = [];
     if (failure !== undefined) {
       clients.contents.forEach(param => {
         param[0].write(failed(failure));
+      });
+    } else if (seen.length === 0) {
+      clients.contents.forEach(param => {
+        param[0].write(built);
       });
     } else {
       writer(seen, site_wrote).then(page => {

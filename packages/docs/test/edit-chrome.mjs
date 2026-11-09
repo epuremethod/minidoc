@@ -341,6 +341,29 @@ try {
       misses.length === 0 && same > 50,
       `${same} texts alike, ${skipped} shown with their brace escapes${misses.length ? `\n  ${misses.slice(0, 8).join("\n  ")}` : ""}`,
     );
+
+    // A table in the file.
+    writeFileSync(join(copy, "content", "guide/02-one-page.md"), `${file("guide/02-one-page.md")}\n| Space | Compact |\n| --- | --- |\n| The circle | yes |\n`);
+    await pause(1500);
+    await page.go(`${site}/`);
+    await mounted();
+    const cell = `#one-page .editor table td:last-child`;
+    const drawn = await page.until(`!!document.querySelector(${JSON.stringify(cell)})`, 3000);
+    await page.click(cell);
+    await page.evaluate(`(() => {
+      const range = document.createRange()
+      range.selectNodeContents(document.querySelector(${JSON.stringify(cell)}))
+      range.collapse(false)
+      getSelection().removeAllRanges()
+      getSelection().addRange(range)
+    })()`);
+    await page.type(" here");
+    await pause(1200);
+    report(
+      "a table in a file is drawn, and a word typed in a cell changes its row",
+      drawn && file("guide/02-one-page.md").includes("| The circle | yes here |"),
+      `drawn ${drawn}, row ${file("guide/02-one-page.md").trimEnd().split("\n").at(-1)}`,
+    );
   } finally {
     await page.close();
     server.stop();

@@ -23,11 +23,13 @@ const forms: Record<string, (text: string) => string> = {
 function named(form: unknown): string {
   if (form === "Paragraph") return "paragraph";
   if (form === "Item") return "item";
+  if (form === "Row") return "row";
   if (typeof form === "object" && form !== null && "TAG" in form) {
     const { TAG, _0 } = form as { TAG: string; _0: unknown };
     if (TAG === "Heading") return `title ${_0}`;
     if (TAG === "Callout") return `callout ${(_0 as { kind: string }).kind}`;
     if (TAG === "Code") return "code";
+    if (TAG === "Table") return "table";
   }
   throw new Error(`No name for the form ${JSON.stringify(form)}`);
 }
@@ -36,7 +38,8 @@ function named(form: unknown): string {
  Each block as the editor holds it: its form and its plain text, or an
  atom's format and first line. A callout's start shows its kind, author
  and date as its line does, a code block its language and its lines after
- a slash each, and a block in a callout starts with `> `.
+ a slash each, a table's row its cells after a slash each, and a block in a
+ callout starts with `> `.
 */
 function shown(section: Section): string[] {
   const doc = Storage.read(section);
@@ -55,7 +58,7 @@ function shown(section: Section): string[] {
       const [language, ...code] = block.content.text.split("\n");
       return `${marker}code ${language}: ${code.join(" / ")}`;
     }
-    return `${marker}${named(block.form)}: ${block.content.text}`;
+    return `${marker}${named(block.form)}: ${block.content.text.split("\n").join(" / ")}`;
   });
 }
 
