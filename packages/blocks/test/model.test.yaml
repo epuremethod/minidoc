@@ -195,6 +195,24 @@ examples:
       ```
     error: 'model: cannot read the end "x<", line 3'
 
+  - scenario: a relation from a table to itself loops at its top-right corner, outside the table
+    before: |-
+      ```model
+      Case
+
+      Case
+        id  uuid
+
+      Case --o< Case  children
+      ```
+    after: |-
+      model
+        frame -10 -50.78 156.14 118.78
+        link one any 73 20 137 20 53 -64 53 0
+          label 95 -29 start "children"
+        table 0 0 73 58 36.8 74.32 "Case"
+          column 45 "id" type "uuid"
+
   - scenario: a bar is not an end, since a plain end already says exactly one
     before: |-
       ```model

@@ -142,7 +142,12 @@ function shape(way, boxes) {
   let from = get(way.from);
   let to = get(way.to);
   let match;
-  if (from.row === to.row) {
+  if (from.name === to.name) {
+    match = [
+      "Right",
+      "Top"
+    ];
+  } else if (from.row === to.row) {
     let low = Math.min(from.column, to.column);
     let high = Math.max(from.column, to.column);
     let blocked = boxes.some(b => {
@@ -228,7 +233,23 @@ function anchor(lines) {
       ]);
     }
   };
+  let loops = {};
   lines.forEach(line => {
+    if (line.from.name === line.to.name) {
+      let box = line.from;
+      let index = Stdlib_Option.getOr(loops[box.name], 0);
+      loops[box.name] = index + 1 | 0;
+      let inset = 20 * (index + 1 | 0);
+      line.tail = {
+        x: box.x + box.w,
+        y: box.y + Math.min(inset, box.band / 2)
+      };
+      line.head = {
+        x: box.x + box.w - Math.min(inset, box.w / 2),
+        y: box.y
+      };
+      return;
+    }
     put(line.from, line.fromSide, line, line.to);
     put(line.to, line.toSide, line, line.from);
   });
@@ -276,7 +297,8 @@ function draw(line, paired) {
   let out = normal(line.fromSide);
   let into = normal(line.toSide);
   let span = Math.hypot(head.x - tail.x, head.y - tail.y);
-  let pull = Math.min(Math.max(span * 0.45, 34), 96);
+  let loop = line.from.name === line.to.name;
+  let pull = loop ? 64 : Math.min(Math.max(span * 0.45, 34), 96);
   let one_x = tail.x + out.x * pull;
   let one_y = tail.y + out.y * pull;
   let other_x = head.x + into.x * pull;
@@ -299,7 +321,7 @@ function draw(line, paired) {
   let away_x = middle.x - (line.from.centre + line.to.centre) / 2;
   let away_y = middle.y - (line.from.middle + line.to.middle) / 2;
   let outward = left_x * away_x + left_y * away_y >= 0;
-  let flipped = line.way.right || paired && !outward;
+  let flipped = line.way.right || (paired || loop) && !outward;
   let side = flipped ? ({
       x: - left_x,
       y: - left_y
@@ -430,6 +452,10 @@ let pullMost = 96;
 
 let labelOff = 11;
 
+let loopInset = 20;
+
+let loopPull = 64;
+
 export {
   width,
   capture,
@@ -451,6 +477,8 @@ export {
   shape,
   sign,
   orElse,
+  loopInset,
+  loopPull,
   anchor,
   draw,
   pairKey,

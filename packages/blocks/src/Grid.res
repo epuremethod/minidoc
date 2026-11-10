@@ -162,12 +162,15 @@ type line<'a> = {
 // The sides a line leaves and reaches. Two boxes of one row are joined by a
 // straight line, unless a third stands between them: then the line goes over
 // the row. Two boxes of different rows are joined by a curve that leaves by
-// the facing side.
+// the facing side. A line from a box to itself leaves the right side and
+// comes back into the top.
 let shape = (way: way, boxes: array<placed<'a>>): line<'a> => {
   let get = name => boxes->Array.findLast((b: placed<'a>) => b.name == name)->Option.getOrThrow
   let from = get(way.from)
   let to = get(way.to)
-  let (fromSide, toSide) = if from.row == to.row {
+  let (fromSide, toSide) = if from.name == to.name {
+    (Right, Top)
+  } else if from.row == to.row {
     let low = Math.Int.min(from.column, to.column)
     let high = Math.Int.max(from.column, to.column)
     let blocked = boxes->Array.some(b => b.row == from.row && b.column > low && b.column < high)
@@ -194,6 +197,15 @@ let orElse = (first, second) => first != 0. ? first : second
 // is, so that they spread without crossing at the box. A left or right side
 // spreads them over the row's band, not the box's height: two boxes of one
 // row, the one taller than the other, are joined by a straight line.
+// A line from a box to itself is a loop at the box's top-right corner. Its
+// two ends stand that far from the corner, so the curve, pulled outward at
+// each end, stays outside the box. A second loop on the same box stands
+// twice as far, and goes round the first. Loops take no part in the spread.
+// A loop pulls further than a line between two boxes, so that it clears the
+// marks at its ends and its label clears the lines beside it.
+let loopInset = 20.
+let loopPull = 64.
+
 let anchor = (lines: array<line<'a>>) => {
   let sides: array<(placed<'a>, side, array<(line<'a>, placed<'a>)>)> = []
   let put = (box: placed<'a>, side, line, far) =>
@@ -201,10 +213,20 @@ let anchor = (lines: array<line<'a>>) => {
     | Some((_, _, ends)) => ends->Array.push((line, far))
     | None => sides->Array.push((box, side, [(line, far)]))
     }
-  lines->Array.forEach(line => {
-    put(line.from, line.fromSide, line, line.to)
-    put(line.to, line.toSide, line, line.from)
-  })
+  let loops = Dict.make()
+  lines->Array.forEach(line =>
+    if line.from.name == line.to.name {
+      let box = line.from
+      let index = loops->Dict.get(box.name)->Option.getOr(0)
+      loops->Dict.set(box.name, index + 1)
+      let inset = loopInset *. Int.toFloat(index + 1)
+      line.tail = Some({x: box.x +. box.w, y: box.y +. Math.min(inset, box.band /. 2.)})
+      line.head = Some({x: box.x +. box.w -. Math.min(inset, box.w /. 2.), y: box.y})
+    } else {
+      put(line.from, line.fromSide, line, line.to)
+      put(line.to, line.toSide, line, line.from)
+    }
+  )
   sides->Array.forEach(((box, side, ends)) => {
     let across = side == Top || side == Bottom
     // Two far boxes of one column tie. The nearer line keeps the side that
@@ -243,7 +265,8 @@ let draw = (line: line<'a>, paired) => {
   let out = normal(line.fromSide)
   let into = normal(line.toSide)
   let span = Math.hypot(head.x -. tail.x, head.y -. tail.y)
-  let pull = Math.min(Math.max(span *. pull, pullLeast), pullMost)
+  let loop = line.from.name == line.to.name
+  let pull = loop ? loopPull : Math.min(Math.max(span *. pull, pullLeast), pullMost)
   let one = {x: tail.x +. out.x *. pull, y: tail.y +. out.y *. pull}
   let other = {x: head.x +. into.x *. pull, y: head.y +. into.y *. pull}
   let at = t => {
@@ -254,7 +277,8 @@ let draw = (line: line<'a>, paired) => {
   // The label sits beside the line, on the side away from the middle of the
   // pair. Two lines between the same boxes spread apart at the box, and
   // reading outward also parts their labels. A line that says `right` puts
-  // its label on the right of its way, paired or not.
+  // its label on the right of its way, paired or not. A loop's label also
+  // reads outward, else it would sit inside the box.
   let where = line.way.at
   let middle = at(where)
   let ahead = at(Math.min(where +. 0.04, 1.))
@@ -266,7 +290,7 @@ let draw = (line: line<'a>, paired) => {
     y: middle.y -. (line.from.middle +. line.to.middle) /. 2.,
   }
   let outward = left.x *. away.x +. left.y *. away.y >= 0.
-  let flipped = line.way.right || (paired && !outward)
+  let flipped = line.way.right || ((paired || loop) && !outward)
   let side = flipped ? {x: -.left.x, y: -.left.y} : left
   let x = middle.x +. side.x *. labelOff
   let y = middle.y +. side.y *. labelOff +. (side.y < -0.5 ? -7. : side.y > 0.5 ? 9. : 4.)
