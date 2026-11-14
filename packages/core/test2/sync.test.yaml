@@ -1,0 +1,236 @@
+feature: The sync of a folder with its open pages
+# For a person who edits a page while other programs, agents or other
+# pages change the same files. `dev` keeps each markdown file at a version,
+# and each open page says the file it shows. A save names the version it
+# starts from; a change on disk is sent to the pages that show the file.
+#
+# `files` is the folder at the start, each file at version 1; an image is
+# its bytes, written as a word. Each step is a page that opens a file (on
+# the version it holds, 1 when not said), a page that saves, a page that
+# stores an image or renames one, or a change on disk. `sent` is
+# every message, in order: to the disk, to a page by its number, or to all
+# the pages. A message to no page is not sent.
+background:
+  given: a sync
+examples:
+  - scenario: a save on the version that stands writes the file, answers the next version, and goes to the other pages of the file
+    files:
+      a.md: "# First"
+    steps:
+      - { page: 1, opens: a.md }
+      - { page: 2, opens: a.md }
+      - { page: 1, saves: a.md, on: 1, text: "# First\n\nMore." }
+    sent:
+      - { to: disk, writes: a.md, text: "# First\n\nMore." }
+      - { to: 1, saved: a.md, version: 2 }
+      - { to: 2, file: a.md, version: 2, text: "# First\n\nMore." }
+
+  - scenario: a page that opens on an older version gets the file that stands
+    files:
+      a.md: "# First"
+    steps:
+      - { disk: a.md, text: "# First\n\nNew." }
+      - { page: 1, opens: a.md, on: 1 }
+      - { page: 2, opens: a.md, on: 2 }
+    sent:
+      - { to: 1, file: a.md, version: 2, text: "# First\n\nNew." }
+
+  - scenario: a save on an older version is refused, with the file that stands
+    files:
+      a.md: "# First"
+    steps:
+      - { page: 1, opens: a.md }
+      - { disk: a.md, text: "# First\n\nFrom disk." }
+      - { page: 1, saves: a.md, on: 1, text: "# First\n\nFrom the page." }
+    sent:
+      - { to: 1, file: a.md, version: 2, text: "# First\n\nFrom disk." }
+      - { to: 1, stale: a.md, version: 2, text: "# First\n\nFrom disk." }
+
+  - scenario: a change on disk goes to each page that shows the file, and to no other
+    files:
+      a.md: "# First"
+      b.md: "# Second"
+    steps:
+      - { page: 1, opens: a.md }
+      - { page: 2, opens: b.md }
+      - { disk: a.md, text: "# First\n\nNew." }
+    sent:
+      - { to: 1, file: a.md, version: 2, text: "# First\n\nNew." }
+
+  - scenario: the server's own write, seen again by the watcher, sends nothing
+    files:
+      a.md: "# First"
+    steps:
+      - { page: 1, opens: a.md }
+      - { page: 1, saves: a.md, on: 1, text: "# First\n\nMore." }
+      - { disk: a.md, text: "# First\n\nMore." }
+    sent:
+      - { to: disk, writes: a.md, text: "# First\n\nMore." }
+      - { to: 1, saved: a.md, version: 2 }
+
+  - scenario: a new markdown file sends the pages to every page
+    files:
+      a.md: "# First"
+    steps:
+      - { page: 1, opens: a.md }
+      - { disk: b.md, text: "# Second" }
+    sent:
+      - { to: all, pages: [First, Second] }
+
+  - scenario: a changed first heading sends the pages, and a change elsewhere sends only the file
+    files:
+      a.md: "# First\n\nText."
+    steps:
+      - { page: 1, opens: a.md }
+      - { page: 2, opens: a.md }
+      - { page: 1, saves: a.md, on: 1, text: "# Renamed\n\nText." }
+      - { page: 1, saves: a.md, on: 2, text: "# Renamed\n\nMore text." }
+    sent:
+      - { to: disk, writes: a.md, text: "# Renamed\n\nText." }
+      - { to: 1, saved: a.md, version: 2 }
+      - { to: 2, file: a.md, version: 2, text: "# Renamed\n\nText." }
+      - { to: all, pages: [Renamed] }
+      - { to: disk, writes: a.md, text: "# Renamed\n\nMore text." }
+      - { to: 1, saved: a.md, version: 3 }
+      - { to: 2, file: a.md, version: 3, text: "# Renamed\n\nMore text." }
+
+  - scenario: a removed markdown file sends the pages, and the pages that showed it learn it is gone
+    files:
+      a.md: "# First"
+      b.md: "# Second"
+    steps:
+      - { page: 1, opens: b.md }
+      - { disk: b.md, removed: true }
+    sent:
+      - { to: 1, gone: b.md }
+      - { to: all, pages: [First] }
+
+  - scenario: a save of a file that is not a markdown file of the folder is refused
+    files:
+      a.md: "# First"
+    steps:
+      - { page: 1, opens: a.md }
+      - { page: 1, saves: ../secret.md, on: 1, text: "x" }
+    sent:
+      - { to: 1, refused: ../secret.md, reason: "../secret.md is not a markdown file of the folder" }
+
+  - scenario: a change of index.html reloads every open page, and the same text again does not
+    files:
+      a.md: "# First"
+      index.html: <html><body><article></article></body></html>
+    steps:
+      - { page: 1, opens: a.md }
+      - { disk: index.html, text: "<html><body><header>New</header><article></article></body></html>" }
+      - { disk: index.html, text: "<html><body><header>New</header><article></article></body></html>" }
+    sent:
+      - { to: all, reloads: index.html }
+
+  - scenario: a new index.html, or a removed one, reloads every open page
+    files:
+      a.md: "# First"
+    steps:
+      - { page: 1, opens: a.md }
+      - { disk: index.html, text: "<html><body><article></article></body></html>" }
+      - { disk: index.html, removed: true }
+    sent:
+      - { to: all, reloads: index.html }
+      - { to: all, reloads: index.html }
+
+  - scenario: a change of a file of components/ reloads every open page, and the same text again does not
+    files:
+      a.md: "# First"
+      components/count.jsx: "export default () => <p>1</p>"
+    steps:
+      - { page: 1, opens: a.md }
+      - { disk: components/count.jsx, text: "export default () => <p>2</p>" }
+      - { disk: components/count.jsx, text: "export default () => <p>2</p>" }
+      - { disk: components/new.jsx, text: "export default () => <p>new</p>" }
+    sent:
+      - { to: all, reloads: components/count.jsx }
+      - { to: all, reloads: components/new.jsx }
+
+  # ── Images ──────────────────────────────────────────────────────────
+
+  - scenario: a page stores a pasted image under the name it asks, and every page learns the images
+    files:
+      a.md: "# First"
+    steps:
+      - { page: 1, opens: a.md }
+      - { page: 1, stores: images/a-1.png, bytes: "(png)" }
+    sent:
+      - { to: disk, stores: images/a-1.png, bytes: "(png)" }
+      - { to: 1, stored: images/a-1.png, as: images/a-1.png }
+      - { to: all, images: [images/a-1.png] }
+
+  - scenario: a name already taken stores the image under the next one free
+    files:
+      a.md: "# First"
+      images/a-1.png: "(old)"
+    steps:
+      - { page: 1, opens: a.md }
+      - { page: 1, stores: images/a-1.png, bytes: "(png)" }
+    sent:
+      - { to: disk, stores: images/a-2.png, bytes: "(png)" }
+      - { to: 1, stored: images/a-1.png, as: images/a-2.png }
+      - { to: all, images: [images/a-1.png, images/a-2.png] }
+
+  - scenario: an image is stored only in the images folder, and only as an image
+    files:
+      a.md: "# First"
+    steps:
+      - { page: 1, opens: a.md }
+      - { page: 1, stores: ../x.png, bytes: "(png)" }
+      - { page: 1, stores: images/x.txt, bytes: "(text)" }
+    sent:
+      - { to: 1, refused: ../x.png, reason: "../x.png is not an image of the images folder" }
+      - { to: 1, refused: images/x.txt, reason: "images/x.txt is not an image of the images folder" }
+
+  - scenario: a rename moves the image, and rewrites every page that links it
+    files:
+      a.md: "# First\n\n![](images/a-1.png)"
+      b.md: "# Second\n\nSee ![the cover](images/a-1.png) here."
+      c.md: "# Third"
+      images/a-1.png: "(png)"
+    steps:
+      - { page: 1, opens: a.md }
+      - { page: 2, opens: b.md }
+      - { page: 3, opens: c.md }
+      - { page: 1, renames: images/a-1.png, as: images/cover.png }
+    sent:
+      - { to: disk, moves: images/a-1.png, as: images/cover.png }
+      - { to: disk, writes: a.md, text: "# First\n\n![](images/cover.png)" }
+      - { to: 1, file: a.md, version: 2, text: "# First\n\n![](images/cover.png)" }
+      - { to: disk, writes: b.md, text: "# Second\n\nSee ![the cover](images/cover.png) here." }
+      - { to: 2, file: b.md, version: 2, text: "# Second\n\nSee ![the cover](images/cover.png) here." }
+      - { to: all, images: [images/cover.png] }
+
+  - scenario: a rename to a name already taken is refused
+    files:
+      a.md: "# First"
+      images/a-1.png: "(png)"
+      images/cover.png: "(other)"
+    steps:
+      - { page: 1, opens: a.md }
+      - { page: 1, renames: images/a-1.png, as: images/cover.png }
+    sent:
+      - { to: 1, refused: images/cover.png, reason: "images/cover.png is already an image of the folder" }
+
+  - scenario: an image changed on disk goes to every page at its next version, so each draws it again
+    files:
+      a.md: "# First"
+      images/a-1.png: "(png)"
+    steps:
+      - { page: 1, opens: a.md }
+      - { disk: images/a-1.png, bytes: "(new png)" }
+    sent:
+      - { to: all, image: images/a-1.png, version: 2 }
+
+  - scenario: an image removed on disk leaves the images
+    files:
+      a.md: "# First"
+      images/a-1.png: "(png)"
+    steps:
+      - { page: 1, opens: a.md }
+      - { disk: images/a-1.png, removed: true }
+    sent:
+      - { to: all, images: [] }

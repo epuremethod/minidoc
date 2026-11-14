@@ -1,0 +1,253 @@
+feature: A folder of markdown files
+# For a person who points minidoc at a folder of markdown files, and wants
+# to read and edit them with no config. Level 0 of the croquis: the default
+# template, a menu of the pages, and the editor's view of the text.
+#
+# A target names each page that the folder gives, and what it shows:
+# `title` is the document's title, `nav` the text of each link of the menu,
+# with "(current)" after the current page, and `article` the text of each
+# block that the editor draws. `carries` is the JSON that the page carries
+# for its hydration: the files its render read, and the pages.
+background:
+  given: a folder
+examples:
+  - scenario: a markdown file is a page, with the default template and a menu
+    source:
+      a.md: |-
+        # First
+
+        Some text.
+    target:
+      a.html:
+        title: First
+        nav: [First (current)]
+        article: [First, Some text.]
+
+  - scenario: the pages are in the order of their file names, and each marks itself in the menu
+    source:
+      b.md: "# Second"
+      a.md: "# First"
+    target:
+      a.html:
+        title: First
+        nav: [First (current), Second]
+        article: [First]
+      b.html:
+        title: Second
+        nav: [First, Second (current)]
+        article: [Second]
+
+  - scenario: a page with no heading takes the name of its file as its title
+    source:
+      notes.md: Some text.
+    target:
+      notes.html:
+        title: notes
+        nav: [notes (current)]
+        article: [Some text.]
+
+  - scenario: index.md is the home page, written to index.html
+    source:
+      index.md: "# Home"
+      about.md: "# About"
+    target:
+      about.html:
+        title: About
+        nav: [About (current), Home]
+        article: [About]
+      index.html:
+        title: Home
+        nav: [About, Home (current)]
+        article: [Home]
+
+  - scenario: a page carries the files its render read, and the pages, as JSON
+    source:
+      a.md: "# First"
+      b.md: "# Second"
+    target:
+      a.html:
+        carries:
+          files:
+            a.md: { version: 1, text: "# First" }
+          pages:
+            - { href: a.html, title: First }
+            - { href: b.html, title: Second }
+
+  - scenario: a file that is not markdown is not a page
+    source:
+      a.md: "# First"
+      notes.txt: Some text.
+    target:
+      a.html:
+        nav: [First (current)]
+
+  - scenario: a folder with no markdown file is refused
+    source:
+      notes.txt: Some text.
+    error: "the folder holds no markdown file"
+
+  # ── Images ──────────────────────────────────────────────────────────
+  # `images` is the `src` and the `alt` of each image of the article.
+
+  - scenario: an image line is drawn as an image, its src relative to the page
+    source:
+      a.md: |-
+        # First
+
+        ![A cat on a mat](images/cat.png)
+    target:
+      a.html:
+        article: [First, ""]
+        images:
+          - { src: images/cat.png, alt: A cat on a mat }
+
+  - scenario: the folder's images go with the pages in what the page carries
+    source:
+      a.md: "# First"
+      images/a-1.png: "(bytes)"
+      images/cat.jpg: "(bytes)"
+    target:
+      a.html:
+        carries:
+          images: [images/a-1.png, images/cat.jpg]
+
+  # ── Level 1: the folder's index.html is the template ──────────────────
+  # `head` is the href of each stylesheet of the page, in order. `text` is
+  # the text of an element of the page, by its selector.
+
+  - scenario: with no index.html, the page takes the default template and its style
+    source:
+      a.md: "# First"
+    target:
+      a.html:
+        head: [./__minidoc/blocks.css, ./__minidoc/soft.css, ./__minidoc/editor.css, ./__minidoc/minidoc.css]
+
+  - scenario: index.html is the template, with the page in article, links in nav, and the rest as written
+    source:
+      index.html: |-
+        <!doctype html>
+        <html lang="en">
+        <head><title>Notes</title><link rel="stylesheet" href="./notes.css"></head>
+        <body><header>My notes</header><nav><a href="#">example</a></nav><article><p>An example.</p></article></body>
+        </html>
+      a.md: "# First"
+      b.md: "# Second"
+    target:
+      a.html:
+        title: First
+        nav: [First (current), Second]
+        article: [First]
+        text: { header: My notes }
+        head: [./__minidoc/blocks.css, ./__minidoc/soft.css, ./__minidoc/editor.css, ./notes.css]
+
+  - scenario: a template with no nav has no menu, and the page still stands in its article
+    source:
+      index.html: <html><head><title>x</title></head><body><article></article></body></html>
+      a.md: "# First"
+    target:
+      a.html:
+        title: First
+        nav: []
+        article: [First]
+
+  - scenario: a template with no title takes one in its head
+    source:
+      index.html: <html><head></head><body><article></article></body></html>
+      a.md: "# First"
+    target:
+      a.html:
+        title: First
+
+  - scenario: a template with no article is refused
+    source:
+      index.html: <html><head></head><body><nav></nav></body></html>
+      a.md: "# First"
+    error: "index.html has no <article>: the page has no place in it"
+
+  # ── Components ──────────────────────────────────────────────────────
+  # `parts` is the text of each element that names a component, by its
+  # `data-component`, and `links` the href and the text of each link in it.
+
+  - scenario: data-component="contents" lists the page's ## and ### headings, a ### under its ##, each linked to its slug
+    source:
+      index.html: <html><head></head><body><nav></nav><aside data-component="contents"></aside><article></article></body></html>
+      a.md: |-
+        # The page
+
+        ## A date you can set
+
+        Some text.
+
+        ### Its zone
+
+        ## Values that follow
+    target:
+      a.html:
+        contents: "<ul><li><a href=\"#a-date-you-can-set\">A date you can set</a><ul><li><a href=\"#its-zone\">Its zone</a></li></ul></li><li><a href=\"#values-that-follow\">Values that follow</a></li></ul>"
+
+  - scenario: two headings with the same text take -1 after the second, and a slug keeps only letters, digits and hyphens
+    source:
+      index.html: <html><head></head><body><aside data-component="contents"></aside><article></article></body></html>
+      a.md: |-
+        ## Notes
+
+        ## Notes
+
+        ## What's new, in 2.0?
+    target:
+      a.html:
+        links:
+          aside: ["#notes Notes", "#notes-1 Notes", "#whats-new-in-20 What's new, in 2.0?"]
+
+  - scenario: a component of components/ draws in each element that names it, and the element keeps its attributes
+    source:
+      index.html: |-
+        <html><head></head><body>
+        <header class="top" data-component="count"></header>
+        <article></article>
+        <footer class="bottom" data-component="count"></footer>
+        </body></html>
+      a.md: "# First"
+      b.md: "# Second"
+      components/count.jsx: |-
+        export default function Count({ page, pages }) {
+          return <p>{page.title}, one of {pages.length} pages</p>;
+        }
+    target:
+      a.html:
+        text:
+          header.top: First, one of 2 pages
+          footer.bottom: First, one of 2 pages
+
+  - scenario: components/menu.jsx replaces minidoc's menu, in nav too
+    source:
+      index.html: <html><head></head><body><nav></nav><article></article></body></html>
+      a.md: "# First"
+      b.md: "# Second"
+      components/menu.jsx: |-
+        export default function Menu({ page, pages }) {
+          return <ol>{pages.map((p) => <li key={p.href}>{p.href === page.href ? `[${p.title}]` : p.title}</li>)}</ol>;
+        }
+    target:
+      a.html:
+        text:
+          nav: "[First]Second"
+
+  - scenario: an element that names no component is refused, with the name
+    source:
+      index.html: <html><head></head><body><aside data-component="contnets"></aside><article></article></body></html>
+      a.md: "# First"
+    error: "index.html names the component \"contnets\", which neither minidoc nor components/ has"
+
+  - scenario: a page carries its headings for its hydration
+    source:
+      a.md: |-
+        # First
+
+        ## A part
+    target:
+      a.html:
+        carries:
+          headings:
+            - { level: 1, text: First, slug: first }
+            - { level: 2, text: A part, slug: a-part }

@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Funky notes</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=Space+Mono:wght@400;700&display=swap">
+<style>
+  /* A test of level 1: the folder's own template. minidoc fills <nav>,
+     <article> and <title>, and keeps the rest as it is written. */
+  :root {
+    --sun: #ffd23f;
+    --pink: #ff5d8f;
+    --mint: #3bceac;
+    --sky: #4d9de0;
+    --ink: #1b1b1e;
+    --paper: #fffaf0;
+    --card: #ffffff;
+    --shadow: 6px 6px 0 var(--ink);
+    --size: 19px;
+    --minidoc-leading: 1.6;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --ink: #f4f1ea;
+      --paper: #191724;
+      --card: #24213a;
+      --shadow: 6px 6px 0 var(--pink);
+      color-scheme: dark;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    color: var(--ink);
+    background:
+      radial-gradient(circle at 12% 18%, color-mix(in srgb, var(--sun) 55%, transparent) 0 120px, transparent 121px),
+      radial-gradient(circle at 88% 30%, color-mix(in srgb, var(--mint) 45%, transparent) 0 90px, transparent 91px),
+      radial-gradient(circle at 75% 92%, color-mix(in srgb, var(--pink) 40%, transparent) 0 140px, transparent 141px),
+      var(--paper);
+    background-attachment: fixed;
+    font: 400 var(--size)/var(--minidoc-leading) "Bricolage Grotesque", system-ui, sans-serif;
+    padding: 2rem 1rem 6rem;
+  }
+
+  header {
+    max-width: 52rem;
+    margin: 0 auto 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: .9rem;
+  }
+  .logo {
+    display: grid;
+    place-items: center;
+    width: 3.2rem;
+    height: 3.2rem;
+    border: 3px solid var(--ink);
+    border-radius: 50%;
+    background: var(--sun);
+    color: #1b1b1e;
+    font: 800 1.6rem/1 "Bricolage Grotesque", sans-serif;
+    box-shadow: 3px 3px 0 var(--ink);
+    transform: rotate(-12deg);
+  }
+  .brand { font-weight: 800; font-size: 1.5rem; letter-spacing: -.02em; }
+  .brand small { display: block; font: 400 .75rem/1.2 "Space Mono", monospace; opacity: .7; letter-spacing: 0; }
+
+  nav { max-width: 52rem; margin: 0 auto 2rem; }
+  nav ul { display: flex; flex-wrap: wrap; gap: .6rem; list-style: none; margin: 0; padding: 0; }
+  nav a {
+    display: inline-block;
+    padding: .35rem 1rem;
+    border: 3px solid var(--ink);
+    border-radius: 999px;
+    background: var(--card);
+    color: var(--ink);
+    font-weight: 700;
+    font-size: .9rem;
+    text-decoration: none;
+    box-shadow: 3px 3px 0 var(--ink);
+    transition: transform .12s, box-shadow .12s;
+  }
+  nav a:hover { transform: translate(-2px, -2px); box-shadow: 5px 5px 0 var(--ink); }
+  nav a[aria-current="page"] { background: var(--pink); color: #1b1b1e; }
+
+  article {
+    max-width: 52rem;
+    margin: 0 auto;
+    padding: 2.5rem clamp(1.2rem, 5vw, 3.5rem);
+    background: var(--card);
+    border: 3px solid var(--ink);
+    border-radius: 18px;
+    box-shadow: var(--shadow);
+  }
+  article .editor { caret-color: var(--pink); }
+  article h1 {
+    font-size: clamp(2.2rem, 6vw, 3.4rem);
+    font-weight: 800;
+    line-height: 1;
+    letter-spacing: -.035em;
+    margin: 0 0 1.2rem;
+  }
+  article h1::after {
+    content: "";
+    display: block;
+    width: 4.5rem;
+    height: .45rem;
+    margin-top: .8rem;
+    border-radius: 99px;
+    background: linear-gradient(90deg, var(--pink), var(--sun), var(--mint), var(--sky));
+  }
+  article h2 { font-size: 1.6rem; font-weight: 800; letter-spacing: -.02em; margin: 2.2rem 0 .6rem; }
+  article h2::before { content: "✦ "; color: var(--pink); }
+  article h3 { font-size: 1.2rem; font-weight: 700; margin: 1.8rem 0 .4rem; }
+  article p, article ul, article ol, article pre, article table, article .display { margin: 0 0 1.1em; }
+  article a { color: inherit; text-decoration: none; background: linear-gradient(transparent 62%, color-mix(in srgb, var(--sun) 75%, transparent) 62%); }
+  article a:hover { background: var(--sun); color: #1b1b1e; }
+  article strong { font-weight: 800; }
+  article ul { list-style: none; padding-left: 0; }
+  article ul li { position: relative; padding-left: 1.6rem; margin-bottom: .35rem; }
+  article ul li::before { content: "●"; position: absolute; left: .2rem; color: var(--mint); font-size: .8em; top: .15em; }
+  article code {
+    font: 700 .82em "Space Mono", monospace;
+    background: color-mix(in srgb, var(--mint) 25%, transparent);
+    padding: .1em .35em;
+    border-radius: 6px;
+  }
+  article pre {
+    font: .85rem/1.6 "Space Mono", monospace;
+    background: #1b1b1e;
+    color: #f4f1ea;
+    padding: 1.1rem 1.3rem;
+    border-radius: 12px;
+    border: 3px solid var(--ink);
+    overflow-x: auto;
+  }
+  article pre code { background: none; padding: 0; font-weight: 400; }
+  article pre.code .code__language {
+    font: 700 .7rem "Space Mono", monospace;
+    text-transform: uppercase;
+    color: #1b1b1e;
+    background: var(--sun);
+    padding: .1rem .5rem;
+    border-radius: 99px;
+    opacity: 1;
+  }
+  article blockquote {
+    margin: 0;
+    padding: 1rem 1.3rem;
+    border-radius: 12px;
+    background: color-mix(in srgb, var(--sky) 18%, transparent);
+    border-left: 6px solid var(--sky);
+    font-weight: 600;
+  }
+  article table { width: 100%; border-collapse: separate; border-spacing: 0; border: 3px solid var(--ink); border-radius: 12px; overflow: hidden; }
+  article th { background: var(--mint); color: #1b1b1e; text-align: left; font-weight: 800; padding: .5rem .8rem; }
+  article td { padding: .5rem .8rem; border-top: 2px dashed color-mix(in srgb, var(--ink) 25%, transparent); }
+  article hr { border: 0; height: 6px; margin: 2rem 0; background: repeating-linear-gradient(90deg, var(--pink) 0 18px, var(--sun) 18px 36px, var(--mint) 36px 54px); border-radius: 99px; }
+
+  footer {
+    max-width: 52rem;
+    margin: 2rem auto 0;
+    font: .75rem "Space Mono", monospace;
+    opacity: .65;
+    text-align: center;
+  }
+</style>
+</head>
+<body>
+<header>
+  <span class="logo">m</span>
+  <span class="brand">Funky notes<small>a template of the folder, filled by minidoc</small></span>
+</header>
+<nav><ul><li><a href="#" aria-current="page">An example page</a></li></ul></nav>
+<article>
+  <h1>An example of the text</h1>
+  <p>Open this file alone in a browser to see the style. minidoc puts the page here.</p>
+</article>
+<footer>index.html · level 1 · edit me and every page reloads ✨</footer>
+</body>
+</html>

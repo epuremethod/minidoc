@@ -1,0 +1,65 @@
+/* What the editor's elements need, in every page, whatever its template:
+   no outline on the text, a code block that names its language on its
+   right, and no line around a block drawn by the blocks. The look of the
+   text is the template's. */
+
+article .editor { outline: none; }
+
+article pre.code .code__language { float: right; font-size: .8em; opacity: .75; }
+article pre.code .code__separator { display: none; }
+
+/* The editor keeps white space as typed, and puts a zero-width space on
+   each side of an atom. Neither may add a line around a drawing: the
+   lines of the zero-width spaces have no height. The drawing takes the
+   article's leading back, from `--minidoc-leading`, which a template may
+   set. */
+article { --minidoc-leading: 1.6; }
+article .display { line-height: 0; }
+article .display .edit-block { line-height: var(--minidoc-leading); white-space: normal; }
+article .display blockquote { margin: 0; }
+article .display blockquote > :first-child { margin-top: 0; }
+article .display blockquote > :last-child { margin-bottom: 0; }
+
+/* A callout as the editor draws it. Its kind is a small word at the top
+   right, with no box, and the text flows around it from the first line.
+   Its byline takes a line only when it holds an author or a date, or while
+   the caret is in the callout (`data-caret`, set by the page): then an
+   empty field shows its name in grey. Its blocks keep the space between them, and none before the first
+   or after the last, so the frame's padding is the only margin. */
+article .callout:has(> .callout__head) { --callout-padding: .8em 1em; display: flow-root; }
+article .callout__head { float: right; margin: -.5rem -.3em .3em .3em; }
+article .callout__head .callout__label { margin: 0; padding: 0; border: 0; background: none; }
+article .callout:has(> .callout__head) > :is(p, ul, ol, pre, blockquote, table, .display) { margin: 0 0 .55em; }
+article .callout:has(> .callout__head) > :last-child { margin-bottom: 0; }
+article .callout__byline { margin: 0 0 .3em; color: var(--blocks-muted); font-size: .85em; line-height: 1.5; }
+article .callout:has(> .callout__head):not([data-caret]) > .callout__byline:has(> .callout__author--empty):has(> .callout__date--empty) {
+  height: 0; margin: 0; overflow: hidden;
+}
+article .callout__author { color: var(--blocks-ink); font-weight: 650; }
+article .callout__author--empty::after { content: "author"; color: var(--blocks-muted); font-weight: 400; }
+article .callout__date--empty::after { content: "date"; color: var(--blocks-muted); }
+
+/* An image on a line of its own: the image, and "Uploading…" over a
+   pasted one until `dev` stores it. Its pane holds its text and its name. */
+article .picture { position: relative; display: inline-block; max-width: 100%; }
+article .picture img { display: block; max-width: 100%; height: auto; }
+article .picture__uploading {
+  position: absolute; left: .5rem; bottom: .5rem;
+  padding: .1rem .5rem; border-radius: 99px;
+  font: 600 .75rem/1.6 system-ui, sans-serif; color: #fff; background: rgb(0 0 0 / .6);
+}
+.picture-pane {
+  display: grid; gap: .5rem; min-width: 18rem; padding: .75rem;
+  font: .85rem/1.4 system-ui, sans-serif; color: #1d1d1f;
+  background: #fff; border: 1px solid #d8d8d4; border-radius: 8px;
+  box-shadow: 0 6px 24px rgb(0 0 0 / .14);
+}
+.picture-pane__field { display: grid; gap: .2rem; }
+.picture-pane__field span { color: #5f6368; font-weight: 600; }
+.picture-pane__field input { font: inherit; padding: .35rem .5rem; border: 1px solid #d8d8d4; border-radius: 5px; }
+.picture-pane__said { margin: 0; color: #b42318; }
+@media (prefers-color-scheme: dark) {
+  .picture-pane { color: #e6e6e3; background: #26272a; border-color: #3a3b3f; }
+  .picture-pane__field span { color: #a0a2a6; }
+  .picture-pane__field input { color: inherit; background: #1b1c1e; border-color: #3a3b3f; }
+}
