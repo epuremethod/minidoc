@@ -10,7 +10,7 @@ Mara starts where every site starts: one page, on screen, with the right
 title.
 
 ```sh
-pnpm add -D @epure/minidoc
+pnpm add -D @minidoc/core
 ```
 
 ### The layout
@@ -68,7 +68,7 @@ folder next to `content`.
 
 ```js
 // build.mjs
-import { run } from "@epure/minidoc"
+import { run } from "@minidoc/core"
 
 await run({ glob: "content/**/config.yaml" })
 ```

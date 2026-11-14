@@ -5,14 +5,14 @@ import { fileURLToPath } from "node:url";
 import esbuild from "esbuild";
 
 // The editor is linked from ../editor, with node_modules of its own. One
-// React, one tilia and one runtime serve the page: @epure/minidoc's.
-const minidoc = fileURLToPath(new URL("../../minidoc/", import.meta.url));
+// React, one tilia and one runtime serve the page: @minidoc/live's.
+const live = fileURLToPath(new URL("../../live/", import.meta.url));
 const shared = /^(react|react-dom|tilia|@tilia\/react|@rescript\/react|@rescript\/runtime)(\/.*)?$/;
 const one = {
   name: "one-copy",
   setup(build) {
     build.onResolve({ filter: shared }, (args) =>
-      args.pluginData === "shared" ? undefined : build.resolve(args.path, { kind: args.kind, resolveDir: minidoc, pluginData: "shared" }),
+      args.pluginData === "shared" ? undefined : build.resolve(args.path, { kind: args.kind, resolveDir: live, pluginData: "shared" }),
     );
   },
 };

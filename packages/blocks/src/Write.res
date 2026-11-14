@@ -23,21 +23,27 @@ let keys = (drawing: drawing<_>, pad) =>
 let sequenceOp = (op: SequenceOp.t, pad) =>
   switch op {
   | Frame({left, top, width, height}) => [`${pad}frame ${nums([left, top, width, height])}`]
-  | Head({kind, x, y, width, height, name}) => [`${pad}head ${kind} ${nums([x, y, width, height])} ${quote(name)}`]
+  | Head({kind, x, y, width, height, name, color}) => [
+      `${pad}head ${kind} ${nums([x, y, width, height])} ${quote(name)}${field("color", color)}`,
+    ]
   | Life({x, top, bottom}) => [`${pad}life ${nums([x, top, bottom])}`]
-  | Message({from, to, y, refused, label}) => [
-      `${pad}${refused ? "refused" : "message"} ${nums([from, to, y])}`,
+  | Message({from, to, y, refused, label, color}) => [
+      `${pad}${refused ? "refused" : "message"} ${nums([from, to, y])}${field("color", color)}`,
       ...label->Option.mapOr([], l => [`${pad}  label ${nums([l.x, l.y])} ${quote(l.text)}`]),
     ]
-  | State({x, y, width, height, text}) => [`${pad}state ${nums([x, y, width, height])} ${quote(text)}`]
+  | State({x, y, width, height, text, color}) => [
+      `${pad}state ${nums([x, y, width, height])} ${quote(text)}${field("color", color)}`,
+    ]
   }
 
 let statesOp = (op: StatesOp.t, pad) =>
   switch op {
   | Frame({left, top, width, height}) => [`${pad}frame ${nums([left, top, width, height])}`]
-  | Box({kind, x, y, width, height, name}) => [`${pad}box ${kind} ${nums([x, y, width, height])} ${quote(name)}`]
-  | Move({kind, both, points, label}) => [
-      `${pad}move${kind->Option.mapOr("", k => ` ${k}`)}${flag("both", both)} ${nums(points)}`,
+  | Box({kind, x, y, width, height, name, active, color}) => [
+      `${pad}box ${kind} ${nums([x, y, width, height])} ${quote(name)}${active ? " active" : ""}${field("color", color)}`,
+    ]
+  | Move({kind, color, both, points, label}) => [
+      `${pad}move${kind->Option.mapOr("", k => ` ${k}`)}${flag("both", both)} ${nums(points)}${field("color", color)}`,
       ...label->Option.mapOr([], ((l, anchor)) => [
         `${pad}  label ${nums([l.x, l.y])} ${anchor} ${quote(l.text)}`,
       ]),
@@ -50,17 +56,34 @@ let placed = (label, pad) =>
 let modelOp = (op: ModelOp.t, pad) =>
   switch op {
   | Frame({left, top, width, height}) => [`${pad}frame ${nums([left, top, width, height])}`]
-  | Table({x, y, width, height, name, tenant, kindX, valueX, columns}) => [
-      `${pad}table ${nums([x, y, width, height, kindX, valueX])} ${quote(name)}${field("tenant", tenant)}`,
-      ...columns->Array.map(c =>
-        `${pad}  column ${num(c.y)} ${quote(c.name)}${field("type", c.kind)}${field("value", c.value)}`
-      ),
+  | Table({x, y, width, height, name, tenant, color, kindX, valueX, columns, groups}) => [
+      `${pad}table ${nums([x, y, width, height, kindX, valueX])} ${quote(name)}${field("tenant", tenant)}${field("color", color)}`,
+      // Columns and groups, top to bottom.
+      ...[
+        ...columns->Array.map(c => (
+          c.y,
+          `${pad}  column ${num(c.y)} ${quote(c.name)}${field("color", c.nameColor)}${field("type", c.kind)}${field(
+              "color",
+              c.kindColor,
+            )}${field("value", c.value)}${field("color", c.valueColor)}`,
+        )),
+        ...groups->Array.map(g => (
+          g.y,
+          `${pad}  group ${num(g.y)}${g.name->Option.mapOr("", n => ` ${quote(n)}`)}${field("color", g.color)}${g.from->Option.mapOr("", f => ` from ${num(f)}`)}`,
+        )),
+      ]
+      ->Array.toSorted(((a, _), (b, _)) => a -. b)
+      ->Array.map(Pair.second),
     ]
-  | Link({from, to, points, label}) => [
-      `${pad}link ${Model.arityName(from)} ${Model.arityName(to)} ${nums(points)}`,
+  | Link({from, to, points, label, color}) => [
+      `${pad}link ${Model.arityName(from)} ${Model.arityName(to)} ${nums(points)}${field("color", color)}`,
       ...placed(label, pad),
     ]
-  | Parent({points, label}) => [`${pad}parent ${nums(points)}`, ...placed(label, pad)]
+  | Parent({points, label, color}) => [`${pad}parent ${nums(points)}${field("color", color)}`, ...placed(label, pad)]
+  | Process({points, label, color}) => [
+      `${pad}process ${nums(points)}${field("color", color)}`,
+      ...placed(label, pad),
+    ]
   }
 
 let widget = (w, pad) =>
@@ -162,6 +185,21 @@ let rec lines = (node, pad) => {
       `${pad}model`,
       ...drawing.ops->Array.flatMap(op => modelOp(op, inner)),
       ...keys(drawing, inner),
+    ]
+  | Changelog({last, file, entries}) => [
+      `${pad}${last ? "release" : "changelog"}${field("file", file)}`,
+      ...entries->Array.flatMap(entry => [
+        switch entry.version {
+        | Some(version) => `${inner}version ${quote(version)}${field("date", entry.date)}`
+        | None => `${inner}unreleased`
+        },
+        ...entry.changes->Array.map(change =>
+          `${inner}  ${Changelog.kindName(change.kind)}${flag("breaking", change.breaking)}${flag(
+              "unsaid",
+              !change.said,
+            )} ${quote(change.text)}`
+        ),
+      ]),
     ]
   | Extra({name, info, body}) => [`${pad}extra ${name} ${quote(info)}`, ...markdown(body, inner)]
   }

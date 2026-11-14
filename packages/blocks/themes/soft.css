@@ -1,32 +1,43 @@
 /* Soft: pastel fills, rounded corners, coloured labels. Variables only. */
 
 [data-blocks-theme="soft"] {
-  --blocks-ink: #202a38;
-  --blocks-muted: #626770;
-  --blocks-line: #c9ccd0;
-  --blocks-stroke: #8c9198;
-  --blocks-surface: #ffffff;
-  --blocks-canvas: #faf9f6;
-  --blocks-band: #eef0ec;
-  --blocks-band-ink: #202a38;
+  --blocks-ink: light-dark(#202a38, #dcdfe4);
+  --blocks-muted: light-dark(#626770, #9ca2aa);
+  --blocks-line: light-dark(#c9ccd0, #3b3e44);
+  --blocks-stroke: light-dark(#8c9198, #80868e);
+  --blocks-surface: light-dark(#ffffff, #1f2024);
+  --blocks-canvas: light-dark(#faf9f6, #18191c);
+  --blocks-band: light-dark(#eef0ec, #2b2d32);
+  --blocks-band-ink: light-dark(#202a38, #dcdfe4);
 
-  --tone-note: #5c625f;
-  --tone-draft: #27613d;
-  --tone-proposed: #855a12;
-  --tone-settled: #285866;
-  --tone-open: #a13b24;
-  --tone-technical: #654d86;
-  --tone-principle: #315f86;
-  --tone-rejected: #8a2f3c;
-  --tone-flow: #285866;
-  --tone-done: #2f6b45;
-  --tone-doing: #855a12;
-  --tone-quote: #ad3d28;
-  --tone-mark: #ffe08a;
-  --mark-ink: #49300b;
-  --tone-refused: #ad3d28;
-  --tone-ui-primary: #202a38;
-  --tone-ui-clicked: #ad3d28;
+  --tone-note: light-dark(#5c625f, #a3aaa6);
+  --tone-draft: light-dark(#27613d, #7cc293);
+  --tone-proposed: light-dark(#855a12, #dcad5f);
+  --tone-settled: light-dark(#285866, #80b9c7);
+  --tone-open: light-dark(#a13b24, #ec8f77);
+  --tone-technical: light-dark(#654d86, #b7a0d9);
+  --tone-principle: light-dark(#315f86, #8ab5dc);
+  --tone-rejected: light-dark(#8a2f3c, #e38f9b);
+  --tone-comment: light-dark(#b0602a, #e6a473);
+  --tone-flow: light-dark(#285866, #80b9c7);
+  --tone-done: light-dark(#2f6b45, #80c295);
+  --tone-doing: light-dark(#855a12, #dcad5f);
+  --tone-quote: light-dark(#ad3d28, #ec8f77);
+  --tone-mark: light-dark(#ffe08a, #5e4a15);
+  --mark-ink: light-dark(#49300b, #ffe6a6);
+  --tone-refused: light-dark(#ad3d28, #ec8f77);
+  --tone-ui-primary: light-dark(#202a38, #dcdfe4);
+  --tone-ui-clicked: light-dark(#ad3d28, #ec8f77);
+
+  /* The palette a drawing's `color` picks from, by name or by a word's hash. */
+  --hue-grey: light-dark(#5c625f, #a3aaa6);
+  --hue-red: light-dark(#a13b24, #ec8f77);
+  --hue-orange: light-dark(#b0602a, #e6a473);
+  --hue-yellow: light-dark(#8a6d12, #d8c060);
+  --hue-green: light-dark(#2f6b45, #80c295);
+  --hue-teal: light-dark(#285866, #80b9c7);
+  --hue-blue: light-dark(#315f86, #8ab5dc);
+  --hue-purple: light-dark(#654d86, #b7a0d9);
 
   --fill-amount: 7%;
   --edge-amount: 26%;
@@ -37,10 +48,11 @@
   --callout-font-size: .94em;
   --callout-label-size: .68em;
   --callout-label-case: uppercase;
+  --comment-shift: 3rem;
   --callout-label-tracking: .06em;
   --label-padding: .2em .55em;
   --label-fill-amount: 0%;
-  --label-base: #ffffffa8;
+  --label-base: light-dark(#ffffffa8, #1f2024a8);
   --label-ink-amount: 100%;
   --label-edge-amount: 26%;
   --quote-rule: 3px;
@@ -55,13 +67,14 @@
   --ui-dialog-border: 1px;
   --ui-dialog-radius: 8px;
   --ui-control-radius: 5px;
-  --ui-dialog-shadow: 0 6px 18px #202a3814;
+  --ui-dialog-shadow: 0 6px 18px light-dark(#202a3814, #00000066);
   --ui-flow-gap: 2.5em;
   --drawing-radius: 7px;
-  --drawing-line: #b9bec5;
-  --drawing-line-secondary: #a9aeb5;
-  --drawing-fill-amount: 16%;
+  --drawing-line: light-dark(#b9bec5, #4b4f56);
+  --drawing-line-secondary: light-dark(#a9aeb5, #5c6168);
+  --drawing-fill-amount: 10%;
   --drawing-edge-amount: 60%;
+  --drawing-ink-amount: 80%;
   --drawing-kind-ink: var(--blocks-ink);
   --drawing-edge: 1;
 }

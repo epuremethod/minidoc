@@ -1,4 +1,4 @@
-feature: The strict check
+feature: Errors
 background:
   given: a document
 examples:

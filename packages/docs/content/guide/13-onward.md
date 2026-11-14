@@ -17,7 +17,7 @@ reference after that.
 
 ### Blocks
 
-[`@epure/blocks`](./blocks.html) adds the `:::` blocks this guide
+[`@minidoc/blocks`](./blocks.html) adds the `:::` blocks this guide
 uses — callouts like the story boxes, quotes, flows, screen mockups,
 sequences and state machines — as one markdown transform.
 

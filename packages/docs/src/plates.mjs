@@ -1,4 +1,4 @@
-// The `plates` transform: a fixture of @epure/blocks, drawn as one
+// The `plates` transform: a fixture of @minidoc/blocks, drawn as one
 // plate per scenario. Its value is the fixture's name. A plate has three
 // columns: the markdown an author writes, the nodes the reader gives, and
 // the page a reader sees. The page is a frame drawn as a screenshot, with
@@ -9,13 +9,16 @@
 // subtitle, so a reader sees a refusal as part of the contract and not as a
 // broken page.
 //
+// A scenario's `files` are the files a block reads, such as a changelog's:
+// the plate shows each under the markdown.
+//
 // The fixture's `after` is the nodes a scenario expects. When the reader
 // gives other nodes, the plate says so and shows the expected ones under
 // them.
 
 import { readFileSync } from "node:fs";
 import { parse } from "yaml";
-import { read, render, write } from "@epure/blocks";
+import { read, render, write } from "@minidoc/blocks/src/index.js";
 
 const fixtures = new URL("../../blocks/test/", import.meta.url);
 
@@ -48,7 +51,9 @@ function attempt(fn) {
 }
 
 function plate(feature, example) {
-  const options = example.options ?? {};
+  // The files a block reads, such as a changelog's, by the path the page names.
+  const files = example.files ?? {};
+  const options = { read: (path) => files[path], ...(example.options ?? {}) };
   const before = String(example.before);
   const nodes = attempt(() => read(before, options));
   const given = nodes.error ?? write(nodes.value);
@@ -63,7 +68,11 @@ function plate(feature, example) {
     differs ? `<span class="plate__flag">Differs from the fixture</span>` : ""
   }</figcaption>
 <div class="plate__grid">
-<div class="plate__side plate__side--markdown"><p class="plate__label">Markdown</p><pre class="plate__source">${escape(before)}</pre></div>
+<div class="plate__side plate__side--markdown"><p class="plate__label">Markdown</p><pre class="plate__source">${escape(before)}</pre>${Object.entries(
+    files,
+  )
+    .map(([path, text]) => `<p class="plate__label plate__label--file">${escape(path)}</p><pre class="plate__source">${escape(text)}</pre>`)
+    .join("")}</div>
 <div class="plate__side plate__side--nodes"><p class="plate__label">${nodes.error === undefined ? "Nodes" : "Error"}</p><pre class="plate__source">${escape(given)}</pre>${
     differs ? `<p class="plate__label plate__label--expected">The fixture expects</p><pre class="plate__source">${escape(expected)}</pre>` : ""
   }</div>

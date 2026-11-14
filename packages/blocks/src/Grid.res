@@ -55,36 +55,6 @@ type placed<'a> = {
 /** A line to draw between two boxes, and where its label sits. */
 type way = {from: string, to: string, label: string, at: float, right: bool}
 
-let space = RegExp.fromString("\\s+")
-
-// A label sits in the middle of its line, unless the line says where:
-// `{0.2}` for a fifth of the way. `{0.2 right}` also puts it on the right of
-// the way. A word in the braces is a kind: `{fail}`, `{0.2 fail}`.
-let placedLabel = RegExp.fromString(
-  "^(.*?)\\s*\\{(?:([01](?:\\.\\d+)?))?\\s*(right)?\\s*([\\p{L}]+)?\\}$",
-  ~flags="u",
-)
-
-/** A label as written after a line: its text, where it sits, its side, and its kind. */
-let label = said => {
-  let said = String.trim(said)
-  let placed = RegExp.exec(placedLabel, said)
-  (
-    placed->Option.flatMap(p => capture(p, 0))->Option.getOr(said),
-    placed->Option.flatMap(p => capture(p, 1))->Option.flatMap(Float.fromString)->Option.getOr(0.5),
-    placed->Option.flatMap(p => capture(p, 2))->Option.isSome,
-    placed->Option.flatMap(p => capture(p, 3)),
-  )
-}
-
-/** The words of a grid line. A dot leaves its cell empty. */
-let cells = line =>
-  line
-  ->String.trim
-  ->String.splitByRegExp(space)
-  ->Array.map(c => c->Option.getOr(""))
-  ->Array.map(c => c == "." ? None : Some(c))
-
 /** The boxes placed on the grid, and the right edge of the widest row.
     `across` is the gap between two columns. */
 let place = (~across=gapX, rows: array<array<option<box<'a>>>>) => {
@@ -149,12 +119,28 @@ let along = (t, p0, p1, p2, p3) => {
   u *. u *. u *. p0 +. 3. *. u *. u *. t *. p1 +. 3. *. u *. t *. t *. p2 +. t *. t *. t *. p3
 }
 
+// The values of one coordinate of a cubic at its ends and where it turns:
+// its least and its most are among them.
+let turns = (p0, p1, p2, p3) => {
+  let (p, q, r) = (p1 -. p0, p2 -. p1, p3 -. p2)
+  let (a, b, c) = (p -. 2. *. q +. r, 2. *. (q -. p), p)
+  let roots = if a == 0. {
+    b == 0. ? [] : [-.c /. b]
+  } else {
+    let d = b *. b -. 4. *. a *. c
+    d < 0. ? [] : [(-.b +. Math.sqrt(d)) /. (2. *. a), (-.b -. Math.sqrt(d)) /. (2. *. a)]
+  }
+  [0., 1., ...roots->Array.filter(t => t > 0. && t < 1.)]->Array.map(t => along(t, p0, p1, p2, p3))
+}
+
 type line<'a> = {
   way: way,
   from: placed<'a>,
   to: placed<'a>,
   fromSide: side,
   toSide: side,
+  /** The drawing reads left to right, and a line forks off a right side. */
+  forks: bool,
   mutable tail: option<point>,
   mutable head: option<point>,
 }
@@ -163,8 +149,10 @@ type line<'a> = {
 // straight line, unless a third stands between them: then the line goes over
 // the row. Two boxes of different rows are joined by a curve that leaves by
 // the facing side. A line from a box to itself leaves the right side and
-// comes back into the top.
-let shape = (way: way, boxes: array<placed<'a>>): line<'a> => {
+// comes back into the top. In a drawing that `forks`, a line to a later
+// column on another row leaves the right side and reaches the left one, as
+// the drawing reads.
+let shape = (way: way, boxes: array<placed<'a>>, ~forks): line<'a> => {
   let get = name => boxes->Array.findLast((b: placed<'a>) => b.name == name)->Option.getOrThrow
   let from = get(way.from)
   let to = get(way.to)
@@ -181,12 +169,14 @@ let shape = (way: way, boxes: array<placed<'a>>): line<'a> => {
     } else {
       (Left, Right)
     }
+  } else if forks && to.column > from.column {
+    (Right, Left)
   } else if to.row > from.row {
     (Bottom, Top)
   } else {
     (Top, Bottom)
   }
-  {way, from, to, fromSide, toSide, tail: None, head: None}
+  {way, from, to, fromSide, toSide, forks, tail: None, head: None}
 }
 
 let sign = x => x > 0. ? 1. : x < 0. ? -1. : 0.
@@ -238,10 +228,32 @@ let anchor = (lines: array<line<'a>>) => {
         ? orElse(one.centre -. other.centre, reach(other) -. reach(one))
         : one.middle -. other.middle
     )
+    // In a drawing that forks, the lines that leave a right side count as
+    // one end there: they start from one point, and part after it.
+    let leaves = ((line, _)) =>
+      line.forks && side == Right && line.from.name == box.name && line.fromSide == Right
+    let fork = ref(None)
+    let slots = ref(0)
+    let indices = ends->Array.map(end => {
+      let take = () => {
+        let index = slots.contents
+        slots := index + 1
+        index
+      }
+      switch (leaves(end), fork.contents) {
+      | (true, Some(index)) => index
+      | (true, None) =>
+        let index = take()
+        fork := Some(index)
+        index
+      | (false, _) => take()
+      }
+    })
     let run = across ? box.w : box.band
     let start = across ? box.x : box.y
-    let count = Int.toFloat(Array.length(ends) + 1)
+    let count = Int.toFloat(slots.contents + 1)
     ends->Array.forEachWithIndex(((line, _), index) => {
+      let index = indices->Array.getUnsafe(index)
       let at = start +. run *. Int.toFloat(index + 1) /. count
       let point = across
         ? {x: at, y: side == Top ? box.y : box.y +. box.h}
@@ -256,6 +268,14 @@ let anchor = (lines: array<line<'a>>) => {
   lines
 }
 
+/** The point `length` from (x, y) toward (towardX, towardY): where a line's straight end begins. */
+let stub = (x, y, towardX, towardY, length) => {
+  let run = Math.hypot(towardX -. x, towardY -. y)
+  run == 0.
+    ? (x, y)
+    : (x +. (towardX -. x) /. run *. length, y +. (towardY -. y) /. run *. length)
+}
+
 /** A line, drawn: its cubic, and its label's point and anchor. */
 type drawn = {way: way, points: array<float>, x: float, y: float, anchor: string, ridden: array<point>}
 
@@ -266,7 +286,18 @@ let draw = (line: line<'a>, paired) => {
   let into = normal(line.toSide)
   let span = Math.hypot(head.x -. tail.x, head.y -. tail.y)
   let loop = line.from.name == line.to.name
-  let pull = loop ? loopPull : Math.min(Math.max(span *. pull, pullLeast), pullMost)
+  // A fork to another row pulls by half the distance across: both handles
+  // meet at the middle of the gap, so the curve turns over its whole length
+  // and never bends back.
+  let pull = if loop {
+    loopPull
+  } else if (
+    line.forks && line.fromSide == Right && line.toSide == Left && line.from.row != line.to.row
+  ) {
+    Math.abs(head.x -. tail.x) /. 2.
+  } else {
+    Math.min(Math.max(span *. pull, pullLeast), pullMost)
+  }
   let one = {x: tail.x +. out.x *. pull, y: tail.y +. out.y *. pull}
   let other = {x: head.x +. into.x *. pull, y: head.y +. into.y *. pull}
   let at = t => {
@@ -277,8 +308,7 @@ let draw = (line: line<'a>, paired) => {
   // The label sits beside the line, on the side away from the middle of the
   // pair. Two lines between the same boxes spread apart at the box, and
   // reading outward also parts their labels. A line that says `right` puts
-  // its label on the right of its way, paired or not. A loop's label also
-  // reads outward, else it would sit inside the box.
+  // its label on the right of its way, paired or not.
   let where = line.way.at
   let middle = at(where)
   let ahead = at(Math.min(where +. 0.04, 1.))
@@ -290,16 +320,28 @@ let draw = (line: line<'a>, paired) => {
     y: middle.y -. (line.from.middle +. line.to.middle) /. 2.,
   }
   let outward = left.x *. away.x +. left.y *. away.y >= 0.
-  let flipped = line.way.right || ((paired || loop) && !outward)
+  let flipped = line.way.right || (paired && !outward)
   let side = flipped ? {x: -.left.x, y: -.left.y} : left
-  let x = middle.x +. side.x *. labelOff
-  let y = middle.y +. side.y *. labelOff +. (side.y < -0.5 ? -7. : side.y > 0.5 ? 9. : 4.)
+  // A loop's label stands right of the loop, halfway between its top and
+  // its tail. Its middle would be near its top, over the lines above the
+  // box. A loop has one outer side, so `{0.2}` and `right` do not move it.
+  let (x, y, anchor) = if loop {
+    let most = Math.maxMany(turns(tail.x, one.x, other.x, head.x))
+    let top = Math.minMany(turns(tail.y, one.y, other.y, head.y))
+    (most +. labelOff, (top +. tail.y) /. 2. +. 4., "start")
+  } else {
+    (
+      middle.x +. side.x *. labelOff,
+      middle.y +. side.y *. labelOff +. (side.y < -0.5 ? -7. : side.y > 0.5 ? 9. : 4.),
+      side.x > 0.5 ? "start" : side.x < -0.5 ? "end" : "middle",
+    )
+  }
   {
     way: line.way,
     points: [tail.x, tail.y, one.x, one.y, other.x, other.y, head.x, head.y],
     x,
     y,
-    anchor: side.x > 0.5 ? "start" : side.x < -0.5 ? "end" : "middle",
+    anchor,
     ridden: [0., 0.25, 0.5, 0.75, 1.]->Array.map(at),
   }
 }
@@ -307,8 +349,8 @@ let draw = (line: line<'a>, paired) => {
 let pairKey = (one, other) => [one, other]->Array.toSorted(String.compare)->Array.join(" ")
 
 /** The lines between placed boxes, drawn in the order of `ways`. */
-let route = (ways: array<way>, boxes: array<placed<'a>>) => {
-  let lines = anchor(ways->Array.map(way => shape(way, boxes)))
+let route = (~forks=false, ways: array<way>, boxes: array<placed<'a>>) => {
+  let lines = anchor(ways->Array.map(way => shape(way, boxes, ~forks)))
   // Two boxes joined both ways carry two labels, and those are the ones that
   // must read outward.
   let pairs = Dict.make()
@@ -357,4 +399,6 @@ let frame = (boxes: array<placed<'a>>, drawn: array<drawn>, right) => {
 
 /** A drawn line's label, rounded, with its anchor; none when it has no text. */
 let placedText = (d: drawn) =>
-  d.way.label == "" ? None : Some(({x: Math.round(d.x), y: Math.round(d.y), text: d.way.label}, d.anchor))
+  d.way.label == ""
+    ? None
+    : Some(({x: Math.round(d.x), y: Math.round(d.y), text: d.way.label}, d.anchor))

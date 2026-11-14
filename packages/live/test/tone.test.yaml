@@ -1,0 +1,46 @@
+feature: A drawing that loses its colours while it is edited
+background:
+  given: a drawing redrawn live under blocks.css
+examples:
+  - scenario: a table that loses its tenant takes no tone, and no rule of blocks.css mixes a fill from a missing tone
+    before: |-
+      ::: model
+      Domaine Document
+
+      Domaine #configuration
+      Document #dossier
+
+      Domaine --o< Document
+      :::
+    next: |-
+      ::: model
+      Domaine Document
+
+      Document #a
+
+      Domaine --o< Document
+      :::
+
+  - scenario: a step and a party that lose their colour take no tone either
+    before: |-
+      ::: states
+      {draft, color red} {review, color blue}
+
+      draft -> review
+      :::
+
+      ::: sequence
+      {user, color blue} app
+      user -> app  ask
+      :::
+    next: |-
+      ::: states
+      draft review
+
+      draft -> review
+      :::
+
+      ::: sequence
+      user app
+      user -> app  ask
+      :::

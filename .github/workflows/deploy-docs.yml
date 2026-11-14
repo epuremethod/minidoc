@@ -5,8 +5,9 @@ on:
     branches:
       - main
     paths:
-      - packages/minidoc/**
+      - packages/core/**
       - packages/blocks/**
+      - packages/live/**
       - packages/docs/**
       - pnpm-lock.yaml
       - .github/workflows/deploy-docs.yml

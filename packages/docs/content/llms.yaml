@@ -62,7 +62,7 @@ var:
 
     The guide tells minidoc as one story, in order; the API reference has one
     entry for each function, config key, var kind, build entry, rule and type;
-    the blocks pages describe `@epure/blocks`, the `:::` blocks a site
+    the blocks pages describe `@minidoc/blocks`, the `:::` blocks a site
     adds with one transform. The complete documentation as one markdown file is in
     [llms-full.txt](https://minidoc.dev/llms-full.txt).
 
@@ -77,6 +77,48 @@ var:
     ## Blocks
 
     {{llmsBlocksLinks}}
+
+    ## Themes
+
+    A theme sets variables and nothing else, under
+    `[data-blocks-theme="<name>"]`. A site that writes its own theme starts
+    from a copy of `@minidoc/blocks/themes/soft.css`, which sets them all; the
+    [contract](https://minidoc.dev/blocks.html#contracts) says what each one
+    gives. A coloured text in a drawing mixes its hue toward `--blocks-ink`
+    by `--drawing-ink-amount`, 80% when a theme does not set it; a fill or
+    an edge mixes toward `--blocks-surface`.
+
+    Each colour of a theme is `light-dark(<light>, <dark>)`: the browser
+    picks one from the page's `color-scheme`. A page that declares
+    `color-scheme: light dark` gets dark blocks when the system is dark; a
+    page that declares no scheme, or `light`, keeps the light ones.
+
+    - Neutrals: `--blocks-ink`, `--blocks-muted`, `--blocks-line`,
+      `--blocks-stroke`, `--blocks-surface`, `--blocks-canvas`,
+      `--blocks-band`, `--blocks-band-ink`.
+    - Tones: `--tone-note`, `--tone-draft`, `--tone-proposed`,
+      `--tone-settled`, `--tone-open`, `--tone-technical`, `--tone-principle`,
+      `--tone-rejected`, `--tone-comment`, `--tone-flow`, `--tone-done`, `--tone-doing`,
+      `--tone-quote`, `--tone-mark`, `--mark-ink`, `--tone-refused`,
+      `--tone-ui-primary`, `--tone-ui-clicked`.
+    - Palette: `--hue-grey`, `--hue-red`, `--hue-orange`, `--hue-yellow`,
+      `--hue-green`, `--hue-teal`, `--hue-blue`, `--hue-purple`.
+    - Amounts: `--fill-amount`, `--edge-amount`, `--label-fill-amount`,
+      `--label-edge-amount`, `--label-ink-amount`, `--label-base`,
+      `--drawing-fill-amount`, `--drawing-edge-amount`,
+      `--drawing-ink-amount`.
+    - Drawings: `--drawing-kind-ink`, `--drawing-line`,
+      `--drawing-line-secondary`, `--drawing-edge`, `--drawing-radius`.
+    - Callouts and quotes: `--callout-border`, `--callout-rule`,
+      `--callout-radius`, `--callout-padding`, `--callout-font-size`,
+      `--callout-label-size`, `--callout-label-case`,
+      `--callout-label-tracking`, `--label-padding`, `--comment-shift`,
+      `--quote-rule`,
+      `--quote-font-size`, `--quote-style`.
+    - Flows and screens: `--flow-column-min`, `--flow-gap`, `--step-border`,
+      `--ui-dialog-width`, `--ui-form-width`, `--ui-form-label`,
+      `--ui-dialog-border`, `--ui-dialog-radius`, `--ui-control-radius`,
+      `--ui-dialog-shadow`, `--ui-flow-gap`.
 
     ## Optional
 

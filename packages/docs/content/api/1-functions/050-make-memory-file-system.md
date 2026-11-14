@@ -24,7 +24,7 @@ signature: |-
 #### Example
 
 ```js
-import { makeMemoryFileSystem, run } from "@epure/minidoc"
+import { makeMemoryFileSystem, run } from "@minidoc/core"
 
 const fs = makeMemoryFileSystem({
   "config.yaml": "var:\n  site: marmot\nbuild:\n  - output: out.html\n    input: '<p>{{`site`}}</p>'\n",

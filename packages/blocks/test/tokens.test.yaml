@@ -1,0 +1,118 @@
+feature: The tokens a pane colours
+background:
+  given: a block's tokens
+examples:
+  - scenario: a state machine's fence, grid, braced names with their attributes, moves and placed labels
+    before: |-
+      ::: states A ticket
+      {new, color blue} {in progress, active} done:end
+      . {waiting, color important} .
+
+      new -> {in progress}  taken
+      {in progress} <-> waiting  {asked, 0.5 right}
+      {legend}
+      :::
+    after: |-
+      <fence>:::</fence> <key>states</key> <caption>A ticket</caption>
+      <brace>{</brace><name>new</name><brace>,</brace> <attr>color</attr> <hue-blue>blue</hue-blue><brace>}</brace> <brace>{</brace><name>in progress</name><brace>,</brace> <active>active</active><brace>}</brace> <name>done</name><brace>:</brace><attr>end</attr>
+      <empty>.</empty> <brace>{</brace><name>waiting</name><brace>,</brace> <attr>color</attr> <hue-teal>important</hue-teal><brace>}</brace> <empty>.</empty>
+
+      <name>new</name> <link>-></link> <brace>{</brace><name>in progress</name><brace>}</brace>  <label>taken</label>
+      <brace>{</brace><name>in progress</name><brace>}</brace> <link><-></link> <name>waiting</name>  <brace>{</brace><label>asked</label><brace>,</brace> <place>0.5 right</place><brace>}</brace>
+      <brace>{</brace><attr>legend</attr><brace>}</brace>
+      <fence>:::</fence>
+
+  - scenario: a model's tables, tenants in the hue their names hash to, columns with their types and values, and relations
+    before: |-
+      ::: model Access
+      Domaine {Attribution, #accès, color teal}
+
+      Domaine #configuration
+        Nom  string  Gestion
+        Actif  bool
+
+      Domaine o--o< Attribution  {droits, 0.4}
+      Processus ..> Domaine  copie
+      :::
+    after: |-
+      <fence>:::</fence> <key>model</key> <caption>Access</caption>
+      <name>Domaine</name> <brace>{</brace><name>Attribution</name><brace>,</brace> <hue-purple>#accès</hue-purple><brace>,</brace> <attr>color</attr> <hue-teal>teal</hue-teal><brace>}</brace>
+
+      <name>Domaine</name> <hue-red>#configuration</hue-red>
+        <column>Nom</column>  <type>string</type>  <example>Gestion</example>
+        <column>Actif</column>  <type>bool</type>
+
+      <name>Domaine</name> <link>o--o<</link> <name>Attribution</name>  <brace>{</brace><label>droits</label><brace>,</brace> <place>0.4</place><brace>}</brace>
+      <name>Processus</name> <link>..></link> <name>Domaine</name>  <label>copie</label>
+      <fence>:::</fence>
+
+  - scenario: a column's name, type and value in braces, with the spaces and colours they hold
+    before: |-
+      ::: model
+      Order
+
+      Order
+        {id, color red}  {texte riche}  {12.50, color green}
+      :::
+    after: |-
+      <fence>:::</fence> <key>model</key>
+      <name>Order</name>
+
+      <name>Order</name>
+        <brace>{</brace><column>id</column><brace>,</brace> <attr>color</attr> <hue-red>red</hue-red><brace>}</brace>  <brace>{</brace><type>texte riche</type><brace>}</brace>  <brace>{</brace><example>12.50</example><brace>,</brace> <attr>color</attr> <hue-green>green</hue-green><brace>}</brace>
+      <fence>:::</fence>
+
+  - scenario: a group in a model table, plain, in braces, or bare
+    before: |-
+      ::: model
+      Dossier
+
+      Dossier
+        --- Élément
+        foo  int
+        --- {Accès, color teal}
+        rôle  enum
+        ---
+      :::
+    after: |-
+      <fence>:::</fence> <key>model</key>
+      <name>Dossier</name>
+
+      <name>Dossier</name>
+        <fence>---</fence> <name>Élément</name>
+        <column>foo</column>  <type>int</type>
+        <fence>---</fence> <brace>{</brace><name>Accès</name><brace>,</brace> <attr>color</attr> <hue-teal>teal</hue-teal><brace>}</brace>
+        <column>rôle</column>  <type>enum</type>
+        <fence>---</fence>
+      <fence>:::</fence>
+
+  - scenario: a sequence's parties, messages, refusals and states
+    before: |-
+      ::: sequence
+      {client, color blue} shop
+      client -> shop  order
+      shop -x client  refused
+      shop = waiting
+      :::
+    after: |-
+      <fence>:::</fence> <key>sequence</key>
+      <brace>{</brace><name>client</name><brace>,</brace> <attr>color</attr> <hue-blue>blue</hue-blue><brace>}</brace> <name>shop</name>
+      <name>client</name> <link>-></link> <name>shop</name>  <label>order</label>
+      <name>shop</name> <link>-x</link> <name>client</name>  <label>refused</label>
+      <name>shop</name> <link>=</link> <label>waiting</label>
+      <fence>:::</fence>
+
+  - scenario: a source being typed is still coloured, up to a brace not yet closed
+    before: |-
+      ::: states
+      draft {in prog
+    after: |-
+      <fence>:::</fence> <key>states</key>
+      <name>draft</name> <brace>{</brace><name>in prog</name>
+
+  - scenario: a block with no tokens of its own is shown plain
+    before: |-
+      ::: note
+      Keep each page short.
+      :::
+    after: none

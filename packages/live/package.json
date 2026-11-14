@@ -1,0 +1,95 @@
+{
+  "name": "@minidoc/live",
+  "version": "0.2.0",
+  "description": "minidoc's ::: blocks drawn in React, a pane for a block's source, and the editor of a page of a minidoc site in dev",
+  "author": "Gaspard Anna Bucher <g.a.bucher@midasum.com>",
+  "license": "MIT",
+  "homepage": "https://minidoc.dev",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/epuremethod/minidoc.git",
+    "directory": "packages/live"
+  },
+  "type": "module",
+  "main": "./dist/index.mjs",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.mjs"
+    },
+    "./edit": {
+      "types": "./dist/edit.d.ts",
+      "default": "./dist/edit.mjs"
+    },
+    "./live.css": "./live.css",
+    "./edit.css": "./edit.css",
+    "./src/*": "./src/*",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "src",
+    "dist",
+    "live.css",
+    "edit.css",
+    "rescript.json",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "clean": "rm -rf dist lib *.tgz",
+    "prebuild": "pnpm clean && rescript build",
+    "build": "node esbuild.js",
+    "check": "pnpm build && vitest run",
+    "prepack": "pnpm build && clean-package",
+    "postpack": "clean-package restore",
+    "test": "rescript build && vitest run",
+    "test:watch": "vitest",
+    "hit": "rescript build && node test/hit.mjs"
+  },
+  "dependencies": {
+    "@minidoc/blocks": "workspace:^",
+    "@rescript/runtime": "12.3.1"
+  },
+  "peerDependencies": {
+    "@epure/editor": "^0.1.0-beta.3",
+    "@rescript/react": "^0.15.0",
+    "@tilia/editor": "^0.1.0-beta.3",
+    "@tilia/react": "^6.0.2",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "tilia": "^6.0.1"
+  },
+  "devDependencies": {
+    "@epure/editor": "link:../../../editor/packages/editor",
+    "@epure/vitest": "^1.1.0",
+    "@rescript/react": "0.15.0",
+    "@tilia/editor": "link:../../../editor/packages/tilia",
+    "@tilia/react": "6.0.1",
+    "@types/node": "^24.0.3",
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "clean-package": "2.2.0",
+    "esbuild": "^0.28.1",
+    "jsdom": "^30.1.1",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "rescript": "12.3.1",
+    "tilia": "^6.0.1",
+    "typescript": "5.8.3",
+    "vitest": "^3.2.3"
+  },
+  "clean-package": {
+    "remove": [
+      "scripts",
+      "devDependencies",
+      "clean-package"
+    ]
+  }
+}

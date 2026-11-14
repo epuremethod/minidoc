@@ -1,7 +1,7 @@
 {
-  "name": "@epure/blocks",
-  "version": "0.1.0",
-  "description": "Common ::: blocks for minidoc sites: callouts, quotes, flows, plans, screens, sequences, state machines, database models and API calls, written as HTML, and drawn in React by @epure/blocks/live",
+  "name": "@minidoc/blocks",
+  "version": "0.2.0",
+  "description": "Common ::: blocks for minidoc sites: callouts, quotes, flows, plans, screens, sequences, state machines, database models and API calls, written as HTML, and drawn in React by @minidoc/live",
   "author": "Gaspard Anna Bucher <g.a.bucher@midasum.com>",
   "license": "MIT",
   "homepage": "https://minidoc.dev/blocks.html",
@@ -11,10 +11,24 @@
     "directory": "packages/blocks"
   },
   "type": "module",
+  "main": "./dist/index.mjs",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.mjs"
+    },
+    "./blocks.css": "./blocks.css",
+    "./themes/*": "./themes/*",
+    "./viewer.js": "./viewer.js",
+    "./src/*": "./src/*",
+    "./package.json": "./package.json"
+  },
   "files": [
     "src",
+    "dist",
     "blocks.css",
-    "live.css",
     "viewer.js",
     "themes",
     "rescript.json",
@@ -27,11 +41,14 @@
     "access": "public"
   },
   "scripts": {
-    "build": "rescript build",
-    "check": "pnpm test",
+    "clean": "rm -rf dist lib *.tgz",
+    "prebuild": "pnpm clean && rescript build",
+    "build": "node esbuild.js",
+    "check": "pnpm build && vitest run",
+    "prepack": "pnpm build && clean-package",
+    "postpack": "clean-package restore",
     "test": "rescript build && vitest run",
-    "test:watch": "vitest",
-    "hit": "rescript build && node test/live/hit.mjs"
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@rescript/runtime": "12.3.1",
@@ -39,49 +56,20 @@
     "markdown-it-anchor": "9.2.0",
     "yaml": "^2.8.0"
   },
-  "peerDependencies": {
-    "@rescript/react": "^0.15.0",
-    "react": "^19.2.0",
-    "react-dom": "^19.2.0"
-  },
-  "peerDependenciesMeta": {
-    "@rescript/react": {
-      "optional": true
-    },
-    "react": {
-      "optional": true
-    },
-    "react-dom": {
-      "optional": true
-    }
-  },
   "devDependencies": {
     "@epure/vitest": "^1.1.0",
     "@types/node": "^24.0.3",
+    "clean-package": "2.2.0",
+    "esbuild": "^0.28.1",
     "rescript": "12.3.1",
     "typescript": "5.8.3",
-    "vitest": "^3.2.3",
-    "@rescript/react": "0.15.0",
-    "@types/react": "^19.2.0",
-    "@types/react-dom": "^19.2.0",
-    "jsdom": "^30.1.1",
-    "react": "^19.2.0",
-    "react-dom": "^19.2.0",
-    "yaml": "^2.8.0"
+    "vitest": "^3.2.3"
   },
-  "main": "./src/Blocks.res.mjs",
-  "types": "./src/Blocks.res.d.mts",
-  "exports": {
-    ".": {
-      "types": "./src/Blocks.res.d.mts",
-      "default": "./src/Blocks.res.mjs"
-    },
-    "./live": "./src/live/Live.res.mjs",
-    "./blocks.css": "./blocks.css",
-    "./live.css": "./live.css",
-    "./themes/*": "./themes/*",
-    "./viewer.js": "./viewer.js",
-    "./src/*": "./src/*",
-    "./package.json": "./package.json"
+  "clean-package": {
+    "remove": [
+      "scripts",
+      "devDependencies",
+      "clean-package"
+    ]
   }
 }

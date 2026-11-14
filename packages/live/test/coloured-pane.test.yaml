@@ -1,0 +1,34 @@
+feature: A block's pane, coloured
+background:
+  given: a block's pane with its colours
+examples:
+  - scenario: the colours lie under the text box and follow each key
+    before: |-
+      ::: states
+      draft review
+
+      draft -> review  submit
+      :::
+    typed: |-
+      ::: states
+      draft {review, color red}
+
+      draft -> review  submit
+      :::
+    after: |-
+      <fence>:::</fence> <key>states</key>
+      <name>draft</name> <brace>{</brace><name>review</name><brace>,</brace> <attr>color</attr> <hue-red>red</hue-red><brace>}</brace>
+
+      <name>draft</name> <link>-></link> <name>review</name>  <label>submit</label>
+      <fence>:::</fence>
+
+  - scenario: a block with no tokens of its own keeps a plain text box
+    before: |-
+      ::: note
+      Keep each page short.
+      :::
+    typed: |-
+      ::: note
+      Keep each page **short**.
+      :::
+    after: none

@@ -92,6 +92,17 @@ examples:
       callout rejected "Rejected"
         | E
 
+  - scenario: a comment carries a remark or a proposed change, with its author and its date
+    before: |-
+      ::: comment "Claude" 2026-11-12
+      Some text here
+      and here.
+      :::
+    after: |-
+      callout comment "Comment" author "Claude" date "2026-11-12"
+        | Some text here
+        | and here.
+
   - scenario: a callout holds another block when its colons are more
     before: |-
       :::: settled
@@ -131,3 +142,53 @@ examples:
       callout rejected "Rejected" author "Ada Lovelace" date "1843" anchor "cards" annexe
         | We keep the punched cards.
       annexe
+
+  - scenario: a page in a lang shows the label written with that lang's prefix
+    options:
+      lang: fr
+      callouts:
+        fr.settled: Décidé
+    before: |-
+      ::: settled
+      Le contrôle passe avant l'envoi.
+      :::
+    after: |-
+      callout settled "Décidé"
+        | Le contrôle passe avant l'envoi.
+
+  - scenario: a page in a lang with no translation of a kind keeps its label
+    options:
+      lang: fr
+      callouts:
+        fr.settled: Décidé
+    before: |-
+      ::: note
+      Le contrôle passe avant l'envoi.
+      :::
+    after: |-
+      callout note "Note"
+        | Le contrôle passe avant l'envoi.
+
+  - scenario: a page in another lang keeps the label
+    options:
+      lang: en
+      callouts:
+        fr.settled: Décidé
+    before: |-
+      ::: settled
+      Review comes before sending.
+      :::
+    after: |-
+      callout settled "Settled"
+        | Review comes before sending.
+
+  - scenario: a translation of no callout is refused
+    options:
+      callouts:
+        fr.risk: Risque accepté
+    before: |-
+      ::: note
+      Le contrôle passe avant l'envoi.
+      :::
+    error: "blocks: fr.risk translates no callout"
+

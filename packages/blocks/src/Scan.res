@@ -5,8 +5,8 @@ type item =
   | Run(string)
   | Block({name: string, info: string, body: string, line: int})
 
-/** The names that open a block: after colons, or as a code fence's info word. */
-type names = {containers: array<string>, fences: array<string>}
+/** The names that open a block after colons. A code fence is always code. */
+type names = {containers: array<string>}
 
 let fail = Html.fail
 
@@ -97,15 +97,7 @@ let scan = (text, offset, names) => {
       switch RegExp.exec(codeLine, line) {
       | Some(m) =>
         let end = fenceEnd(lines, index, capture(m, 0))
-        let (word, info) = split(capture(m, 1))
-        if names.fences->Array.includes(word) {
-          flush()
-          items->Array.push(
-            Block({name: word, info, body: slice(index + 1, end), line: offset + index}),
-          )
-        } else {
-          lines->Array.slice(~start=index, ~end=end + 1)->Array.forEach(l => run->Array.push(l))
-        }
+        lines->Array.slice(~start=index, ~end=end + 1)->Array.forEach(l => run->Array.push(l))
         go(end + 1)
       | None =>
         switch RegExp.exec(colonLine, line) {

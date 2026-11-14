@@ -22,6 +22,29 @@ examples:
       <p>We keep the punched cards.</p>
       </div><p class="callout__by">— <cite>Ada Lovelace</cite>, <span class="callout__date">1843</span></p></aside>
 
+  - scenario: a comment has no label, and its author and date head it on one line
+    before: |-
+      ::: comment "GB" 12.11
+      Revoir avec le service.
+
+      Une proposition de phrase.
+      :::
+    after: |-
+      <aside class="callout callout--comment" aria-label="Comment"><p class="callout__by"><cite>GB</cite> · <span class="callout__date">12.11</span></p><div class="callout__body">
+      <p>Revoir avec le service.</p>
+      <p>Une proposition de phrase.</p>
+      </div></aside>
+
+  - scenario: a comment with no author and no date keeps its empty head, where its icon shows
+    before: |-
+      ::: comment
+      Revoir.
+      :::
+    after: |-
+      <aside class="callout callout--comment" aria-label="Comment"><p class="callout__by"></p><div class="callout__body">
+      <p>Revoir.</p>
+      </div></aside>
+
   - scenario: a quote is a figure with its author and date under it
     before: |-
       ::: quote "Ada Lovelace" 1843
@@ -350,28 +373,28 @@ examples:
 
   - scenario: a sequence is a figure holding an SVG, with its parties, their lives and the messages between them
     before: |-
-      ```sequence
+      ::: sequence
       browser app
       browser -> app  sign in
       app -> browser  token
-      ```
+      :::
     after: |-
       <figure class="sequence"><svg class="sequence__svg" viewBox="-10 -10 252 134" width="252" height="134" role="img" aria-label="A sequence"><defs><marker id="sequence-tip" viewBox="0 0 14 10" refX="13" refY="5" markerWidth="14" markerHeight="10" markerUnits="userSpaceOnUse" orient="auto"><path class="sequence__tip" d="M 0 0 L 14 5 L 0 10 L 3.8 5 z" /></marker><marker id="sequence-cross" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="10" markerHeight="10" markerUnits="userSpaceOnUse" orient="auto"><path class="sequence__cross" d="M 1.5 1.5 L 8.5 8.5 M 8.5 1.5 L 1.5 8.5" /></marker></defs><line class="sequence__life" x1="42" y1="26" x2="42" y2="114" /><line class="sequence__life" x1="190" y1="26" x2="190" y2="114" /><g class="sequence__head sequence__head--party"><rect x="0" y="0" width="84" height="26" rx="7" /><text x="42" y="17" text-anchor="middle">browser</text></g><g class="sequence__head sequence__head--party"><rect x="148" y="0" width="84" height="26" rx="7" /><text x="190" y="17" text-anchor="middle">app</text></g><path class="sequence__message" marker-end="url(#sequence-tip)" d="M 42 50 L 190 50" data-step="sign in" /><path class="sequence__message" marker-end="url(#sequence-tip)" d="M 190 82 L 42 82" data-step="token" /><text class="sequence__label" x="116" y="45" text-anchor="middle">sign in</text><text class="sequence__label" x="116" y="77" text-anchor="middle">token</text></svg></figure>
 
   - scenario: a state machine is a figure holding an SVG, with its boxes and the moves between them
     before: |-
-      ```states
+      ::: states
       draft review published
 
       draft -> review  submit
       review -> published  approve
-      ```
+      :::
     after: |-
-      <figure class="states"><svg class="states__svg" viewBox="-10 -25 320 65" width="320" height="65" role="img" aria-label="A state machine"><defs><marker id="states-tip" viewBox="0 0 14 10" refX="13" refY="5" markerWidth="14" markerHeight="10" markerUnits="userSpaceOnUse" orient="auto-start-reverse"><path class="states__tip" d="M 0 0 L 14 5 L 0 10 L 3.8 5 z" /></marker></defs><path class="states__move" marker-end="url(#states-tip)" d="M 55 15 C 89 15, 67 15, 101 15" data-move="submit" /><path class="states__move" marker-end="url(#states-tip)" d="M 170 15 C 204 15, 182 15, 216 15" data-move="approve" /><g class="states__box states__box--step"><rect x="0" y="0" width="55" height="30" rx="7" /><text x="27.5" y="19" text-anchor="middle">draft</text></g><g class="states__box states__box--step"><rect x="101" y="0" width="69" height="30" rx="7" /><text x="135.5" y="19" text-anchor="middle">review</text></g><g class="states__box states__box--step"><rect x="216" y="0" width="84" height="30" rx="7" /><text x="258" y="19" text-anchor="middle">published</text></g><text class="states__label" x="78" y="-3" text-anchor="middle">submit</text><text class="states__label" x="193" y="-3" text-anchor="middle">approve</text></svg></figure>
+      <figure class="states"><svg class="states__svg" viewBox="-10 -25 320 65" width="320" height="65" role="img" aria-label="A state machine"><defs><marker id="states-tip" viewBox="0 0 14 10" refX="13" refY="5" markerWidth="14" markerHeight="10" markerUnits="userSpaceOnUse" orient="auto-start-reverse"><path class="states__tip" d="M 0 0 L 14 5 L 0 10 L 3.8 5 z" /></marker></defs><path class="states__move" marker-end="url(#states-tip)" d="M 55 15 C 89 15, 67 15, 91.2 15 L 101 15" data-move="submit" /><path class="states__move" marker-end="url(#states-tip)" d="M 170 15 C 204 15, 182 15, 206.2 15 L 216 15" data-move="approve" /><g class="states__box states__box--step"><rect x="0" y="0" width="55" height="30" rx="7" /><text x="27.5" y="19" text-anchor="middle">draft</text></g><g class="states__box states__box--step"><rect x="101" y="0" width="69" height="30" rx="7" /><text x="135.5" y="19" text-anchor="middle">review</text></g><g class="states__box states__box--step"><rect x="216" y="0" width="84" height="30" rx="7" /><text x="258" y="19" text-anchor="middle">published</text></g><text class="states__label" x="78" y="-3" text-anchor="middle">submit</text><text class="states__label" x="193" y="-3" text-anchor="middle">approve</text></svg></figure>
 
   - scenario: a model is a figure holding an SVG, with its tables and the relations between them
     before: |-
-      ```model
+      ::: model
       Project Site
 
       Project
@@ -383,6 +406,111 @@ examples:
         project  ref   p-0412
 
       Project --o< Site  sites
+      :::
+    after: |-
+      <figure class="model"><svg class="model__svg" viewBox="-10 -10 426 100" width="426" height="100" role="img" aria-label="A database schema"><defs><marker id="model-any" viewBox="0 0 20 16" refX="20" refY="8" markerWidth="20" markerHeight="16" markerUnits="userSpaceOnUse" orient="auto-start-reverse"><circle class="model__ring" cx="5.5" cy="8" r="3.5" /><path class="model__end" d="M 10 8 L 20 1 M 10 8 L 20 15" /></marker></defs><path class="model__link" marker-end="url(#model-any)" d="M 153 40 L 153 40 C 196.2 40, 205.8 40, 236.4 40 L 249 40" data-ends="one any" /><g class="model__table"><rect x="0" y="0" width="153" height="80" /><text class="model__name" x="12" y="19">Project</text><line class="model__rule" x1="0" y1="30" x2="153" y2="30" /><text class="model__column" x="12" y="45">id</text><text class="model__type" x="50.12" y="45">uuid</text><text class="model__value" x="87.64" y="45">p-0412</text><text class="model__column" x="12" y="67">title</text><text class="model__type" x="50.12" y="67">text</text><text class="model__value" x="87.64" y="67">School A</text></g><g class="model__table"><rect x="249" y="0" width="157" height="80" /><text class="model__name" x="261" y="19">Site</text><line class="model__rule" x1="249" y1="30" x2="406" y2="30" /><text class="model__column" x="261" y="45">id</text><text class="model__type" x="313.76" y="45">uuid</text><text class="model__column" x="261" y="67">project</text><text class="model__type" x="313.76" y="67">ref</text><text class="model__value" x="351.28" y="67">p-0412</text></g><text class="model__label" x="201" y="22" text-anchor="middle">sites</text></svg></figure>
+
+  - scenario: a process in a model is a dotted path with a tip at its target, and no ends
+    before: |-
+      ::: model
+      Order Line
+
+      Order ..> Line  copy
+      :::
+    after: |-
+      <figure class="model"><svg class="model__svg" viewBox="-10 -25 229 65" width="229" height="65" role="img" aria-label="A database schema"><defs><marker id="model-process" viewBox="0 0 14 10" refX="13" refY="5" markerWidth="14" markerHeight="10" markerUnits="userSpaceOnUse" orient="auto"><path class="model__process" d="M 0 0 L 14 5 L 0 10 L 3.8 5 z" /></marker></defs><path class="model__link" marker-end="url(#model-process)" d="M 59 15 C 102.2 15, 111.8 15, 145.2 15 L 155 15" data-process="" /><g class="model__table"><rect x="0" y="0" width="59" height="30" /><text class="model__name" x="12" y="19">Order</text></g><g class="model__table"><rect x="155" y="0" width="54" height="30" /><text class="model__name" x="167" y="19">Line</text></g><text class="model__label" x="107" y="-3" text-anchor="middle">copy</text></svg></figure>
+
+  - scenario: an active step of a state machine takes the tone of a plan's current stage, and each move reaches its tip in a straight piece
+    before: |-
+      ::: states
+      foo {bar, active} baz
+      . . bam
+
+      foo -> bar
+      bar -> baz
+      bar -> bam
+      :::
+    after: |-
+      <figure class="states"><svg class="states__svg" viewBox="-10 -25 354 179" width="354" height="179" role="img" aria-label="A state machine"><defs><marker id="states-tip" viewBox="0 0 14 10" refX="13" refY="5" markerWidth="14" markerHeight="10" markerUnits="userSpaceOnUse" orient="auto-start-reverse"><path class="states__tip" d="M 0 0 L 14 5 L 0 10 L 3.8 5 z" /></marker></defs><path class="states__move" marker-end="url(#states-tip)" d="M 45 15 C 88.2 15, 97.8 15, 131.2 15 L 141 15" data-move="" /><path class="states__move" marker-end="url(#states-tip)" d="M 186 15 C 229.2 15, 238.8 15, 272.2 15 L 282 15" data-move="" /><path class="states__move" marker-end="url(#states-tip)" d="M 186 15 C 234 15, 234 129, 272.2 129 L 282 129" data-move="" /><g class="states__box states__box--step"><rect x="0" y="0" width="45" height="30" rx="7" /><text x="22.5" y="19" text-anchor="middle">foo</text></g><g class="states__box states__box--step states__box--active" style="--tone: var(--tone-doing)"><rect x="141" y="0" width="45" height="30" rx="7" /><text x="163.5" y="19" text-anchor="middle">bar</text></g><g class="states__box states__box--step"><rect x="282" y="0" width="52" height="30" rx="7" /><text x="308" y="19" text-anchor="middle">baz</text></g><g class="states__box states__box--step"><rect x="282" y="114" width="52" height="30" rx="7" /><text x="308" y="133" text-anchor="middle">bam</text></g></svg></figure>
+
+  - scenario: the transform takes the page's lang, and the callout shows its label in that lang
+    options:
+      callouts:
+        fr.settled: Décidé
+    page:
+      lang: fr
+    before: |-
+      ::: settled
+      Le contrôle passe avant l'envoi.
+      :::
+    after: |-
+      <aside class="callout callout--settled" aria-label="Décidé"><p class="callout__label">Décidé</p><div class="callout__body">
+      <p>Le contrôle passe avant l'envoi.</p>
+      </div></aside>
+
+  - scenario: a fence only holds code, even when its language names a drawing
+    before: |-
+      ```states
+      draft review
+
+      draft -> review  submit
       ```
     after: |-
-      <figure class="model"><svg class="model__svg" viewBox="-10 -10 418 100" width="418" height="100" role="img" aria-label="A database schema"><defs><marker id="model-any" viewBox="0 0 20 16" refX="20" refY="8" markerWidth="20" markerHeight="16" markerUnits="userSpaceOnUse" orient="auto-start-reverse"><circle class="model__ring" cx="5.5" cy="8" r="3.5" /><path class="model__end" d="M 10 8 L 20 1 M 10 8 L 20 15" /></marker></defs><path class="model__link" marker-end="url(#model-any)" d="M 149 40 L 149 40 C 192.2 40, 201.8 40, 232.4 40 L 245 40" data-ends="one any" /><g class="model__table"><rect x="0" y="0" width="149" height="80" /><text class="model__name" x="12" y="19">Project</text><line class="model__rule" x1="0" y1="30" x2="149" y2="30" /><text class="model__column" x="12" y="45">id</text><text class="model__type" x="50.12" y="45">uuid</text><text class="model__value" x="87.64" y="45">p-0412</text><text class="model__column" x="12" y="67">title</text><text class="model__type" x="50.12" y="67">text</text><text class="model__value" x="87.64" y="67">School A</text></g><g class="model__table"><rect x="245" y="0" width="153" height="80" /><text class="model__name" x="257" y="19">Site</text><line class="model__rule" x1="245" y1="30" x2="398" y2="30" /><text class="model__column" x="257" y="45">id</text><text class="model__type" x="309.76" y="45">uuid</text><text class="model__column" x="257" y="67">project</text><text class="model__type" x="309.76" y="67">ref</text><text class="model__value" x="347.28" y="67">p-0412</text></g><text class="model__label" x="197" y="22" text-anchor="middle">sites</text></svg></figure>
+      <pre><code class="language-states">draft review
+
+      draft -&gt; review  submit
+      </code></pre>
+
+  - scenario: a step, a party and a table with a colour take the hue of the palette as their tone
+    before: |-
+      ::: states
+      {draft, color red} review
+
+      draft -> review
+      :::
+
+      ::: sequence
+      {user, color blue} app
+      user -> app  ask
+      :::
+
+      ::: model
+      Order
+
+      Order #eu
+      :::
+    after: |-
+      <figure class="states"><svg class="states__svg" viewBox="-10 -25 190 65" width="190" height="65" role="img" aria-label="A state machine"><defs><marker id="states-tip" viewBox="0 0 14 10" refX="13" refY="5" markerWidth="14" markerHeight="10" markerUnits="userSpaceOnUse" orient="auto-start-reverse"><path class="states__tip" d="M 0 0 L 14 5 L 0 10 L 3.8 5 z" /></marker></defs><path class="states__move" marker-end="url(#states-tip)" d="M 55 15 C 89 15, 67 15, 91.2 15 L 101 15" data-move="" /><g class="states__box states__box--step" style="--tone: var(--hue-red)"><rect x="0" y="0" width="55" height="30" rx="7" /><text x="27.5" y="19" text-anchor="middle">draft</text></g><g class="states__box states__box--step"><rect x="101" y="0" width="69" height="30" rx="7" /><text x="135.5" y="19" text-anchor="middle">review</text></g></svg></figure>
+      <figure class="sequence"><svg class="sequence__svg" viewBox="-10 -10 252 102" width="252" height="102" role="img" aria-label="A sequence"><defs><marker id="sequence-tip" viewBox="0 0 14 10" refX="13" refY="5" markerWidth="14" markerHeight="10" markerUnits="userSpaceOnUse" orient="auto"><path class="sequence__tip" d="M 0 0 L 14 5 L 0 10 L 3.8 5 z" /></marker><marker id="sequence-cross" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="10" markerHeight="10" markerUnits="userSpaceOnUse" orient="auto"><path class="sequence__cross" d="M 1.5 1.5 L 8.5 8.5 M 8.5 1.5 L 1.5 8.5" /></marker></defs><line class="sequence__life" x1="42" y1="26" x2="42" y2="82" /><line class="sequence__life" x1="190" y1="26" x2="190" y2="82" /><g class="sequence__head sequence__head--party" style="--tone: var(--hue-blue)"><rect x="0" y="0" width="84" height="26" rx="7" /><text x="42" y="17" text-anchor="middle">user</text></g><g class="sequence__head sequence__head--party"><rect x="148" y="0" width="84" height="26" rx="7" /><text x="190" y="17" text-anchor="middle">app</text></g><path class="sequence__message" marker-end="url(#sequence-tip)" d="M 42 50 L 190 50" data-step="ask" /><text class="sequence__label" x="116" y="45" text-anchor="middle">ask</text></svg></figure>
+      <figure class="model"><svg class="model__svg" viewBox="-10 -10 104 50" width="104" height="50" role="img" aria-label="A database schema"><g class="model__table" style="--tone: var(--hue-purple)"><rect x="0" y="0" width="84" height="30" /><text class="model__name" x="12" y="19">Order</text><text class="model__tenant" x="68" y="19" text-anchor="end">eu</text></g></svg></figure>
+
+  - scenario: a changelog is a section of releases, the last one open and the earlier ones in a closed details, each change led by its kind and a breaking one ended by its mark
+    before: |-
+      ::: changelog
+      - 2026-11-14 **v2**
+        - Remove the draft. **Breaking**
+        - The scope is smaller.
+      - 2026-11-02 **v1**
+        - Add the first draft.
+      :::
+    after: |-
+      <section class="changelog"><article class="changelog__release"><p class="changelog__head"><span class="changelog__version">v2</span> <time class="changelog__date" datetime="2026-11-14">14 November 2026</time></p><ul class="changelog__changes"><li class="change change--remove change--breaking"><span class="change__kind">Remove</span> the draft. <span class="change__breaking">Breaking</span></li><li class="change change--change">The scope is smaller.</li></ul></article><details class="changelog__all"><summary>Earlier releases (1)</summary><article class="changelog__release"><p class="changelog__head"><span class="changelog__version">v1</span> <time class="changelog__date" datetime="2026-11-02">2 November 2026</time></p><ul class="changelog__changes"><li class="change change--add"><span class="change__kind">Add</span> the first draft.</li></ul></article></details></section>
+
+  - scenario: the changes not released yet come first, with no date, and a release is a line with its version and its date
+    before: |-
+      ::: changelog
+      - Unreleased
+        - Add a logo.
+      - 2026-11-14 **v2**
+        - Add the first draft.
+      :::
+
+      ::: release
+      - Unreleased
+        - Add a logo.
+      - 2026-11-14 **v2**
+        - Add the first draft.
+      :::
+    after: |-
+      <section class="changelog"><article class="changelog__release changelog__unreleased"><p class="changelog__head"><span class="changelog__version">Unreleased</span></p><ul class="changelog__changes"><li class="change change--add"><span class="change__kind">Add</span> a logo.</li></ul></article><article class="changelog__release"><p class="changelog__head"><span class="changelog__version">v2</span> <time class="changelog__date" datetime="2026-11-14">14 November 2026</time></p><ul class="changelog__changes"><li class="change change--add"><span class="change__kind">Add</span> the first draft.</li></ul></article></section>
+      <p class="release"><span class="release__version">v2</span>, <time class="release__date" datetime="2026-11-14">14 November 2026</time></p>

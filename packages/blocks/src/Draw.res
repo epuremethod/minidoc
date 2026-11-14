@@ -1,10 +1,10 @@
 // A drawing of a block, made by the blocks' JSX: elements, text, the HTML
 // markdown-it gives for prose, and fields. `write` writes it as HTML;
-// `@epure/blocks/live` writes the same tree as React elements.
+// `@minidoc/live` writes the same tree as React elements.
 //
-// Each file that draws names this module with `@@jsxConfig`: the
-// package's own JSX is React's, for live's files, and a project that builds
-// this package as a dependency, as maia does, gives it its own.
+// Each file that draws names this module with `@@jsxConfig`, so a project
+// that builds this package as a dependency, as maia does, may give it its
+// own JSX, such as React's.
 
 /** What the person does to a block. A field is named by its key. */
 type act =
@@ -80,6 +80,7 @@ module Elements = {
     style?: string,
     @as("type") type_?: string,
     name?: string,
+    @as("datetime") dateTime?: string,
     checked?: bool,
     viewBox?: string,
     refX?: string,
@@ -111,6 +112,7 @@ module Elements = {
     @as("data-move") dataMove?: string,
     @as("data-ends") dataEnds?: string,
     @as("data-parent") dataParent?: string,
+    @as("data-process") dataProcess?: string,
     children?: element,
   }
 

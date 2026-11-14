@@ -12,9 +12,11 @@ var:
   guideCurrent: ""
   apiCurrent: ""
   blocksCurrent: ""
+  liveCurrent: ""
   guideNav: ""
   apiNav: ""
   blocksNav: ""
+  liveNav: ""
   pageShell: |
     <!doctype html>
     <html lang="en" data-blocks-theme="graphic">
@@ -38,6 +40,7 @@ var:
         <li><a href="./index.html"{{guideCurrent}}>Guide</a>{{guideNav}}</li>
         <li><a href="./api.html"{{apiCurrent}}>API</a>{{apiNav}}</li>
         <li><a href="./blocks.html"{{blocksCurrent}}>Blocks</a>{{blocksNav}}</li>
+        <li><a href="./live.html"{{liveCurrent}}>Live</a>{{liveNav}}</li>
       </ol>
       <footer class="contents__colophon">
         <a href="https://github.com/epuremethod/minidoc">github.com/epuremethod/minidoc</a>
@@ -77,6 +80,7 @@ var:
   guideEdit: { value: "content/guide/{{file.name}}", transform: editFrom }
   apiEdit: { value: "content/api/{{file.dir}}/{{file.name}}", transform: editFrom }
   blocksEdit: { value: "content/blocks/{{file.name}}", transform: editFrom }
+  liveEdit: { value: "content/live/{{file.name}}", transform: editFrom }
 
   # The guide: one story, one file per chapter, read in order.
   guideToc:
@@ -161,6 +165,21 @@ var:
   sectionPlates:
     value: "{{fixture}}"
     transform: plates
+  # Live: a proposal for the next minidoc, one file per section.
+  liveToc:
+    dir: live
+    transform: none
+    each: '<li><a href="#{{slug}}">{{nav}}</a></li>'
+    join: "\n      "
+  liveSections:
+    dir: live
+    each: |-
+      <section class="chapter" id="{{slug}}">
+      <h2 class="chapter__title">{{title}}</h2>
+      <div class="prose">
+      {{liveEdit}}{{body}}{{editTo}}
+      </div>
+      </section>
   themeSwitch: |-
     <div class="theme-switch" role="group" aria-label="Theme of the drawn pages">
       <span class="theme-switch__label">Theme</span>
@@ -256,6 +275,25 @@ build:
         {{themeSwitch}}
         </header>
         {{blocksSections}}
+  - output: "{{output}}/live.html"
+    input: "{{pageShell}}"
+    var:
+      title: Live — minidoc
+      description: "A proposal: minidoc as a thin wrapper around the editor, with one render and a local sync of the files."
+      running: Live
+      liveCurrent: "{{current}}"
+      liveNav: |-
+        <ol class="contents__sections">
+              {{liveToc}}
+              </ol>
+      pageBody: |-
+        <header class="page-head page-head--static">
+        <h1 class="page-title">Live</h1>
+        </header>
+        <p class="page-lead">A proposal for the next minidoc. The editor renders every page, static
+        or live, so the two look the same. minidoc maps each file to a section of the editor, and
+        keeps the two in sync through a small local socket, as co-authors of one document.</p>
+        {{liveSections}}
   - output: "{{output}}/site.css"
     input:
       copy: ../assets/site.css

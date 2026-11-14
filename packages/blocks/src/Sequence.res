@@ -40,20 +40,35 @@ let lineKeys = [
   ("state", "the state of a party"),
 ]
 
-type party = {name: string, kind: string}
+type party = {name: string, kind: string, color: option<string>}
 type step =
-  | Said({from: string, to: string, refused: bool, label: string})
-  | Is({on: string, label: string})
+  | Said({from: string, to: string, refused: bool, label: string, color: option<string>})
+  | Is({on: string, label: string, color: option<string>})
 
 let partyCell = RegExp.fromString("^([\\p{L}\\p{N}_.\\-]+)(?::([\\p{L}]+))?$", ~flags="u")
-let moveLine = RegExp.fromString("^ *(\\S+) +(->|-x) +(\\S+)(?: +(.*))?$")
-let stateLine = RegExp.fromString("^ *(\\S+) += +(.+)$")
+// A party in braces holds spaces and its attributes: `{web browser, color blue}`.
+let name = "(\\{[^}]*\\}|\\S+)"
+let moveLine = RegExp.fromString(`^ *${name} +(->|-x) +${name}(?: +(.*))?$`)
+let stateLine = RegExp.fromString(`^ *${name} += +(.+)$`)
 let directiveLine = RegExp.fromString("^\\{(\\w+)\\}$")
 let space = RegExp.fromString("\\s+")
 
 let capture = (m, index) => m->RegExp.Result.matches->Array.get(index)->Option.flatMap(x => x)
 
 let readText = (text, kinds: dict<string>) => {
+  let marks = Dict.make()
+  // A party as written, with what its attributes mark, kept with the marks
+  // of its other mentions.
+  let named = (word, at) => {
+    let {text, attributes}: Braced.t = Braced.read(word, ~block="sequence", ~at)
+    marks->Braced.merge(text, Braced.marks(text, attributes, ~block="sequence", ~at, ~kinds), ~block="sequence", ~at)
+    text
+  }
+  // A label as written: in braces, it takes a colour, as any word in braces does.
+  let said = (word, at) => {
+    let {text, attributes}: Braced.t = Braced.read(String.trim(word), ~block="sequence", ~at)
+    (text, Braced.marks(text, attributes, ~block="sequence", ~at).color)
+  }
   let parties = ref(None)
   let steps = []
   let legend = ref(false)
@@ -75,54 +90,54 @@ let readText = (text, kinds: dict<string>) => {
         | None =>
           parties :=
             Some(
-              line
-              ->String.trim
-              ->String.splitByRegExp(space)
-              ->Array.map(cell => {
-                let cell = cell->Option.getOr("")
-                switch RegExp.exec(partyCell, cell) {
-                | None => fail(`sequence: cannot read the party ${cell}, ${at}`)
-                | Some(m) =>
-                  let kind = capture(m, 1)->Option.getOr(defaultKind)
-                  if kind != defaultKind && kinds->Dict.get(kind)->Option.isNone {
-                    fail(`sequence: no kind called ${kind}, ${at}`)
+              Braced.words(line, ~block="sequence", ~at)->Array.map(cell =>
+                if String.startsWith(cell, "{") {
+                  {name: named(cell, at), kind: defaultKind, color: None}
+                } else {
+                  switch RegExp.exec(partyCell, cell) {
+                  | None => fail(`sequence: cannot read the party ${cell}, ${at}`)
+                  | Some(m) =>
+                    let kind = capture(m, 1)->Option.getOr(defaultKind)
+                    if kind != defaultKind && kinds->Dict.get(kind)->Option.isNone {
+                      fail(`sequence: no kind called ${kind}, ${at}`)
+                    }
+                    {name: capture(m, 0)->Option.getOr(""), kind, color: None}
                   }
-                  {name: capture(m, 0)->Option.getOr(""), kind}
                 }
-              }),
+              ),
             )
         | Some(_) =>
           switch RegExp.exec(stateLine, line) {
           | Some(m) =>
-            steps->Array.push(
-              Is({on: capture(m, 0)->Option.getOr(""), label: String.trim(capture(m, 1)->Option.getOr(""))}),
-            )
+            let (label, color) = said(capture(m, 1)->Option.getOr(""), at)
+            steps->Array.push(Is({on: named(capture(m, 0)->Option.getOr(""), at), label, color}))
           | None =>
             switch RegExp.exec(moveLine, line) {
             | None => fail(`sequence: cannot read the step at ${at}`)
             | Some(m) =>
-              let from = capture(m, 0)->Option.getOr("")
-              let to = capture(m, 2)->Option.getOr("")
+              let from = named(capture(m, 0)->Option.getOr(""), at)
+              let to = named(capture(m, 2)->Option.getOr(""), at)
               if from == to {
                 fail(`sequence: a message runs between two parties, ${at}`)
               }
-              steps->Array.push(
-                Said({
-                  from,
-                  to,
-                  refused: capture(m, 1) == Some("-x"),
-                  label: String.trim(capture(m, 3)->Option.getOr("")),
-                }),
-              )
+              let (label, color) = said(capture(m, 3)->Option.getOr(""), at)
+              steps->Array.push(Said({from, to, refused: capture(m, 1) == Some("-x"), label, color}))
             }
           }
         }
       }
     }
   })
+  // A kind or a colour given in braces on any mention marks the party.
   let parties = switch parties.contents {
   | None => fail("sequence: no parties are named")
-  | Some(parties) => parties
+  | Some(parties) =>
+    parties->Array.map(p =>
+      switch marks->Dict.get(p.name) {
+      | Some(m) => {...p, kind: m.kind->Option.getOr(p.kind), color: m.color}
+      | None => p
+      }
+    )
   }
   if Array.length(parties) < 2 {
     fail("sequence: a sequence runs between two parties at least")
@@ -196,6 +211,7 @@ let read = (text, caption, kinds: dict<string>): drawing<SequenceOp.t> => {
   let bottom = headHeight +. top +. Int.toFloat(Array.length(steps)) *. stepHeight
 
   let heads = lanes->Array.map(l => Head({
+    color: l.party.color,
     kind: l.party.kind,
     x: l.x,
     y: 0.,
@@ -210,14 +226,16 @@ let read = (text, caption, kinds: dict<string>): drawing<SequenceOp.t> => {
   steps->Array.forEachWithIndex((step, index) => {
     let y = headHeight +. top +. Int.toFloat(index) *. stepHeight
     switch step {
-    | Is({on, label}) =>
+    | Is({on, label, color}) =>
       let l = lane(on)
       let w = Math.ceil(width(label, 11.) +. pad *. 2.)
       let x = l.centre -. w /. 2.
       reaches->Array.push(x)
       reaches->Array.push(x +. w)
-      states->Array.push(State({x, y: y -. stateHeight /. 2., width: w, height: stateHeight, text: label}))
-    | Said({from, to, refused, label}) =>
+      states->Array.push(
+        State({x, y: y -. stateHeight /. 2., width: w, height: stateHeight, text: label, color}),
+      )
+    | Said({from, to, refused, label, color}) =>
       let from = lane(from).centre
       let to = lane(to).centre
       messages->Array.push(
@@ -227,6 +245,7 @@ let read = (text, caption, kinds: dict<string>): drawing<SequenceOp.t> => {
           y,
           refused,
           label: label == "" ? None : Some({x: Math.round((from +. to) /. 2.), y: y -. labelUp, text: label}),
+          color,
         }),
       )
     }
@@ -281,20 +300,26 @@ let tone = kind =>
   kind == defaultKind ? None : Some(`--tone: var(--tone-${kind}, var(--blocks-ink))`)
 let text = Draw.string
 
-let tips =
+// An arrowhead takes no colour from the line that uses it, so a coloured
+// message gets an arrowhead of its own hue.
+let tip = hue =>
+  <marker
+    id={`sequence-tip${hue->Option.mapOr("", h => `-hue-${h}`)}`}
+    style=?{hue->Option.map(Braced.tone)}
+    viewBox="0 0 14 10"
+    refX="13"
+    refY="5"
+    markerWidth="14"
+    markerHeight="10"
+    markerUnits="userSpaceOnUse"
+    orient="auto"
+  >
+    <path className="sequence__tip" d="M 0 0 L 14 5 L 0 10 L 3.8 5 z" />
+  </marker>
+
+let tips = hues =>
   <defs>
-    <marker
-      id="sequence-tip"
-      viewBox="0 0 14 10"
-      refX="13"
-      refY="5"
-      markerWidth="14"
-      markerHeight="10"
-      markerUnits="userSpaceOnUse"
-      orient="auto"
-    >
-      <path className="sequence__tip" d="M 0 0 L 14 5 L 0 10 L 3.8 5 z" />
-    </marker>
+    {[None, ...hues->Array.map(h => Some(h))]->Array.map(tip)->Draw.array}
     <marker
       id="sequence-cross"
       viewBox="0 0 10 10"
@@ -330,9 +355,12 @@ let draw = (drawing: drawing<SequenceOp.t>) => {
   )
   let heads = pick(op =>
     switch op {
-    | Head({kind, x, y, width, height, name}) =>
+    | Head({kind, x, y, width, height, name, color}) =>
       Some(
-        <g className={`sequence__head sequence__head--${kind}`} style=?{tone(kind)}>
+        <g
+          className={`sequence__head sequence__head--${kind}`}
+          style=?{color->Option.map(Braced.tone)->Option.orElse(tone(kind))}
+        >
           <rect x={n(x)} y={n(y)} width={n(width)} height={n(height)} rx="7" />
           <text x={n(x +. width /. 2.)} y={n(y +. height /. 2. +. 4.)} textAnchor="middle">
             {text(name)}
@@ -344,11 +372,14 @@ let draw = (drawing: drawing<SequenceOp.t>) => {
   )
   let lines = pick(op =>
     switch op {
-    | Message({from, to, y, refused, label}) =>
+    | Message({from, to, y, refused, label, color}) =>
       Some(
         <path
           className={`sequence__message${refused ? " sequence__message--refused" : ""}`}
-          markerEnd={`url(#${refused ? "sequence-cross" : "sequence-tip"})`}
+          style=?{color->Option.map(Braced.tone)}
+          markerEnd={`url(#${refused
+              ? "sequence-cross"
+              : color->Option.mapOr("sequence-tip", h => `sequence-tip-hue-${h}`)})`}
           d={`M ${n(from)} ${n(y)} L ${n(to)} ${n(y)}`}
           dataStep={label->Option.mapOr("", l => l.text)}
         />,
@@ -358,9 +389,9 @@ let draw = (drawing: drawing<SequenceOp.t>) => {
   )
   let boxes = pick(op =>
     switch op {
-    | State({x, y, width, height, text: said}) =>
+    | State({x, y, width, height, text: said, color}) =>
       Some(
-        <g className="sequence__state">
+        <g className="sequence__state" style=?{color->Option.map(Braced.tone)}>
           <rect x={n(x)} y={n(y)} width={n(width)} height={n(height)} rx="6" />
           <text x={n(x +. width /. 2.)} y={n(y +. height /. 2. +. 4.)} textAnchor="middle">
             {text(said)}
@@ -372,10 +403,11 @@ let draw = (drawing: drawing<SequenceOp.t>) => {
   )
   let notes = pick(op =>
     switch op {
-    | Message({refused, label: Some({x, y, text: said})}) =>
+    | Message({refused, color, label: Some({x, y, text: said})}) =>
       Some(
         <text
           className={`sequence__label${refused ? " sequence__label--refused" : ""}`}
+          style=?{color->Option.map(Braced.tone)}
           x={n(x)}
           y={n(y)}
           textAnchor="middle"
@@ -414,7 +446,16 @@ let draw = (drawing: drawing<SequenceOp.t>) => {
       role="img"
       ariaLabel={drawing.caption->Option.getOr("A sequence")}
     >
-      tips
+      {tips(
+        drawing.ops
+        ->Array.filterMap(op =>
+          switch op {
+          | Message({refused: false, color}) => color
+          | _ => None
+          }
+        )
+        ->unique,
+      )}
       lives
       heads
       lines

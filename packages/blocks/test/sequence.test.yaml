@@ -4,11 +4,11 @@ background:
 examples:
   - scenario: the first line names the parties, and each line after it is a message down the page
     before: |-
-      ```sequence
+      ::: sequence
       browser app
       browser -> app  sign in
       app -> browser  token
-      ```
+      :::
     after: |-
       sequence
         frame -10 -10 252 134
@@ -28,13 +28,13 @@ examples:
           person: the person, in their browser
           app: the application
     before: |-
-      ```sequence Locked out
+      ::: sequence Locked out
       person:person app:app
       {legend}
       person -> app  password
       app -x person  wrong password
       person = locked
-      ```
+      :::
     after: |-
       sequence
         frame -10 -10 252 166
@@ -56,15 +56,78 @@ examples:
 
   - scenario: a message to a party that the first line does not name is refused
     before: |-
-      ```sequence
+      ::: sequence
       browser app
       browser -> bank  pay
-      ```
+      :::
     error: "sequence: no party called bank"
 
   - scenario: a sequence needs two parties
     before: |-
-      ```sequence
+      ::: sequence
       browser
-      ```
+      :::
     error: "sequence: a sequence runs between two parties at least"
+
+  - scenario: a party in braces holds spaces, and takes a colour of the palette as an attribute
+    before: |-
+      ::: sequence
+      {web browser, color blue} app
+      {web browser} -> app  sign in
+      :::
+    after: |-
+      sequence
+        frame -10 -10 276 102
+        head party 0.5 0 107 26 "web browser" color "blue"
+        head party 172 0 84 26 "app"
+        life 54 26 82
+        life 214 26 82
+        message 54 214 50
+          label 134 45 "sign in"
+
+  - scenario: each party takes a hue of the palette, and its messages keep the line's colour
+    before: |-
+      ::: sequence Paying for an order
+      {client, color blue} {shop, color teal} {bank, color purple}
+      client -> shop  order
+      shop -> bank  charge the card
+      bank -x shop  card refused
+      shop -> client  ask for another card
+      :::
+    after: |-
+      sequence
+        frame -10 -10 400 198
+        head party 0 0 84 26 "client" color "blue"
+        head party 148 0 84 26 "shop" color "teal"
+        head party 296 0 84 26 "bank" color "purple"
+        life 42 26 178
+        life 190 26 178
+        life 338 26 178
+        message 42 190 50
+          label 116 45 "order"
+        message 190 338 82
+          label 264 77 "charge the card"
+        refused 338 190 114
+          label 264 109 "card refused"
+        message 190 42 146
+          label 116 141 "ask for another card"
+        caption "Paying for an order"
+
+  - scenario: a message's label in braces takes a colour, and the message is drawn in it
+    before: |-
+      ::: sequence
+      client shop
+      client -> shop  {order, color blue}
+      shop -x client  {refused}
+      :::
+    after: |-
+      sequence
+        frame -10 -10 252 134
+        head party 0 0 84 26 "client"
+        head party 148 0 84 26 "shop"
+        life 42 26 114
+        life 190 26 114
+        message 42 190 50 color "blue"
+          label 116 45 "order"
+        refused 190 42 82
+          label 116 77 "refused"

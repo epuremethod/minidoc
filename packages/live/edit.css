@@ -1,0 +1,228 @@
+/* @minidoc/live/edit — a page as its editor. Like blocks.css, it reads the
+   theme's variables only, under [data-blocks-theme]. The editor draws the
+   page's own elements, so the text keeps the page's look. */
+
+.edit-section [contenteditable] { outline: 0; }
+.edit-section [contenteditable] > :first-child { margin-top: 0; }
+
+/* A block minidoc draws sits in a display line of the editor, between two
+   zero-width spaces that hold the caret. The line takes no room: its text
+   is 0 high, and the block takes back the section's size, kept in
+   --edit-size, a length computed where it is set. */
+@property --edit-size { syntax: "<length>"; inherits: true; initial-value: 16px; }
+.edit-section { --edit-size: 1em; }
+.edit-section .display { margin: 0; font-size: 0; }
+.edit-section .atom--display { display: block; font-size: var(--edit-size); }
+/* The editor keeps its text's spaces; minidoc's HTML is read as HTML. */
+.edit-block { white-space: normal; cursor: pointer; }
+/* Its margins cannot collapse with the text's around the display line.
+   The text above keeps its margin, and a title below keeps its own, as a
+   collapsed margin would mostly be. */
+.edit-block > :first-child { margin-top: 0; }
+.edit-section .display:has(+ :is(h1, h2, h3)) .edit-block > :last-child { margin-bottom: 0; }
+/* An image on a line of its own: as wide as it is, never wider than the text. */
+.edit-image { display: block; }
+.edit-image img { display: block; max-width: 100%; height: auto; }
+
+/* A block the editor selects whole, such as a drawing: one first click
+   holds it, and a second opens its source. It shows as one block with an
+   outline, as a clicked button does, and its text takes no highlight. */
+.edit-section [data-selected] {
+  outline: 2px solid var(--tone-ui-clicked);
+  outline-offset: 2px;
+  border-radius: var(--ui-control-radius);
+}
+.edit-section [data-selected]::selection, .edit-section [data-selected] ::selection { background: transparent; }
+
+/* A table edited where it stands. The site's theme gives its colors. */
+.edit-section .table { width: auto; margin: 1.6em auto; border-collapse: collapse; }
+.edit-section .table th, .edit-section .table td { min-width: 5em; padding: .45em .8em; border: 1px solid var(--blocks-line); }
+.edit-section .table th { border-bottom: 2px solid var(--blocks-ink); color: var(--blocks-ink); font-weight: 650; }
+
+/* A callout edited where it stands. blocks.css draws its frame and its
+   label; its blocks sit right in the frame, with no body around them, and
+   take the body's spacing. The byline is its first line, where the caret
+   writes the author and the date: muted, as the byline of a drawn one. */
+.edit-section .callout__head { display: flex; flex-wrap: wrap; align-items: baseline; gap: .6em; }
+.edit-section .callout__label { cursor: pointer; }
+.edit-section .callout__kinds { display: flex; flex-wrap: wrap; gap: .6em; font-size: var(--callout-label-size); }
+.edit-section .callout__kind { color: var(--blocks-muted); cursor: pointer; }
+.edit-section .callout__kind--on { color: var(--blocks-ink); text-decoration: underline; }
+/* A callout removed once done, such as a comment, shows a × at the right of
+   its head: a click removes the whole block. */
+.edit-section .callout__remove {
+  margin-left: auto;
+  padding: 0 .2em;
+  border: 0;
+  background: none;
+  color: var(--blocks-muted);
+  font: inherit;
+  font-size: 1.3em;
+  line-height: 1;
+  cursor: pointer;
+}
+.edit-section .callout__remove:hover { color: var(--tone); }
+/* A comment edited where it stands: no label, and its head on one line,
+   the ×, then its byline with the icon blocks.css draws. */
+.edit-section .callout--comment { display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: .4em; align-items: center; }
+.edit-section .callout--comment > * { grid-column: 1 / -1; }
+.edit-section .callout--comment > .callout__head { grid-row: 1; grid-column: 1; }
+.edit-section .callout--comment > .callout__byline { grid-row: 1; grid-column: 2; display: flex; align-items: center; margin: 0; white-space: pre; }
+.edit-section .callout--comment .callout__label { display: none; }
+.edit-section .callout__byline { margin: 0 0 .6em; color: var(--blocks-muted); font-size: .85em; }
+.edit-section .callout__author { color: var(--blocks-ink); font-weight: 650; }
+.edit-section .callout__author--empty::after { content: "author"; color: var(--blocks-muted); font-weight: 400; }
+.edit-section .callout__date--empty::after { content: "date"; color: var(--blocks-muted); }
+.edit-section .callout p { margin: .6em 0; }
+.edit-section .callout ul { margin: .4em 0; padding-left: 1.3em; }
+.edit-section .callout li + li { margin-top: .3em; }
+.edit-section .callout > :last-child { margin-bottom: 0; }
+
+/* A code block edited where it stands. The page's own styles draw its
+   box; its language is a field on the first line, muted, and the code
+   starts on the next. */
+.edit-section .code__language { color: var(--blocks-muted); font-size: .85em; }
+.edit-section .code__language--empty::after { content: "language"; color: var(--blocks-muted); }
+.edit-section .code__separator { user-select: none; }
+
+/* The panel, a card over the bottom-right corner of the page, where a
+   block's source opens. The page does not move under it, so the drawing
+   stays in view and follows each key. It shows only while a source is
+   open in it. Its shadow is the one of a floating dialog, and its ground a
+   little of the ink in the surface, so the white source stands out on it.
+   The person moves it by its bar and makes it bigger by the grip at its
+   top-left corner; the source fills it. */
+.edit-pane {
+  position: fixed;
+  right: 1rem;
+  bottom: 1rem;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  width: min(30rem, calc(100vw - 2rem));
+  max-height: 60vh;
+  padding: .5rem .8rem .8rem;
+  overflow: hidden;
+  border: 1px solid var(--blocks-line);
+  border-radius: var(--ui-control-radius);
+  background: color-mix(in srgb, var(--blocks-ink) 5%, var(--blocks-surface));
+  box-shadow: var(--ui-dialog-shadow);
+  color: var(--blocks-ink);
+  font-size: .9rem;
+}
+.edit-pane:not(:has(.pane)) { display: none; }
+.edit-pane > :not(.edit-pane__grip):not(:has(.pane)) { display: none; }
+.edit-pane > :has(.pane), .edit-pane__block, .edit-pane .pane { display: flex; flex: 1; flex-direction: column; min-height: 0; }
+.edit-pane__grip {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 14px;
+  height: 14px;
+  cursor: nwse-resize;
+  touch-action: none;
+}
+.edit-pane__grip::before {
+  content: "";
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  width: 6px;
+  height: 6px;
+  border-top: 1.5px solid var(--blocks-stroke);
+  border-left: 1.5px solid var(--blocks-stroke);
+}
+.edit-pane__bar {
+  display: flex;
+  align-items: center;
+  gap: .6em;
+  margin: 0 0 .5em;
+  font-size: .8em;
+  cursor: grab;
+  user-select: none;
+  touch-action: none;
+}
+.edit-pane__bar:active { cursor: grabbing; }
+.edit-pane__name { color: var(--blocks-ink); font-weight: 600; }
+.edit-pane__hint { flex: 1; color: var(--blocks-muted); }
+.edit-pane__close {
+  padding: 0 .3em;
+  border: 0;
+  background: none;
+  color: var(--blocks-muted);
+  font: inherit;
+  font-size: 1.4em;
+  line-height: 1;
+  cursor: pointer;
+}
+.edit-pane__close:hover { color: var(--blocks-ink); }
+/* A coloured source fills the card as a plain one does. */
+.edit-pane .pane__field { flex: 1; min-height: 0; }
+/* The source is a little lighter than the card's ground. */
+.edit-pane .pane__source {
+  flex: 1;
+  min-height: 4em;
+  overflow: auto;
+  background: color-mix(in srgb, var(--blocks-ink) 2.5%, var(--blocks-surface));
+  resize: none;
+}
+
+/* A plan edited where it stands, with its source behind a switch. */
+.edit-plan { position: relative; }
+.edit-plan__switch {
+  position: absolute;
+  top: 0;
+  right: 0;
+  z-index: 1;
+  padding: .1em .6em;
+  border: 1px solid var(--blocks-line);
+  border-radius: var(--callout-radius);
+  background: var(--blocks-surface);
+  color: var(--blocks-muted);
+  font-size: .75em;
+  cursor: pointer;
+}
+
+/* What the page says to the person: a write refused, or a reload. */
+.edit-note {
+  position: fixed;
+  left: 1rem;
+  bottom: 1rem;
+  z-index: 11;
+  margin: 0;
+  padding: .5em 1em;
+  border: 1px solid var(--blocks-line);
+  border-radius: var(--callout-radius);
+  background: var(--blocks-surface);
+  color: var(--blocks-ink);
+  font-size: .9em;
+}
+
+/* A save that failed: a banner at the top of the page, in the refused tone,
+   that stays until a save succeeds. Edits are never dropped quietly. */
+.edit-alerts { position: fixed; top: 0; left: 0; right: 0; z-index: 12; display: flex; flex-direction: column; }
+.edit-alert {
+  --tone: var(--tone-refused);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: .6em 1em;
+  padding: .6em 1rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--tone) var(--edge-amount), var(--blocks-surface));
+  background: color-mix(in srgb, var(--tone) var(--fill-amount), var(--blocks-surface));
+  color: var(--blocks-ink);
+  font-size: .9em;
+}
+.edit-alert__text { flex: 1 1 20em; margin: 0; font-weight: 600; }
+.edit-alert__acts { display: flex; flex-wrap: wrap; gap: .5em; }
+.edit-alert__act {
+  padding: .35em .8em;
+  border: 1px solid color-mix(in srgb, var(--tone) var(--edge-amount), var(--blocks-surface));
+  border-radius: var(--ui-control-radius);
+  background: var(--blocks-surface);
+  color: var(--blocks-ink);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}

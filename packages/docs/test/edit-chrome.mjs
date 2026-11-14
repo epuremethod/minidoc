@@ -1,8 +1,11 @@
 // The dev page as an editor, in a real Chrome: what jsdom cannot show.
 // Typing keeps the caret and writes the file; `::: note ` makes a callout
 // written as minidoc's, and ```` ```js ```` a code block written as a fence; a drawing opens its source in the panel and follows
-// each key; a save by another program reloads the
-// page; and the edited text looks as on the static page, word by word.
+// each key; the panel's card moves, grows, and keeps both in
+// localStorage; a press outside it closes it; a failed save shows a banner
+// that stays, keeps the edits, asks before a reload, and offers them back;
+// a save by another program reloads the page; and the edited text looks as
+// on the static page, word by word.
 //
 // It runs on a copy of the docs, beside them in `packages/`, so the real
 // files are never written. Chrome is driven through its DevTools protocol,
@@ -13,7 +16,7 @@ import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { dev } from "@epure/minidoc";
+import { dev } from "@minidoc/core";
 import { bundled } from "../src/bundle.mjs";
 
 const docs = fileURLToPath(new URL("../", import.meta.url));
@@ -101,6 +104,16 @@ async function browse() {
       };
       listeners.push(listener);
     });
+  // A dialog of the page, such as the one before leaving with unsaved
+  // edits, is noted and answered: leave, unless told to stay.
+  const dialogs = [];
+  let staying = false;
+  listeners.push((message) => {
+    if (message.method === "Page.javascriptDialogOpening" && message.sessionId === sessionId) {
+      dialogs.push(message.params.type);
+      on("Page.handleJavaScriptDialog", { accept: !staying }).catch(() => {});
+    }
+  });
   const evaluate = async (expression) => {
     const { result, exceptionDetails } = await on("Runtime.evaluate", { expression, awaitPromise: true, returnByValue: true });
     if (exceptionDetails) throw new Error(`${expression.slice(0, 80)}: ${exceptionDetails.exception?.description ?? exceptionDetails.text}`);
@@ -109,6 +122,11 @@ async function browse() {
   return {
     evaluate,
     loaded,
+    dialogs,
+    /** Answer the next dialogs by staying on the page, or by leaving it. */
+    stay: (yes) => { staying = yes },
+    /** Give the page another window size. */
+    resize: (width, height) => on("Emulation.setDeviceMetricsOverride", { width, height, deviceScaleFactor: 1, mobile: false }),
     async go(url) {
       const done = loaded();
       await on("Page.navigate", { url });
@@ -133,6 +151,17 @@ async function browse() {
       for (const type of ["mousePressed", "mouseReleased"]) {
         await on("Input.dispatchMouseEvent", { type, x: at.x, y: at.y, button: "left", clickCount: 1 });
       }
+      await pause(120);
+    },
+    /** Press the mouse at `from`, move it in steps to `to`, and release it there. */
+    async drag(from, to) {
+      await on("Input.dispatchMouseEvent", { type: "mousePressed", x: from.x, y: from.y, button: "left", buttons: 1, clickCount: 1 });
+      for (let step = 1; step <= 5; step++) {
+        const x = from.x + ((to.x - from.x) * step) / 5;
+        const y = from.y + ((to.y - from.y) * step) / 5;
+        await on("Input.dispatchMouseEvent", { type: "mouseMoved", x, y, button: "left", buttons: 1 });
+      }
+      await on("Input.dispatchMouseEvent", { type: "mouseReleased", x: to.x, y: to.y, button: "left", buttons: 0, clickCount: 1 });
       await pause(120);
     },
     type: (text) => on("Input.insertText", { text }),
@@ -194,7 +223,9 @@ try {
   const page = await browse();
   const site = `http://127.0.0.1:${port}`;
   const file = (path) => readFileSync(join(copy, "content", path), "utf8");
-  const mounted = () => page.until(`document.querySelectorAll("[data-minidoc-edit] .editor").length > 0`);
+  // Each section mounts on its own: wait until every one has its editor.
+  const mounted = () =>
+    page.until(`(() => { const all = document.querySelectorAll("[data-minidoc-edit]"); return all.length > 0 && [...all].every(e => e.querySelector(".editor")) })()`);
 
   try {
     // Typing in a chapter.
@@ -223,11 +254,20 @@ try {
       file("guide/02-one-page.md").split("\n").slice(8, 10).join(" / "),
     );
 
+    // A drawing opens its source on a second click: the first selects its
+    // block whole. A block the editor still holds opens on the first.
+    const sourceOpen = `!!document.querySelector(".edit-pane textarea.pane__source")`;
+    const openSource = async (selector) => {
+      await page.click(selector);
+      if (await page.until(sourceOpen, 600)) return true;
+      await page.click(selector);
+      return page.until(sourceOpen);
+    };
+
     // The sequence through the panel.
-    await page.click(`#live .editor .sequence`);
-    const opened = await page.until(`!!document.querySelector(".edit-pane .pane__source")`);
+    const opened = await openSource(`#live .editor .sequence`);
     await page.evaluate(`(() => {
-      const box = document.querySelector(".edit-pane .pane__source")
+      const box = document.querySelector(".edit-pane textarea.pane__source")
       box.focus()
       const at = box.value.indexOf("save a file")
       box.setSelectionRange(at, at + "save a file".length)
@@ -236,11 +276,63 @@ try {
     const follows = await page.until(`document.querySelector("#live .editor .sequence").textContent.includes("save a page")`, 2000);
     await pause(1000);
     await page.press("Escape", "Escape", 27);
-    const left = await page.until(`!document.querySelector(".edit-pane .pane__source") && !!document.activeElement.closest(".editor")`, 2000);
+    const left = await page.until(`!document.querySelector(".edit-pane textarea.pane__source") && !!document.activeElement.closest(".editor")`, 2000);
     report(
       "a click on the sequence opens its source in the panel, the drawing follows each key, and Escape gives the caret back",
       opened && follows && file("guide/11-live.md").includes("you -> dev  save a page") && left,
       `opened ${opened}, follows ${follows}, left ${left}`,
+    );
+
+    // The panel's card, moved by its bar and made bigger by its grip, opens
+    // where the person left it after a reload.
+    const card = `(() => { const r = document.querySelector(".edit-pane").getBoundingClientRect(); return { left: Math.round(r.left), top: Math.round(r.top), width: Math.round(r.width), height: Math.round(r.height) } })()`;
+    const centre = (selector) => `(() => { const r = document.querySelector(${JSON.stringify(selector)}).getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 } })()`;
+    const near = (a, b) => ["left", "top", "width", "height"].every((key) => Math.abs(a[key] - b[key]) <= 1);
+    await openSource(`#live .editor .sequence`);
+    const opening = await page.evaluate(card);
+    const bar = await page.evaluate(centre(".edit-pane__name"));
+    await page.drag(bar, { x: bar.x - 200, y: bar.y - 100 });
+    const moved = await page.evaluate(card);
+    const grip = await page.evaluate(centre(".edit-pane__grip"));
+    await page.drag(grip, { x: grip.x - 100, y: grip.y - 100 });
+    const grown = await page.evaluate(card);
+    const kept = await page.evaluate(`document.activeElement === document.querySelector(".edit-pane textarea.pane__source")`);
+    await page.press("Escape", "Escape", 27);
+    await page.go(`${site}/`);
+    await mounted();
+    await openSource(`#live .editor .sequence`);
+    const again = await page.evaluate(card);
+    await page.press("Escape", "Escape", 27);
+    report(
+      "the panel's card moves by its bar, grows by its top-left grip, keeps the caret in the source, and opens at the same place and size after a reload",
+      near(moved, { ...opening, left: opening.left - 200, top: opening.top - 100 }) &&
+        near(grown, { left: moved.left - 100, top: moved.top - 100, width: moved.width + 100, height: moved.height + 100 }) &&
+        kept &&
+        near(again, grown),
+      `opening ${JSON.stringify(opening)}, moved ${JSON.stringify(moved)}, grown ${JSON.stringify(grown)}, kept ${kept}, again ${JSON.stringify(again)}`,
+    );
+
+    // A press outside the card and the open block closes the panel; a
+    // press in the card keeps it. A press on the open block hides its source,
+    // as the editor's third click does, and the next one shows it again.
+    const open = `!!document.querySelector(".edit-pane textarea.pane__source")`;
+    await openSource(`#live .editor .sequence`);
+    await page.click(`.edit-pane textarea.pane__source`);
+    const inCard = await page.evaluate(open);
+    await page.click(`#live .editor .sequence`);
+    const hidden = await page.until(`!(${open})`, 2000);
+    await page.click(`#live .editor .sequence`);
+    const onBlock = hidden && (await page.until(open, 2000));
+    await page.click(`.contents__label`);
+    const byMenu = await page.until(`!(${open})`, 2000);
+    await openSource(`#live .editor .sequence`);
+    await page.click(`#one-page .editor > p:not(.display)`);
+    const byText = await page.until(`!(${open})`, 2000);
+    const caretThere = await page.evaluate(`!!getSelection().focusNode && !!document.querySelector("#one-page .editor").contains(getSelection().focusNode)`);
+    report(
+      "a press outside the panel's card and the open block closes the panel, a press on the block hides and shows its source, and a press in another section puts the caret there",
+      inCard && onBlock && byMenu && byText && caretThere,
+      `in the card ${inCard}, on the block ${onBlock}, by the menu ${byMenu}, by the text ${byText}, caret there ${caretThere}`,
     );
 
     // A callout typed in place.
@@ -273,6 +365,46 @@ try {
       `made ${made}, label ${JSON.stringify(label)}, file ${JSON.stringify(file("guide/02-one-page.md").split("\n").slice(8, 16).join(" / "))}`,
     );
 
+    // A comment typed in place, then removed by its ×.
+    await page.press("Enter", "Enter", 13, "\r");
+    await page.press("Enter", "Enter", 13, "\r");
+    await page.type("::: comment");
+    await page.type(" ");
+    const comment = await page.until(`!!document.querySelector("#one-page .editor .callout--comment .callout__remove")`, 2000);
+    await page.press("Tab", "Tab", 9);
+    await page.press("Tab", "Tab", 9);
+    await page.type("Check the date.");
+    await pause(1200);
+    const written = file("guide/02-one-page.md").includes("::: comment\nCheck the date.\n:::");
+    // On a wide screen it is as wide as the text and shifted to the right;
+    // on a narrow one it keeps the column. Its × and its byline share a row.
+    const place = `(() => {
+      const text = document.querySelector("#one-page .editor").getBoundingClientRect()
+      const comment = document.querySelector("#one-page .editor .callout--comment")
+      const box = comment.getBoundingClientRect()
+      const remove = comment.querySelector(".callout__remove").getBoundingClientRect()
+      const byline = comment.querySelector(".callout__byline").getBoundingClientRect()
+      return {
+        shift: Math.round(box.left - text.left),
+        same: Math.abs(box.width - text.width) <= 1,
+        row: Math.abs(remove.top + remove.height / 2 - (byline.top + byline.height / 2)) <= 4,
+      }
+    })()`;
+    const wide = await page.evaluate(place);
+    await page.resize(800, 1000);
+    await pause(200);
+    const narrow = await page.evaluate(place);
+    await page.resize(1300, 1000);
+    await pause(200);
+    if (comment) await page.click("#one-page .editor .callout--comment .callout__remove");
+    const gone = await page.until(`!document.querySelector("#one-page .editor .callout--comment")`, 2000);
+    await pause(1200);
+    report(
+      "`::: comment ` makes a comment with a × in its head, as wide as the text and shifted right on a wide screen, in the column on a narrow one, with the × and the byline on one row, and a click on the × removes the block from the page and the file",
+      comment && written && wide.shift === 48 && wide.same && wide.row && narrow.shift === 0 && narrow.same && gone && !file("guide/02-one-page.md").includes("::: comment") && file("guide/02-one-page.md").includes(callout),
+      `×  ${comment}, written ${written}, wide ${JSON.stringify(wide)}, narrow ${JSON.stringify(narrow)}, gone ${gone}, file ${JSON.stringify(file("guide/02-one-page.md").split("\n").slice(8, 20).join(" / "))}`,
+    );
+
     // A code block typed in place.
     const last = `#one-page .editor .callout--note > p:last-child`;
     await page.click(last);
@@ -298,6 +430,136 @@ try {
       "```js and Enter makes a code block after the callout, its lines keep their spaces, and the file holds its fence",
       coded && file("guide/02-one-page.md").includes(fence),
       `made ${coded}, file ${JSON.stringify(file("guide/02-one-page.md").split("\n").slice(8, 22).join(" / "))}`,
+    );
+
+    // A drawing typed in place: its fence opens its source in the panel.
+    await page.click(first);
+    await page.evaluate(`(() => {
+      const range = document.createRange()
+      range.selectNodeContents(document.querySelector(${JSON.stringify(first)}))
+      range.collapse(false)
+      getSelection().removeAllRanges()
+      getSelection().addRange(range)
+    })()`);
+    await page.press("Enter", "Enter", 13, "\r");
+    await page.type("::: states");
+    await page.type(" ");
+    // The source opens with the caret on the drawing's empty line.
+    const paned = await page.until(`(() => {
+      const box = document.querySelector(".edit-pane textarea.pane__source")
+      return box?.value === "::: states\\n\\n:::" && document.activeElement === box && box.selectionStart === 11 && box.selectionEnd === 11
+    })()`, 2000);
+    await page.type("draft review");
+    await page.press("Enter", "Enter", 13, "\r");
+    await page.press("Enter", "Enter", 13, "\r");
+    await page.type("draft -> review  submit");
+    const shown = await page.until(`(document.querySelector("#one-page .editor .states")?.textContent ?? "").includes("submit")`, 2000);
+    await pause(1200);
+    await page.press("Escape", "Escape", 27);
+    const states = "::: states\ndraft review\n\ndraft -> review  submit\n:::";
+    report(
+      "`::: states` and a space makes a drawing and opens its source in the panel, the drawing follows the grid, and the file holds it",
+      paned && shown && file("guide/02-one-page.md").includes(states),
+      `paned ${paned}, shown ${shown}, file ${JSON.stringify(file("guide/02-one-page.md").split("\n").slice(8, 16).join(" / "))}`,
+    );
+
+    // A drawing selected whole shows as one block with an outline, and its
+    // text takes no highlight.
+    await page.click("#one-page .editor .states svg");
+    const held = await page.until(`(() => {
+      const held = document.querySelector("#one-page .editor [data-selected]")
+      const text = held?.querySelector("svg text")
+      return !!text && getComputedStyle(held).outlineStyle !== "none"
+        && getComputedStyle(text, "::selection").backgroundColor === "rgba(0, 0, 0, 0)"
+    })()`, 2000);
+    report(
+      "a click on a drawing selects its block whole: the block shows an outline, and its text no highlight",
+      held,
+      `held ${held}, selected ${await page.evaluate(`document.querySelectorAll("#one-page .editor [data-selected]").length`)}`,
+    );
+
+    // A failed save. The page's PUT is refused while `window.refuse` is set.
+    const typeAtEnd = async (selector, text) => {
+      await page.click(selector);
+      await page.evaluate(`(() => {
+        const range = document.createRange()
+        range.selectNodeContents(document.querySelector(${JSON.stringify(selector)}))
+        range.collapse(false)
+        getSelection().removeAllRanges()
+        getSelection().addRange(range)
+      })()`);
+      await page.type(text);
+      await pause(1200);
+    };
+    const refusing = `(() => {
+      const real = window.fetch
+      window.refuse = true
+      window.fetch = (url, init) => init?.method === "PUT" && window.refuse ? Promise.resolve(new Response("disk full", { status: 500 })) : real(url, init)
+    })()`;
+    const banner = (text) => `[...document.querySelectorAll(".edit-alert[role=alert]")].some(b => b.textContent.includes(${JSON.stringify(text)}))`;
+    const noBanner = `!document.querySelector(".edit-alert")`;
+    const draft = (text) => `Object.keys(localStorage).some(k => k.startsWith("minidoc-draft:") && localStorage.getItem(k).includes(${JSON.stringify(text)}))`;
+    const act = async (label) => {
+      await page.evaluate(`[...document.querySelectorAll(".edit-alert__act")].find(b => b.textContent === ${JSON.stringify(label)}).scrollIntoView()`);
+      const at = await page.evaluate(`(() => { const r = [...document.querySelectorAll(".edit-alert__act")].find(b => b.textContent === ${JSON.stringify(label)}).getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 } })()`);
+      await page.drag(at, at);
+    };
+
+    await page.evaluate(refusing);
+    await typeAtEnd(first, " Kept.");
+    const alerted = await page.until(banner("is not saved (500): disk full"), 2000);
+    await pause(6500);
+    const remains = await page.evaluate(banner("is not saved (500)"));
+    const drafted = await page.evaluate(draft("Kept.")) && !file("guide/02-one-page.md").includes("Kept.");
+    await page.evaluate(`window.refuse = false`);
+    await act("Retry");
+    const retried = await page.until(`${noBanner} && !${draft("Kept.")}`, 3000);
+    report(
+      "a failed save shows a banner that stays, the edits stay in the browser, and Retry writes them",
+      alerted && remains && drafted && retried && file("guide/02-one-page.md").includes("Kept."),
+      `alerted ${alerted}, remains ${remains}, drafted ${drafted}, retried ${retried}`,
+    );
+
+    // A reload with edits that are not on disk asks first, and the page
+    // offers them back.
+    await page.evaluate(refusing);
+    await typeAtEnd(first, " Restored.");
+    const before = page.dialogs.length;
+    const back = page.loaded();
+    await page.evaluate(`setTimeout(() => location.reload(), 0)`);
+    await Promise.race([back, pause(5000)]);
+    await mounted();
+    const asked = page.dialogs.slice(before).includes("beforeunload");
+    const offered = await page.until(banner("has edits from before the page reloaded"), 3000);
+    await act("Restore my edits");
+    const restored = await page.until(`${noBanner} && !${draft("Restored.")}`, 3000);
+    report(
+      "a reload with unsaved edits asks first, and the page offers them back after it",
+      asked && offered && restored && file("guide/02-one-page.md").includes("Restored."),
+      `asked ${asked}, offered ${offered}, restored ${restored}`,
+    );
+
+    // A file changed on disk while the person's edits are not saved: the
+    // reload asks first, the person stays, and a conflict banner replaces
+    // the reload.
+    await page.evaluate(refusing);
+    await typeAtEnd(first, " Mine.");
+    page.stay(true);
+    const asks = page.dialogs.length;
+    writeFileSync(join(copy, "content", "guide/02-one-page.md"), `${file("guide/02-one-page.md")}\nA line from another program.\n`);
+    await page.until(`false`, 2500);
+    page.stay(false);
+    const stayed = page.dialogs.slice(asks).includes("beforeunload") && (await page.evaluate(`window.refuse === true`));
+    await page.evaluate(`window.refuse = false`);
+    await act("Retry");
+    const conflict = await page.until(banner("changed on disk while you edited it"), 3000);
+    await act("Keep my text");
+    const settled = await page.until(noBanner, 3000);
+    const mine = file("guide/02-one-page.md");
+    report(
+      "a file changed on disk under unsaved edits shows a conflict banner, and Keep my text writes them over it",
+      stayed && conflict && settled && mine.includes("Mine.") && !mine.includes("A line from another program."),
+      `stayed ${stayed}, conflict ${conflict}, settled ${settled}`,
     );
 
     // A save by another program.
@@ -342,8 +604,9 @@ try {
       `${same} texts alike, ${skipped} shown with their brace escapes${misses.length ? `\n  ${misses.slice(0, 8).join("\n  ")}` : ""}`,
     );
 
-    // A table in the file.
-    writeFileSync(join(copy, "content", "guide/02-one-page.md"), `${file("guide/02-one-page.md")}\n| Space | Compact |\n| --- | --- |\n| The circle | yes |\n`);
+    // A table and an image line in the file.
+    const dot = "![A grey dot](data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAAAAAA6fptVAAAACklEQVR4nGNoAAAAggCBd81ytgAAAABJRU5ErkJggg==)";
+    writeFileSync(join(copy, "content", "guide/02-one-page.md"), `${file("guide/02-one-page.md")}\n${dot}\n\n| Space | Compact |\n| --- | --- |\n| The circle | yes |\n`);
     await pause(1500);
     await page.go(`${site}/`);
     await mounted();
@@ -363,6 +626,15 @@ try {
       "a table in a file is drawn, and a word typed in a cell changes its row",
       drawn && file("guide/02-one-page.md").includes("| The circle | yes here |"),
       `drawn ${drawn}, row ${file("guide/02-one-page.md").trimEnd().split("\n").at(-1)}`,
+    );
+    const image = await page.evaluate(`(() => {
+      const img = document.querySelector("#one-page .editor .edit-image img")
+      return img ? img.alt + " " + img.naturalWidth + "x" + img.naturalHeight : "none"
+    })()`);
+    report(
+      "an image line is drawn as its image, and a word typed elsewhere keeps its line",
+      image === "A grey dot 1x1" && file("guide/02-one-page.md").includes(`\n${dot}\n`),
+      image,
     );
   } finally {
     await page.close();

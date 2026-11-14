@@ -8,9 +8,10 @@
   },
   "scripts": {
     "build": "pnpm -r build",
-    "check": "pnpm -r check",
+    "check": "pnpm -r check && pnpm --filter @minidoc/core test:package",
+    "dev": "pnpm --filter @minidoc/core croquis",
     "docs:dev": "pnpm --filter minidoc-docs dev",
-    "live:hit": "pnpm --filter @epure/blocks hit",
+    "live:hit": "pnpm --filter @minidoc/live hit",
     "pub": "bin/publish.sh",
     "test": "pnpm -r test",
     "docs:edit-check": "pnpm --filter minidoc-docs edit-check"

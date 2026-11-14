@@ -29,7 +29,7 @@ signature: |-
 #### Example
 
 ```js
-import { dev } from "@epure/minidoc"
+import { dev } from "@minidoc/core"
 
 const server = await dev({ glob: "content/config.yaml", build: "src/build.mjs" })
 console.log(`http://127.0.0.1:${server.port}`)

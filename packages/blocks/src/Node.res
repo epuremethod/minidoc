@@ -12,18 +12,41 @@ type frame = {left: float, top: float, width: float, height: float}
 module SequenceOp = {
   type t =
     | Frame(frame)
-    | Head({kind: string, x: float, y: float, width: float, height: float, name: string})
+    | Head({
+        kind: string,
+        x: float,
+        y: float,
+        width: float,
+        height: float,
+        name: string,
+        color: option<string>,
+      })
     | Life({x: float, top: float, bottom: float})
-    | Message({from: float, to: float, y: float, refused: bool, label: option<label>})
-    | State({x: float, y: float, width: float, height: float, text: string})
+    | Message({from: float, to: float, y: float, refused: bool, label: option<label>, color: option<string>})
+    | State({x: float, y: float, width: float, height: float, text: string, color: option<string>})
 }
 
 /** One operation of a `states` drawing. */
 module StatesOp = {
   type t =
     | Frame(frame)
-    | Box({kind: string, x: float, y: float, width: float, height: float, name: string})
-    | Move({kind: option<string>, both: bool, points: array<float>, label: option<(label, string)>})
+    | Box({
+        kind: string,
+        x: float,
+        y: float,
+        width: float,
+        height: float,
+        name: string,
+        active: bool,
+        color: option<string>,
+      })
+    | Move({
+        kind: option<string>,
+        color: option<string>,
+        both: bool,
+        points: array<float>,
+        label: option<(label, string)>,
+      })
 }
 
 /** One operation of a `model` drawing. */
@@ -39,8 +62,19 @@ module ModelOp = {
     | More
     | Any
 
-  /** A column of a table: its baseline, its name, its type, and a value it may hold. */
-  type column = {y: float, name: string, kind: option<string>, value: option<string>}
+  /** A column of a table: its baseline, its name, its type, and a value it may hold, each with the colour it may take. */
+  type column = {
+    y: float,
+    name: string,
+    nameColor: option<string>,
+    kind: option<string>,
+    kindColor: option<string>,
+    value: option<string>,
+    valueColor: option<string>,
+  }
+
+  /** A group of a table's columns: the top of its row, its name and colour, and where its line starts, if it draws one. */
+  type group = {y: float, name: option<string>, color: option<string>, from: option<float>}
 
   type t =
     | Frame(frame)
@@ -51,13 +85,23 @@ module ModelOp = {
         height: float,
         name: string,
         tenant: option<string>,
+        color: option<string>,
         kindX: float,
         valueX: float,
         columns: array<column>,
+        groups: array<group>,
       })
-    | Link({from: arity, to: arity, points: array<float>, label: option<(label, string)>})
+    | Link({
+        from: arity,
+        to: arity,
+        points: array<float>,
+        label: option<(label, string)>,
+        color: option<string>,
+      })
     /** A subclass line, drawn from the child to its parent. */
-    | Parent({points: array<float>, label: option<(label, string)>})
+    | Parent({points: array<float>, label: option<(label, string)>, color: option<string>})
+    /** A process, such as a copy, drawn from its source to its target. */
+    | Process({points: array<float>, label: option<(label, string)>, color: option<string>})
 }
 
 /** One entry of a legend: a kind and its text. A `move` entry is drawn as a line. */
@@ -100,6 +144,22 @@ type stage = {
   line: int,
 }
 
+/** What a change of a changelog does. */
+type changeKind =
+  | Add
+  | Change
+  | Fix
+  | Remove
+
+/**
+ * A change of a changelog: its kind, whether its line says it (`said`),
+ * whether it breaks, and its words after the kind, as markdown.
+ */
+type change = {kind: changeKind, said: bool, breaking: bool, text: string}
+
+/** An entry of a changelog: a release with its version and date, or the changes not released yet, with neither. */
+type entry = {version: option<string>, date: option<string>, changes: array<change>}
+
 type rec t =
   | Markdown(string)
   | Callout({
@@ -135,4 +195,6 @@ type rec t =
   | Sequence(drawing<SequenceOp.t>)
   | States(drawing<StatesOp.t>)
   | Model(drawing<ModelOp.t>)
+  /** A changelog, or with `last` the last release alone: its entries, and the file it read them from. */
+  | Changelog({last: bool, file: option<string>, entries: array<entry>})
   | Extra({name: string, info: string, body: string})

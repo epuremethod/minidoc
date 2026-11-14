@@ -1,0 +1,87 @@
+{
+  "name": "@minidoc/core",
+  "version": "0.2.0",
+  "description": "Small documentation website generator",
+  "author": "Gaspard Anna Bucher <g.a.bucher@midasum.com>",
+  "license": "MIT",
+  "homepage": "https://minidoc.dev",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/epuremethod/minidoc.git",
+    "directory": "packages/core"
+  },
+  "type": "module",
+  "main": "./dist/index.mjs",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.mjs"
+    },
+    "./src/*": "./src/*",
+    "./dist/*": "./dist/*",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "src",
+    "dist",
+    "rescript.json",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "clean": "rm -rf dist lib *.tgz",
+    "prebuild": "pnpm clean && rescript build",
+    "build": "node esbuild.js && node bin/llms.mjs",
+    "check": "pnpm build && vitest run && node --test test/dev.test.mjs",
+    "prepack": "pnpm build && clean-package",
+    "postpack": "clean-package restore",
+    "test": "rescript build && vitest run",
+    "test:dev": "rescript build && node --test test/dev.test.mjs",
+    "test:package": "node --test test/package.test.mjs",
+    "test:watch": "vitest",
+    "croquis": "rescript build && (rescript watch & node --watch-path=src2 src2/cli.mjs croquis)"
+  },
+  "dependencies": {
+    "@rescript/runtime": "12.3.1",
+    "marked": "^18.0.7",
+    "sury": "11.1.0",
+    "tilia": "^6.0.1",
+    "yaml": "^2.8.0"
+  },
+  "devDependencies": {
+    "@epure/editor": "link:../../../editor/packages/editor",
+    "@epure/vitest": "^1.1.0",
+    "@minidoc/blocks": "workspace:^",
+    "@minidoc/live": "workspace:^",
+    "@rescript/react": "0.15.0",
+    "@tilia/editor": "link:../../../editor/packages/tilia",
+    "@tilia/react": "6.0.1",
+    "@types/node": "^24.0.3",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "clean-package": "2.2.0",
+    "esbuild": "^0.28.1",
+    "linkedom": "^0.18.15",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "rescript": "12.3.1",
+    "typescript": "5.8.3",
+    "vitest": "^3.2.3",
+    "ws": "^8.22.2"
+  },
+  "clean-package": {
+    "remove": [
+      "scripts",
+      "devDependencies",
+      "clean-package"
+    ]
+  }
+}

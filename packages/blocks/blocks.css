@@ -1,4 +1,4 @@
-/* @epure/blocks — the rules. They read variables only; a theme
+/* @minidoc/blocks — the rules. They read variables only; a theme
    (themes/soft.css, themes/graphic.css) sets them, under
    [data-blocks-theme]. A block takes its colour from --tone, and mixes its
    fill, its edge and its label from it by the amounts the theme sets. A
@@ -14,6 +14,7 @@
 .callout--technical { --tone: var(--tone-technical); }
 .callout--principle { --tone: var(--tone-principle); }
 .callout--rejected { --tone: var(--tone-rejected); }
+.callout--comment { --tone: var(--tone-comment); }
 .callout--flow { --tone: var(--tone-flow); }
 .quote { --tone: var(--tone-quote); }
 
@@ -55,6 +56,25 @@
 .callout__body li + li { margin-top: .3em; }
 .callout__by { margin: .7em 0 0; color: var(--blocks-muted); font-size: .85em; }
 .callout__by cite { color: var(--blocks-ink); font-style: normal; font-weight: 650; }
+/* A comment halts the article: as wide as the text, shifted to the right
+   by --comment-shift, with the text going on under it. Its head is one
+   line, a speech bubble in its tone, then its author and its date. On a
+   narrow screen it keeps the column, so the page never scrolls sideways. */
+.callout--comment > .callout__by { display: flex; align-items: center; margin: 0 0 .5em; white-space: pre; }
+.callout--comment > .callout__by::before, .callout--comment > .callout__byline::before {
+  content: "";
+  flex: none;
+  margin-right: .4em;
+  width: 1.1em;
+  height: 1.1em;
+  background: var(--tone);
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M4 3h16a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H9l-5 4v-4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z'/%3E%3C/svg%3E") center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M4 3h16a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H9l-5 4v-4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+@media (min-width: 60rem) {
+  /* Two classes, so a site's own margin on .callout does not undo it. */
+  .callout.callout--comment { margin-left: var(--comment-shift); margin-right: calc(-1 * var(--comment-shift)); }
+}
 
 /* Quotes */
 
@@ -227,25 +247,40 @@
   stroke-width: var(--drawing-edge);
   rx: var(--drawing-radius);
 }
-.sequence__head[style] rect, .states__box[style] rect {
+/* A part with a tone is matched by its tone, not by its style: an edit in
+   live can leave an empty style where a tone was. */
+.sequence__head[style*="--tone"] rect, .states__box[style*="--tone"] rect {
   fill: color-mix(in srgb, var(--tone) var(--drawing-fill-amount), var(--blocks-surface));
   stroke: color-mix(in srgb, var(--tone) var(--drawing-edge-amount), var(--blocks-surface));
 }
 .sequence__head text, .states__box text { fill: var(--blocks-ink); font-size: 13px; font-weight: 600; }
-.sequence__head[style] text, .states__box[style] text { fill: var(--drawing-kind-ink); }
+.sequence__head[style*="--tone"] text, .states__box[style*="--tone"] text { fill: var(--drawing-kind-ink); }
 .sequence__state text { fill: var(--blocks-ink); font-size: 11px; font-weight: 600; }
 .sequence__life { stroke: var(--blocks-line); stroke-width: 1; stroke-dasharray: 3 4; }
 .sequence__message, .states__move, .model__link { fill: none; stroke: var(--blocks-stroke); stroke-width: 1.8; }
 .sequence__tip, .states__tip { fill: var(--blocks-stroke); stroke: none; }
 .sequence__message--refused { stroke: var(--tone-refused); stroke-dasharray: 5 4; }
 /* A marked move, its arrowhead and its label take the tone of its kind. */
-.states__move[style], .states__label[style] { --mark: color-mix(in srgb, var(--tone) var(--drawing-edge-amount), var(--blocks-surface)); }
-.states__move[style] { stroke: var(--mark); }
-.states__label[style] { fill: var(--mark); }
-marker[style] .states__tip { fill: color-mix(in srgb, var(--tone) var(--drawing-edge-amount), var(--blocks-surface)); }
+.states__move[style*="--tone"] { stroke: color-mix(in srgb, var(--tone) var(--drawing-edge-amount), var(--blocks-surface)); }
+marker[style*="--tone"] .states__tip { fill: color-mix(in srgb, var(--tone) var(--drawing-edge-amount), var(--blocks-surface)); }
 .sequence__cross { fill: none; stroke: var(--tone-refused); stroke-width: 1.8; }
 .sequence__label, .states__label, .model__label { fill: var(--blocks-muted); font-size: 11px; }
 .sequence__label--refused { fill: var(--tone-refused); }
+/* A coloured line and its ends take the edge's mix, as a marked move does.
+   A coloured text stands out from the surface, so its hue mixes toward the
+   ink, not the surface: at 80%, a hue is a little darker and reads better
+   on the surface. A theme that does not set the amount gets 80%. */
+.sequence__message[style*="--tone"] { stroke: color-mix(in srgb, var(--tone) var(--drawing-edge-amount), var(--blocks-surface)); }
+marker[style*="--tone"] .sequence__tip { fill: color-mix(in srgb, var(--tone) var(--drawing-edge-amount), var(--blocks-surface)); }
+.sequence__state[style*="--tone"] rect {
+  fill: color-mix(in srgb, var(--tone) var(--drawing-fill-amount), var(--blocks-surface));
+  stroke: color-mix(in srgb, var(--tone) var(--drawing-edge-amount), var(--blocks-surface));
+}
+.sequence__state[style*="--tone"] text { fill: var(--drawing-kind-ink); }
+.sequence__label[style*="--tone"], .states__label[style*="--tone"], .model__label[style*="--tone"],
+.model__column[style*="--tone"], .model__type[style*="--tone"], .model__value[style*="--tone"] {
+  fill: color-mix(in srgb, var(--tone) var(--drawing-ink-amount, 80%), var(--blocks-ink));
+}
 .sequence__caption, .states__caption, .model__caption { display: flex; flex-direction: column; gap: .4em; margin-top: .9em; }
 .sequence__title, .states__title, .model__title { color: var(--blocks-muted); font-size: .85em; }
 .sequence__keys, .states__keys { display: flex; flex-wrap: wrap; gap: .4em 1.2em; }
@@ -260,7 +295,7 @@ marker[style] .states__tip { fill: color-mix(in srgb, var(--tone) var(--drawing-
   background: var(--blocks-surface);
   print-color-adjust: exact;
 }
-.sequence__key[style]::before, .states__key[style]::before {
+.sequence__key[style*="--tone"]::before, .states__key[style*="--tone"]::before {
   border-color: color-mix(in srgb, var(--tone) var(--drawing-edge-amount), var(--blocks-surface));
   background: color-mix(in srgb, var(--tone) var(--drawing-fill-amount), var(--blocks-surface));
 }
@@ -272,25 +307,75 @@ marker[style] .states__tip { fill: color-mix(in srgb, var(--tone) var(--drawing-
 .model__rule { stroke: var(--drawing-line); stroke-width: var(--drawing-edge); }
 .model__name { fill: var(--blocks-ink); font-size: 13px; font-weight: 650; }
 .model__column { fill: var(--blocks-ink); font-size: 12px; }
-.model__type { fill: var(--blocks-muted); font-size: 12px; }
+/* A column's type takes the colour of a type in the pane's source. */
+.model__type { fill: var(--tone-principle); font-size: 12px; }
 .model__value { fill: var(--blocks-muted); font-size: 12px; font-style: italic; }
 .model__end { fill: none; stroke: var(--blocks-stroke); stroke-width: 1.8; }
 .model__ring { fill: var(--blocks-surface); stroke: var(--blocks-stroke); stroke-width: 1.8; }
 /* A subclass link is secondary to a relation: it takes the secondary line. */
 .model__link[data-parent] { stroke: var(--drawing-line-secondary); }
 .model__parent { fill: var(--blocks-surface); stroke: var(--drawing-line-secondary); stroke-width: 1.8; stroke-linejoin: round; }
-/* A table that names its tenant takes one tone per tenant, in the order the
-   tenants first appear, and shows the tenant at the right of its name. */
-.model__table--tenant-0 { --tone: var(--tone-note); }
-.model__table--tenant-1 { --tone: var(--tone-settled); }
-.model__table--tenant-2 { --tone: var(--tone-open); }
-.model__table--tenant-3 { --tone: var(--tone-technical); }
-.model__table[class*="--tenant-"] rect {
-  fill: color-mix(in srgb, var(--tone, var(--blocks-ink)) var(--drawing-fill-amount), var(--blocks-surface));
-  stroke: color-mix(in srgb, var(--tone, var(--blocks-ink)) var(--drawing-edge-amount), var(--blocks-surface));
+/* A process, such as a copy, is not a link in the data: a dotted secondary
+   line, with a tip at its target. */
+.model__link[data-process] { stroke: var(--drawing-line-secondary); stroke-dasharray: 3 4; }
+.model__process { fill: var(--drawing-line-secondary); }
+/* A coloured relation, a parent or a process too, and its ends. */
+.model__link[style*="--tone"] { stroke: color-mix(in srgb, var(--tone) var(--drawing-edge-amount), var(--blocks-surface)); }
+marker[style*="--tone"] .model__process { fill: color-mix(in srgb, var(--tone) var(--drawing-edge-amount), var(--blocks-surface)); }
+marker[style*="--tone"] .model__end, marker[style*="--tone"] .model__ring, marker[style*="--tone"] .model__parent { stroke: color-mix(in srgb, var(--tone) var(--drawing-edge-amount), var(--blocks-surface)); }
+/* A table with a colour, its own or its tenant's, takes that hue of the
+   palette; it shows its tenant at the right of its name. */
+.model__table[style*="--tone"] rect {
+  fill: color-mix(in srgb, var(--tone) var(--drawing-fill-amount), var(--blocks-surface));
+  stroke: color-mix(in srgb, var(--tone) var(--drawing-edge-amount), var(--blocks-surface));
 }
 .model__tenant { fill: var(--blocks-muted); font-size: 11px; }
+/* A group of a table's columns: a thin line across the table, and its name
+   under it at the right, light grey. An ancestor's rows take its hue, as its
+   table's fill; the table's edge is drawn again over them. */
+.model__group { fill: var(--drawing-line-secondary); font-size: 13px; font-weight: 650; }
+.model__split { stroke: var(--blocks-line); stroke-width: 1; }
+.model__table rect.model__region { fill: color-mix(in srgb, var(--tone) var(--drawing-fill-amount), var(--blocks-surface)); stroke: none; }
+.model__table rect.model__region--foot { clip-path: inset(0 round 0 0 var(--drawing-radius) var(--drawing-radius)); }
+.model__table rect.model__outline { fill: none; }
 .states__key--move::before { width: 18px; height: 0; border: none; border-top: 2px solid color-mix(in srgb, var(--tone) var(--drawing-edge-amount), var(--blocks-surface)); border-radius: 0; background: none; }
+
+/* A changelog: the changes not released yet and the last release, then
+   the earlier ones in a closed details. Each release is a line with its
+   version and its date over a thin rule, and its changes under it. Each
+   change starts with its kind in the kind's tone, mixed toward the ink; a
+   breaking change ends with a small mark in the tone of a refusal. */
+.changelog { --tone: var(--blocks-ink); margin: 1.25em 0; color: var(--blocks-ink); font-size: var(--callout-font-size); }
+.changelog__release { margin: 0 0 .9em; }
+.changelog__head { display: flex; align-items: baseline; gap: .6em; margin: 0 0 .35em; padding: 0 0 .25em; border-bottom: 1px solid var(--blocks-line); }
+.changelog__version { font-weight: 700; }
+.changelog__date { color: var(--blocks-muted); font-size: .9em; font-weight: 400; }
+.changelog__unreleased .changelog__version { color: var(--blocks-muted); font-weight: 600; font-style: italic; }
+.changelog__changes { margin: 0; padding: 0 0 0 1.1em; }
+.changelog__changes li { margin: .2em 0; }
+.change--add { --tone: var(--tone-done); }
+.change--fix { --tone: var(--tone-settled); }
+.change--change { --tone: var(--tone-proposed); }
+.change--remove { --tone: var(--tone-rejected); }
+.change__kind { color: color-mix(in srgb, var(--tone) var(--drawing-ink-amount, 80%), var(--blocks-ink)); font-weight: 650; }
+.change__breaking {
+  display: inline-block;
+  margin-left: .3em;
+  padding: 0 .4em;
+  border: 1px solid color-mix(in srgb, var(--tone-refused) var(--label-edge-amount), var(--blocks-surface));
+  border-radius: var(--callout-radius);
+  color: var(--tone-refused);
+  font-size: var(--callout-label-size);
+  font-weight: 750;
+  letter-spacing: var(--callout-label-tracking);
+  text-transform: var(--callout-label-case);
+  vertical-align: .1em;
+}
+.changelog__all { margin: .2em 0 0; }
+.changelog__all > summary { color: var(--blocks-muted); font-size: .9em; cursor: pointer; }
+.changelog__all[open] > summary { margin-bottom: .8em; }
+.release__version { font-weight: 700; }
+.release__date { color: var(--blocks-muted); }
 
 /* The page around the blocks */
 
@@ -298,7 +383,7 @@ marker[style] .states__tip { fill: color-mix(in srgb, var(--tone) var(--drawing-
 .table-wrap { overflow-x: auto; }
 
 @media print {
-  .callout, .quote, .ui-dialog, .ui-flow, .sequence, .states, .model, .api, .plan { break-inside: avoid; }
+  .callout, .quote, .ui-dialog, .ui-flow, .sequence, .states, .model, .api, .plan, .changelog__release { break-inside: avoid; }
   .plan--long .plan__stages { grid-template-columns: minmax(0, 1fr); grid-template-rows: none; }
   .plan--long .plan__group { display: block; grid-column: 1; grid-row: auto; margin: 0 0 .6em; padding: .2em 0 .2em 1em; }
 }

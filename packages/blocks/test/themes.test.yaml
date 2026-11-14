@@ -1,0 +1,19 @@
+feature: The variables a theme sets
+background:
+  given: a theme's variables
+examples:
+  - scenario: soft sets every variable the stylesheets read
+    before: themes/soft.css
+    after: "missing: none"
+
+  - scenario: graphic sets every variable the stylesheets read
+    before: themes/graphic.css
+    after: "missing: none"
+
+  - scenario: the contract page names every variable a theme sets
+    before: ../docs/content/blocks/05-contracts.md
+    after: "missing: none"
+
+  - scenario: llms.txt names every variable a theme sets
+    before: ../docs/content/llms.yaml
+    after: "missing: none"

@@ -1,0 +1,45 @@
+feature: A block's pane, opened
+background:
+  given: a block's pane, opened
+examples:
+  - scenario: an empty drawing opens with the caret on its empty line
+    before: |-
+      ::: states
+
+      :::
+    caret: |-
+      ::: states
+      |
+      :::
+
+  - scenario: a drawing with lines opens with the caret after its last line
+    before: |-
+      ::: states
+      idle -> busy : start
+      busy -> idle : done
+      :::
+    caret: |-
+      ::: states
+      idle -> busy : start
+      busy -> idle : done|
+      :::
+
+  - scenario: a code block opens with the caret after its last line of code
+    before: |-
+      ```js
+      let a = 1
+      ```
+    caret: |-
+      ```js
+      let a = 1|
+      ```
+
+  - scenario: a block with no closing fence opens with the caret at its end
+    before: |-
+      | name | role |
+      | ---- | ---- |
+      | a    | b    |
+    caret: |-
+      | name | role |
+      | ---- | ---- |
+      | a    | b    ||

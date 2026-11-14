@@ -13,16 +13,22 @@ type dialog = {owners?: dict<string>}
 type api = {labels?: dict<string>}
 
 /** A project's own block: its HTML from the rest of its opening line and its body. */
-type extra = {name: string, fence?: bool, render: (string, string) => string}
+type extra = {name: string, render: (string, string) => string}
+
+/** What a transform knows of the page it renders: its lang, and its file, as the site names it. */
+type rendered = {lang?: string, file?: string}
 
 type options = {
   callouts?: dict<string>,
+  lang?: string,
   @as("ui-dialog") dialog?: dialog,
   sequence?: kinds,
   states?: kinds,
   api?: api,
   extra?: array<extra>,
   markdown?: Markdown.t => unit,
+  /** The text of a file a block names, such as a changelog's, by its path from the page; none when there is no such file. */
+  read?: (string, rendered) => option<string>,
 }
 
 let common = [
@@ -34,7 +40,11 @@ let common = [
   ("technical", "Technical"),
   ("principle", "Principle"),
   ("rejected", "Rejected"),
+  ("comment", "Comment"),
 ]
+
+// The callouts a page removes once done: an editor shows a × on them.
+let removable = ["comment"]
 
 // The words an API call shows, which a site may translate.
 let apiLabels = [
@@ -59,6 +69,8 @@ let urlTail = RegExp.fromString("^(.*?)(?:^|\\s)<([^<>\\s]+)>$")
 
 /** What the reader keeps of a whole page: each name with its line, the first block filed in the annexe, and the annexe's line. */
 type page = {
+  /** The page as the transform knows it: a block resolves a path from its file. */
+  rendered: rendered,
   anchors: dict<int>,
   mutable filed: option<(string, int)>,
   mutable annexe: option<int>,
@@ -76,19 +88,58 @@ type context = {
   names: Scan.names,
   /** The long plans drawn so far in the page, which name their stage buttons. */
   mutable plans: int,
+  /** The page's lang, which writes a date in full. */
+  lang: string,
+  read: option<(string, rendered) => option<string>>,
 }
 
-let drawings = (options: options) => [
+// The keys of the `:::` blocks minidoc draws, other than callouts. A
+// drawing is one of them too: a fence only holds code.
+let keys = (options: options) => [
+  "quote",
+  "annexe",
+  "flow",
+  "plan",
+  "ui-dialog",
+  "ui-form",
+  "ui-flow",
+  "api",
   "sequence",
   "states",
   "model",
-  ...options.extra->Option.getOr([])->Array.filter(e => e.fence->Option.getOr(false))->Array.map(e => e.name),
+  "changelog",
+  "release",
+  ...options.extra->Option.getOr([])->Array.map(e => e.name),
 ]
 
+// The callouts by kind, with their label in the page's lang. A key that
+// starts with a lang and a dot, `fr.settled`, is the label of its kind in
+// that lang; a kind with none keeps its label.
+let callouts = (options: options) => {
+  let given = options.callouts->Option.mapOr([], Dict.toArray)
+  let labels = Dict.fromArray([...common, ...given->Array.filter(((key, _)) => !String.includes(key, "."))])
+  given->Array.forEach(((key, _)) =>
+    switch String.indexOf(key, ".") {
+    | -1 => ()
+    | dot =>
+      if labels->Dict.get(String.slice(key, ~start=dot + 1))->Option.isNone {
+        Html.fail(`blocks: ${key} translates no callout`)
+      }
+    }
+  )
+  labels
+  ->Dict.toArray
+  ->Array.map(((kind, label)) => (
+    kind,
+    options.lang
+    ->Option.flatMap(lang => options.callouts->Option.flatMap(c => c->Dict.get(`${lang}.${kind}`)))
+    ->Option.getOr(label),
+  ))
+}
+
 let context = (options: options) => {
-  let callouts = Dict.fromArray([...common, ...options.callouts->Option.mapOr([], Dict.toArray)])
+  let callouts = Dict.fromArray(callouts(options))
   let extras = options.extra->Option.getOr([])
-  let isFence = (e: extra) => e.fence->Option.getOr(false)
   {
     md: Markdown.make(options.markdown),
     callouts,
@@ -100,22 +151,10 @@ let context = (options: options) => {
       ...options.api->Option.flatMap(a => a.labels)->Option.mapOr([], Dict.toArray),
     ]),
     extras,
-    names: {
-      containers: [
-        ...Dict.keysToArray(callouts),
-        "quote",
-        "annexe",
-        "flow",
-        "plan",
-        "ui-dialog",
-        "ui-form",
-        "ui-flow",
-        "api",
-        ...extras->Array.filter(e => !isFence(e))->Array.map(e => e.name),
-      ],
-      fences: drawings(options),
-    },
+    names: {containers: [...Dict.keysToArray(callouts), ...keys(options)]},
     plans: 0,
+    lang: options.lang->Option.getOr("en"),
+    read: options.read,
   }
 }
 
@@ -178,20 +217,31 @@ let rec each = (nodes, f) =>
 let text = Draw.string
 let nl = Draw.string("\n")
 
-/** The author and date under a quote or callout, or nothing when it names neither. A source makes the author a link. */
-let byline = (author, date, url, ~figure) => {
+/** The author and the date of a quote or callout, those it names. A source makes the author a link. */
+let byParts = (author, date, url, ~figure) => {
   let title = a =>
     switch url {
     | Some(href) => <a href> {text(a)} </a>
     | None => text(a)
     }
-  let parts =
-    [
-      author->Option.map(a => <cite> {title(a)} </cite>),
-      date->Option.map(d =>
-        <span className={figure ? "quote__date" : "callout__date"}> {text(d)} </span>
-      ),
-    ]->Array.keepSome
+  [
+    author->Option.map(a => <cite> {title(a)} </cite>),
+    date->Option.map(d =>
+      <span className={figure ? "quote__date" : "callout__date"}> {text(d)} </span>
+    ),
+  ]->Array.keepSome
+}
+
+/**
+ * The head of a comment: its author and its date on one line, above its
+ * body, with no label. It shows even when empty, as it holds the icon.
+ */
+let commentHead = (author, date, url) =>
+  <p className="callout__by"> {byParts(author, date, url, ~figure=false)->Draw.joined(" · ")} </p>
+
+/** The author and date under a quote or callout, or nothing when it names neither. */
+let byline = (author, date, url, ~figure) => {
+  let parts = byParts(author, date, url, ~figure)
   let inner =
     <>
       {text("— ")}
@@ -237,6 +287,16 @@ let rec readIn = (ctx, page, source, offset) =>
       | "sequence" => Sequence(Sequence.read(body, caption(info), ctx.sequenceKinds))
       | "states" => States(States.read(body, caption(info), ctx.statesKinds))
       | "model" => Model(Model.read(body, caption(info)))
+      | "changelog" | "release" =>
+        Changelog.read(~name, ~info, ~body, ~line, ~load=path =>
+          switch ctx.read {
+          | Some(read) => read(path, page.rendered)
+          | None =>
+            Html.fail(
+              `::: ${name} on line ${Int.toString(line)}: the site gives the blocks no read, so they cannot read ${path}`,
+            )
+          }
+        )
       | _ =>
         switch ctx.callouts->Dict.get(name) {
         | Some(label) =>
@@ -270,6 +330,17 @@ let rec drawIn = (ctx, nodes, env, filed, ~whole=false) =>
     | Callout({anchor: Some(anchor), author, annexe: true})
     | Quote({anchor: Some(anchor), author, annexe: true}) if !whole =>
       filedLink(anchor, author)
+    | Callout({name, label, author, date, url, anchor, children}) if removable->Array.includes(name) =>
+      <>
+        <aside className={`callout callout--${name}`} id=?anchor ariaLabel=label>
+          {commentHead(author, date, url)}
+          <div className="callout__body">
+            nl
+            {inner(children)}
+          </div>
+        </aside>
+        nl
+      </>
     | Callout({name, label, author, date, url, anchor, children}) =>
       <>
         <aside className={`callout callout--${name}`} id=?anchor ariaLabel=label>
@@ -328,6 +399,11 @@ let rec drawIn = (ctx, nodes, env, filed, ~whole=false) =>
         {Model.draw(drawing)}
         nl
       </>
+    | Changelog({last, entries}) =>
+      <>
+        {Changelog.draw(ctx.md, ctx.lang, ~last, entries)}
+        nl
+      </>
     | Extra({name, info, body}) =>
       switch ctx.extras->Array.find(e => e.name == name) {
       | Some(e) => Draw.raw(e.render(info, body))
@@ -347,8 +423,8 @@ let referenceLine = (source, name) => {
 }
 
 /** Read a whole page: its blocks, then the checks that need all of them. */
-let readPage = (ctx, source) => {
-  let page = {anchors: Dict.make(), filed: None, annexe: None}
+let readPage = (ctx, source, ~rendered: rendered={}) => {
+  let page = {rendered, anchors: Dict.make(), filed: None, annexe: None}
   let nodes = readIn(ctx, page, source, 1)
   switch (page.filed, page.annexe) {
   | (Some((anchor, line)), None) =>
@@ -427,16 +503,27 @@ let edit = (source, act, options) => {
   edited
 }
 
-let callouts = (options: options) =>
-  Dict.fromArray([...common, ...options.callouts->Option.mapOr([], Dict.toArray)])->Dict.toArray
-
-let blocks = options => {
-  let ctx = context(options)
-  source => {
+let blocks = (options: options) => {
+  // One context for each lang the pages ask for, made once.
+  let contexts = Dict.make()
+  let contextOf = (lang: option<string>) => {
+    let options: options = lang->Option.mapOr(options, (lang): options => {...options, lang})
+    let key = options.lang->Option.getOr("")
+    switch contexts->Dict.get(key) {
+    | Some(ctx) => ctx
+    | None =>
+      let ctx = context(options)
+      contexts->Dict.set(key, ctx)
+      ctx
+    }
+  }
+  contextOf(None)->ignore
+  (source, page: option<rendered>) => {
+    let ctx = contextOf(page->Option.flatMap(p => p.lang))
     // One environment for the whole page, so a link reference defined in
     // one run resolves in every other.
     let env = Markdown.env()
     Markdown.parse(ctx.md, source, env)->ignore
-    Draw.write(drawPage(ctx, readPage(ctx, source), env))
+    Draw.write(drawPage(ctx, readPage(ctx, source, ~rendered=?page), env))
   }
 }

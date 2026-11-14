@@ -1,0 +1,172 @@
+feature: A page's markdown in the editor
+background:
+  given: a page edited in place
+examples:
+  - scenario: a page read and written back unchanged is the same file, frontmatter included
+    file: |
+      ---
+      title: One page
+      refs: [config]
+      ---
+
+      Mara starts where every site starts: one page, on screen, with the
+      right title.
+
+      ### The layout
+
+      - **The look.** You design one HTML layout,
+        or have one designed.
+      - **The words.**
+
+      | Name | Does |
+      | --- | --- |
+      | `md` | markdown to HTML |
+
+      ```sh
+      pnpm add -D @minidoc/core
+      ```
+    blocks:
+      - "paragraph: Mara starts where every site starts: one page, on screen, with the right title."
+      - "title 3: The layout"
+      - "item: The look. You design one HTML layout, or have one designed."
+      - "item: The words."
+      - "table: Name / Does"
+      - "row: md / markdown to HTML"
+      - "code sh: pnpm add -D @minidoc/core"
+
+  - scenario: a numbered list, a quote, a `####` title and a callout that holds one of them are each one block drawn by minidoc, and a change through the panel is written in its place
+    file: |
+      #### Options
+
+      | Name | Does |
+      | --- | --- |
+      | `md` | markdown to HTML |
+
+      1. **Design** the layout first.
+      2. **Install** minidoc.
+
+      > A **context** is a tree of templates.
+      > Own wins.
+
+      ```js
+      await dev({ glob: "content/config.yaml" })
+      ```
+
+      ::: note
+      1. Mara keeps the dev server open.
+      :::
+    blocks:
+      - "markdown: #### Options"
+      - "table: Name / Does"
+      - "row: md / markdown to HTML"
+      - "markdown: 1. **Design** the layout first."
+      - "markdown: > A **context** is a tree of templates."
+      - "code js: await dev({ glob: \"content/config.yaml\" })"
+      - "markdown: ::: note"
+    edits:
+      - replace: "markdown to HTML"
+        with: "markdown to HTML, with Prism"
+      - replace: "Mara keeps"
+        with: "Sam keeps"
+    written: |
+      #### Options
+
+      | Name | Does |
+      | --- | --- |
+      | `md` | markdown to HTML, with Prism |
+
+      1. **Design** the layout first.
+      2. **Install** minidoc.
+
+      > A **context** is a tree of templates.
+      > Own wins.
+
+      ```js
+      await dev({ glob: "content/config.yaml" })
+      ```
+
+      ::: note
+      1. Sam keeps the dev server open.
+      :::
+
+  - scenario: a plan is a block of its own, edited where it stands
+    file: |
+      ::: plan
+      1. [/] **Draw the band**
+         - [ ] Pick the tones
+      :::
+    blocks:
+      - "plan: ::: plan"
+
+  - scenario: a source minidoc refuses is not written, and the file keeps the last source that read
+    file: |
+      ::: sequence
+      browser app
+      browser -> app  sign in
+      :::
+    edits:
+      - replace: "sign in"
+        with: "log in"
+      - replace: "browser -> app"
+        with: "browser -> bank"
+    written: |
+      ::: sequence
+      browser app
+      browser -> app  log in
+      :::
+
+  - scenario: a callout that holds a drawing, of a kind minidoc does not know, or with more than three colons, is one block drawn by minidoc
+    file: |
+      ::: risk
+      The page may lose a key.
+      :::
+
+      :::: note
+      The page saves on its own.
+      ::::
+
+      ::: note
+      ::: sequence
+      browser app
+      browser -> app  sign in
+      :::
+      :::
+    blocks:
+      - "markdown: ::: risk"
+      - "markdown: :::: note"
+      - "markdown: ::: note"
+
+  - scenario: a drawing in a `:::` block and a fence that does not close are each one block drawn by minidoc
+    file: |
+      ::: sequence
+      browser app
+      browser -> app  sign in
+      :::
+
+      ```sh
+      pnpm docs:dev
+    blocks:
+      - "markdown: ::: sequence"
+      - "markdown: ```sh"
+
+
+  - scenario: a line that holds only an image is an image, drawn by minidoc and written back with its bytes, and a change to another block keeps it
+    file: |
+      # Screens
+
+      ![The sign-in screen](images/sign-in.png "Sign in")
+
+      The first screen.
+    blocks:
+      - "title 1: Screens"
+      - 'image: ![The sign-in screen](images/sign-in.png "Sign in")'
+      - "paragraph: The first screen."
+    edits:
+      - replace: first screen
+        with: screen you see first
+    written: |
+      # Screens
+
+      ![The sign-in screen](images/sign-in.png "Sign in")
+
+      The screen you see first.

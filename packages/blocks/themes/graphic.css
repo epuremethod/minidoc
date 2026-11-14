@@ -2,32 +2,43 @@
    accent. Variables only. */
 
 [data-blocks-theme="graphic"] {
-  --blocks-ink: #000000;
-  --blocks-muted: #555555;
-  --blocks-line: #000000;
-  --blocks-stroke: #000000;
-  --blocks-surface: #ffffff;
-  --blocks-canvas: #ffffff;
-  --blocks-band: #000000;
-  --blocks-band-ink: #ffffff;
+  --blocks-ink: light-dark(#000000, #ffffff);
+  --blocks-muted: light-dark(#555555, #aaaaaa);
+  --blocks-line: light-dark(#000000, #ffffff);
+  --blocks-stroke: light-dark(#000000, #ffffff);
+  --blocks-surface: light-dark(#ffffff, #000000);
+  --blocks-canvas: light-dark(#ffffff, #000000);
+  --blocks-band: light-dark(#000000, #ffffff);
+  --blocks-band-ink: light-dark(#ffffff, #000000);
 
-  --tone-note: #000000;
-  --tone-draft: #000000;
-  --tone-proposed: #000000;
-  --tone-settled: #000000;
-  --tone-open: #e10600;
-  --tone-technical: #000000;
-  --tone-principle: #000000;
-  --tone-rejected: #e10600;
-  --tone-flow: #000000;
-  --tone-done: #000000;
-  --tone-doing: #e10600;
-  --tone-quote: #e10600;
-  --tone-mark: #e10600;
-  --mark-ink: #ffffff;
-  --tone-refused: #e10600;
-  --tone-ui-primary: #000000;
-  --tone-ui-clicked: #e10600;
+  --tone-note: light-dark(#000000, #ffffff);
+  --tone-draft: light-dark(#000000, #ffffff);
+  --tone-proposed: light-dark(#000000, #ffffff);
+  --tone-settled: light-dark(#000000, #ffffff);
+  --tone-open: light-dark(#e10600, #ff4a3d);
+  --tone-technical: light-dark(#000000, #ffffff);
+  --tone-principle: light-dark(#000000, #ffffff);
+  --tone-rejected: light-dark(#e10600, #ff4a3d);
+  --tone-comment: light-dark(#e10600, #ff4a3d);
+  --tone-flow: light-dark(#000000, #ffffff);
+  --tone-done: light-dark(#000000, #ffffff);
+  --tone-doing: light-dark(#e10600, #ff4a3d);
+  --tone-quote: light-dark(#e10600, #ff4a3d);
+  --tone-mark: light-dark(#e10600, #ff4a3d);
+  --mark-ink: light-dark(#ffffff, #000000);
+  --tone-refused: light-dark(#e10600, #ff4a3d);
+  --tone-ui-primary: light-dark(#000000, #ffffff);
+  --tone-ui-clicked: light-dark(#e10600, #ff4a3d);
+
+  /* The palette a drawing's `color` picks from: black, and the one accent. */
+  --hue-grey: light-dark(#000000, #ffffff);
+  --hue-red: light-dark(#e10600, #ff4a3d);
+  --hue-orange: light-dark(#000000, #ffffff);
+  --hue-yellow: light-dark(#000000, #ffffff);
+  --hue-green: light-dark(#000000, #ffffff);
+  --hue-teal: light-dark(#000000, #ffffff);
+  --hue-blue: light-dark(#000000, #ffffff);
+  --hue-purple: light-dark(#000000, #ffffff);
 
   --fill-amount: 0%;
   --edge-amount: 100%;
@@ -38,10 +49,11 @@
   --callout-font-size: 1em;
   --callout-label-size: .7em;
   --callout-label-case: uppercase;
+  --comment-shift: 3rem;
   --callout-label-tracking: .18em;
   --label-padding: .25em .6em;
   --label-fill-amount: 100%;
-  --label-base: #ffffff;
+  --label-base: light-dark(#ffffff, #000000);
   --label-ink-amount: 0%;
   --label-edge-amount: 100%;
   --quote-rule: 5px;
@@ -56,13 +68,14 @@
   --ui-dialog-border: 2px;
   --ui-dialog-radius: 0;
   --ui-control-radius: 0;
-  --ui-dialog-shadow: 6px 6px 0 #000000;
+  --ui-dialog-shadow: 6px 6px 0 light-dark(#000000, #ffffff);
   --ui-flow-gap: 2.5em;
   --drawing-radius: 0;
-  --drawing-line: #000000;
-  --drawing-line-secondary: #8c8c8c;
+  --drawing-line: light-dark(#000000, #ffffff);
+  --drawing-line-secondary: light-dark(#8c8c8c, #7a7a7a);
   --drawing-fill-amount: 100%;
   --drawing-edge-amount: 100%;
-  --drawing-kind-ink: #ffffff;
+  --drawing-ink-amount: 100%;
+  --drawing-kind-ink: light-dark(#ffffff, #000000);
   --drawing-edge: 2;
 }

@@ -13,8 +13,9 @@
     "edit-check": "node test/edit-chrome.mjs"
   },
   "dependencies": {
-    "@epure/minidoc": "workspace:*",
-    "@epure/blocks": "workspace:*",
+    "@minidoc/core": "workspace:*",
+    "@minidoc/blocks": "workspace:*",
+    "@minidoc/live": "workspace:*",
     "marked": "^18.0.7",
     "prismjs": "^1.30.0",
     "yaml": "^2.8.0",

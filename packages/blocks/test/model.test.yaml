@@ -4,7 +4,7 @@ background:
 examples:
   - scenario: the grid places the tables, each with its columns, their types and a value they may hold
     before: |-
-      ```model
+      ::: model
       Project Site
 
       Project
@@ -16,22 +16,22 @@ examples:
         project  ref   p-0412
 
       Project --o< Site  sites
-      ```
+      :::
     after: |-
       model
-        frame -10 -10 418 100
-        link one any 149 40 192.2 40 201.8 40 245 40
-          label 197 22 middle "sites"
-        table 0 0 149 80 50.12 87.64 "Project"
+        frame -10 -10 426 100
+        link one any 153 40 196.2 40 205.8 40 249 40
+          label 201 22 middle "sites"
+        table 0 0 153 80 50.12 87.64 "Project"
           column 45 "id" type "uuid" value "p-0412"
           column 67 "title" type "text" value "School A"
-        table 245 0 153 80 309.76 347.28 "Site"
+        table 249 0 157 80 313.76 351.28 "Site"
           column 45 "id" type "uuid"
           column 67 "project" type "ref" value "p-0412"
 
   - scenario: a table left undescribed is its name alone, a dot leaves a cell empty, and a relation between rows curves
     before: |-
-      ```model Cases
+      ::: model Cases
       Case .
       Hearing Judge
 
@@ -40,23 +40,23 @@ examples:
 
       Case --o< Hearing  hearings
       Hearing >o-- Judge  sits
-      ```
+      :::
     after: |-
       model
-        frame -10 -10 248 192
-        link one any 36.5 58 36.5 95.8 36.5 104.2 36.5 142
-          label 48 104 start "hearings"
-        link any one 73 157 116.2 157 125.8 157 169 157
-          label 121 139 middle "sits"
-        table 0 0 73 58 36.8 74.32 "Case"
+        frame -10 -10 256 192
+        link one any 38.5 58 38.5 95.8 38.5 104.2 38.5 142
+          label 50 104 start "hearings"
+        link any one 77 157 120.2 157 129.8 157 173 157
+          label 125 139 middle "sits"
+        table 0 0 77 58 36.8 74.32 "Case"
           column 45 "id" type "uuid"
-        table 0 142 73 30 26 26 "Hearing"
-        table 169 142 59 30 195 195 "Judge"
+        table 0 142 77 30 26 26 "Hearing"
+        table 173 142 63 30 199 199 "Judge"
         caption "Cases"
 
   - scenario: two tables of one row, the one taller than the other, are joined by a straight line
     before: |-
-      ```model
+      ::: model
       Account Author
 
       Account
@@ -68,41 +68,41 @@ examples:
         same    Author
 
       Account --< Author  authors
-      ```
+      :::
     after: |-
       model
-        frame -10 -11 359 123
-        link one more 122 29 165.2 29 174.8 29 218 29
-          label 170 11 middle "authors"
-        table 0 0 122 58 66.68 123.88 "Account"
+        frame -10 -11 367 123
+        link one more 126 29 169.2 29 178.8 29 222 29
+          label 174 11 middle "authors"
+        table 0 0 126 58 66.68 123.88 "Account"
           column 45 "authors" type "[Author]"
-        table 218 0 121 102 285.16 340.32 "Author"
+        table 222 0 125 102 289.16 344.32 "Author"
           column 45 "title" type "Text"
           column 67 "domain" type "Domain"
           column 89 "same" type "Author"
 
   - scenario: an end is written as it is drawn, and the tokens of mermaid read too
     before: |-
-      ```model
+      ::: model
       Order Line Product
 
       Order --o< Line  lines
       Line }o--|| Product  mermaid
-      ```
+      :::
     after: |-
       model
-        frame -10 -25 386 65
-        link one any 55 15 98.2 15 107.8 15 151 15
-          label 103 -3 middle "lines"
-        link any one 201 15 244.2 15 253.8 15 297 15
-          label 249 -3 middle "mermaid"
-        table 0 0 55 30 26 26 "Order"
-        table 151 0 50 30 177 177 "Line"
-        table 297 0 69 30 323 323 "Product"
+        frame -10 -25 398 65
+        link one any 59 15 102.2 15 111.8 15 155 15
+          label 107 -3 middle "lines"
+        link any one 209 15 252.2 15 261.8 15 305 15
+          label 257 -3 middle "mermaid"
+        table 0 0 59 30 26 26 "Order"
+        table 155 0 54 30 181 181 "Line"
+        table 305 0 73 30 331 331 "Product"
 
-  - scenario: a table names its tenant after a hash, and each tenant is drawn in its own tone
+  - scenario: a table names its tenant after a hash, and each tenant takes the hue its name hashes to, whatever the order
     before: |-
-      ```model Two tenants
+      ::: model Two tenants
       Customer Order Invoice
 
       Customer #eu
@@ -115,130 +115,314 @@ examples:
 
       Customer --o< Order  orders
       Order --o Invoice  invoice
-      ```
+      :::
     after: |-
       model
-        frame -10 -25 518 93
-        link one any 106 15 149.2 15 158.8 15 202 15
-          label 154 -3 middle "orders"
-        link one optional 308 15 351.2 15 360.8 15 404 15
-          label 356 -3 middle "invoice"
-        table 0 0 106 58 36.8 74.32 "Customer" tenant "eu"
+        frame -10 -25 530 93
+        link one any 110 15 153.2 15 162.8 15 206 15
+          label 158 -3 middle "orders"
+        link one optional 316 15 359.2 15 368.8 15 412 15
+          label 364 -3 middle "invoice"
+        table 0 0 110 58 36.8 74.32 "Customer" tenant "eu" color "purple"
           column 45 "id" type "uuid"
-        table 202 0 106 58 279.96 309.2 "Order" tenant "eu"
+        table 206 0 110 58 283.96 313.2 "Order" tenant "eu" color "purple"
           column 45 "customer" type "ref"
-        table 404 0 94 30 430 430 "Invoice" tenant "us"
+        table 412 0 98 30 438 438 "Invoice" tenant "us" color "red"
         caption "Two tenants"
 
   - scenario: a parent is written as the arrow reads, and drawn from the child with a hollow triangle at the parent
     before: |-
-      ```model
+      ::: model
       Document Course
 
       Course
         extension  Text  course
 
       Document <- Course  is a
-      ```
+      :::
     after: |-
       model
-        frame -10 -10 365 78
-        parent 179 15 135.8 15 126.2 15 83 15
-          label 131 35 middle "is a"
-        table 0 0 83 30 26 26 "Document"
-        table 179 0 166 58 258.4 295.92 "Course"
+        frame -10 -10 373 78
+        parent 183 15 139.8 15 130.2 15 87 15
+          label 135 35 middle "is a"
+        table 0 0 87 30 26 26 "Document"
+        table 183 0 170 58 262.4 299.92 "Course"
           column 45 "extension" type "Text" value "course"
+
+  - scenario: a process, such as a copy, is written as the arrow reads, and drawn dotted with a tip at its target
+    before: |-
+      ::: model
+      Order Line
+
+      Order ..> Line  copy
+      :::
+    after: |-
+      model
+        frame -10 -25 229 65
+        process 59 15 102.2 15 111.8 15 155 15
+          label 107 -3 middle "copy"
+        table 0 0 59 30 26 26 "Order"
+        table 155 0 54 30 181 181 "Line"
+
+  - scenario: a table in braces takes its tenant and its colour as attributes, and its colour wins over its tenant's
+    before: |-
+      ::: model
+      {Customer, #eu, color teal} Order
+
+      Order #eu
+        customer  ref
+
+      {Customer} --o< Order  {orders, 0.4}
+      :::
+    after: |-
+      model
+        frame -10 -25 336 93
+        link one any 110 15 153.2 15 162.8 15 206 15
+          label 150 -3 middle "orders"
+        table 0 0 110 30 26 26 "Customer" tenant "eu" color "teal"
+        table 206 0 110 58 283.96 313.2 "Order" tenant "eu" color "purple"
+          column 45 "customer" type "ref"
+
+  - scenario: each tenant takes the hue its name hashes to, and a colour sets one table apart from its tenant
+    before: |-
+      ::: model Access
+      Domaine Dossier Tâche
+      . Attribution Étape
+      . Utilisateur .
+
+      Domaine #configuration
+      Dossier #dossier
+      Tâche #dossier
+      Étape #dossier
+
+      {Attribution, #accès, color teal}
+        Rôle  enum  lecteur
+
+      Utilisateur #accès
+
+      Domaine o--o< Attribution  attributions
+      Dossier o--o< Attribution
+      Tâche o--o< Attribution
+      Étape o--o< Attribution
+      Utilisateur --o< Attribution
+      :::
+    after: |-
+      model
+        frame -10 -10 636 306
+        link optional any 80.5 30 80.5 126 294.25 18 294.25 114
+          label 187 54 middle "attributions"
+        link optional any 331.5 30 331.5 67.8 331.5 76.2 331.5 114
+        link optional any 559 30 559 123.59 368.75 20.41 368.75 114
+        link optional any 502 129 458.8 129 449.2 129 406 129
+        link one any 331.5 256 331.5 218.2 331.5 209.8 331.5 172
+        table 0 0 161 30 26 26 "Domaine" tenant "configuration" color "red"
+        table 257 0 149 30 283 283 "Dossier" tenant "dossier" color "orange"
+        table 502 0 114 30 528 528 "Tâche" tenant "dossier" color "orange"
+        table 257 114 149 58 306.52 350.88 "Attribution" tenant "accès" color "teal"
+          column 159 "Rôle" type "enum" value "lecteur"
+        table 502 114 114 30 528 528 "Étape" tenant "dossier" color "orange"
+        table 257 256 149 30 283 283 "Utilisateur" tenant "accès" color "purple"
+        caption "Access"
 
   - scenario: a tenant is one word
     before: |-
-      ```model
+      ::: model
       Order
 
       Order #eu west
-      ```
+      :::
     error: "model: cannot read line 3"
 
   - scenario: a relation to a table that the grid does not hold is refused
     before: |-
-      ```model
+      ::: model
       Project
 
       Project --o< Site  sites
-      ```
+      :::
     error: "model: no table called Site"
 
   - scenario: a table described but missing from the grid is refused
     before: |-
-      ```model
+      ::: model
       Project
 
       Site
         id  uuid
-      ```
+      :::
     error: "model: no table called Site in the grid, line 3"
 
   - scenario: a column before any table is refused
     before: |-
-      ```model
+      ::: model
       Project
 
         id  uuid
-      ```
+      :::
     error: "model: a column outside a table, line 3"
 
   - scenario: an end that is not one of the four is refused
     before: |-
-      ```model
+      ::: model
       Project Site
 
       Project --x< Site
-      ```
+      :::
     error: 'model: cannot read the end "x<", line 3'
 
-  - scenario: a relation from a table to itself loops at its top-right corner, outside the table
+  - scenario: a relation from a table to itself loops at its top-right corner, outside the table, with its label beside the loop at its mid-height
     before: |-
-      ```model
+      ::: model
       Case
 
       Case
         id  uuid
 
       Case --o< Case  children
-      ```
+      :::
     after: |-
       model
-        frame -10 -50.78 156.14 118.78
-        link one any 73 20 137 20 53 -64 53 0
-          label 95 -29 start "children"
-        table 0 0 73 58 36.8 74.32 "Case"
+        frame -10 -33.87 173.41 101.88
+        link one any 77 20 141 20 57 -64 57 0
+          label 112 2 start "children"
+        table 0 0 77 58 36.8 74.32 "Case"
           column 45 "id" type "uuid"
 
   - scenario: a bar is not an end, since a plain end already says exactly one
     before: |-
-      ```model
+      ::: model
       Project Site
 
       Project |--< Site
-      ```
+      :::
     error: 'model: cannot read the end "|", line 3'
 
   - scenario: a table described twice is refused
     before: |-
-      ```model
+      ::: model
       Project
 
       Project
         id  uuid
       Project
         name  text
-      ```
+      :::
     error: "model: Project is described twice, line 5"
 
   - scenario: a relation takes no kind in its braces
     before: |-
-      ```model
+      ::: model
       Project Site
 
-      Project --< Site  sites {fail}
-      ```
+      Project --< Site  {sites, fail}
+      :::
     error: "model: no kind called fail, line 3"
+
+  - scenario: a column's name, type or value in braces holds spaces
+    before: |-
+      ::: model
+      {Étape type}
+
+      {Étape type}
+        titre texte
+        description {texte riche}
+        durée semaines
+        branche [processus] seulement pour la dernière
+      :::
+    after: |-
+      model
+        frame -10 -10 360 144
+        table 0 0 340 124 88.28 166.48 "Étape type"
+          column 45 "titre" type "texte"
+          column 67 "description" type "texte riche"
+          column 89 "durée" type "semaines"
+          column 111 "branche" type "[processus]" value "seulement pour la dernière"
+
+  - scenario: a column's name, type or value in braces takes a colour, as any word in braces does
+    before: |-
+      ::: model
+      Order
+
+      Order
+        {id, color red}  uuid
+        total  {money, color blue}  {12.50, color green}
+      :::
+    after: |-
+      model
+        frame -10 -10 169 100
+        table 0 0 149 80 52.04 102.76 "Order"
+          column 45 "id" color "red" type "uuid"
+          column 67 "total" type "money" color "blue" value "12.50" color "green"
+
+  - scenario: a relation's label takes a colour, and the relation is drawn in it
+    before: |-
+      ::: model
+      Project Site
+
+      Project --o< Site  {sites, 0.4, color red}
+      :::
+    after: |-
+      model
+        frame -10 -25 238 65
+        link one any 70 15 113.2 15 122.8 15 166 15 color "red"
+          label 110 -3 middle "sites"
+        table 0 0 70 30 26 26 "Project"
+        table 166 0 52 30 192 192 "Site"
+
+  - scenario: a line of dashes groups the columns under it, by ancestor or facet, and an ancestor's rows take its table's hue
+    before: |-
+      ::: model
+      Dossier Élément
+
+      Élément #suivi
+
+      Dossier
+        titre  texte
+        --- Classement
+        catégorie  enum
+        --- Élément
+        statut  étape
+        ---
+        ouverture  date
+      :::
+    after: |-
+      model
+        frame -10 -10 449 168
+        table 0 0 215 148 77.48 121.84 "Dossier"
+          column 45 "titre" type "texte"
+          group 52 "Classement" from 0
+          column 75 "catégorie" type "enum"
+          group 82 "Élément" color "teal" from 0
+          column 105 "statut" type "étape"
+          group 112 from 0
+          column 135 "ouverture" type "date"
+        table 311 0 118 30 337 337 "Élément" tenant "suivi" color "teal"
+
+  - scenario: a group first in a table shows its name with no line, as the table's rule is right above it
+    before: |-
+      ::: model
+      Dossier
+
+      Dossier
+        --- Élément
+        foo  int
+      :::
+    after: |-
+      model
+        frame -10 -10 163 86
+        table 0 0 143 66 43.16 72.4 "Dossier"
+          group 30 "Élément"
+          column 53 "foo" type "int"
+
+  - scenario: a group with no column under it is refused
+    before: |-
+      ::: model
+      Dossier
+
+      Dossier
+        titre  texte
+        --- Classement
+        --- Élément
+        statut  étape
+      :::
+    error: "model: a group has no column, line 5"

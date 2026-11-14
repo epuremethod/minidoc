@@ -4,12 +4,12 @@ background:
 examples:
   - scenario: the grid places the boxes, and the lines after it are the moves between them
     before: |-
-      ```states
+      ::: states
       draft review published
 
       draft -> review  submit
       review -> published  approve
-      ```
+      :::
     after: |-
       states
         frame -10 -25 320 65
@@ -23,14 +23,14 @@ examples:
 
   - scenario: a move between rows curves, and a dot leaves a cell empty
     before: |-
-      ```states Review
+      ::: states Review
       draft review
       . rejected
 
       draft -> review  submit
       review -> rejected  refuse
       rejected -> draft  rework
-      ```
+      :::
     after: |-
       states
         frame -10 -25 206.82 179
@@ -47,11 +47,11 @@ examples:
 
   - scenario: a move to a box that the grid does not hold is refused
     before: |-
-      ```states
+      ::: states
       draft review
 
       draft -> published  publish
-      ```
+      :::
     error: "states: no box called published"
 
   - scenario: a box is marked with a kind of the project's, and the legend names the kinds
@@ -61,7 +61,7 @@ examples:
           decision: a decision
           end: an end
     before: |-
-      ```states Review
+      ::: states Review
       draft review:decision published:end
       . rejected:end
       {legend}
@@ -69,7 +69,7 @@ examples:
       draft -> review  submit
       review -> published  approve
       review -> rejected  refuse
-      ```
+      :::
     after: |-
       states
         frame -10 -25 326 179
@@ -88,21 +88,21 @@ examples:
         key decision "a decision"
         key end "an end"
 
-  - scenario: a move is marked with a kind in its braces, beside where its label sits
+  - scenario: a move is marked with a kind among the attributes of its label, beside where it sits
     options:
       states:
         kinds:
           fail: a refusal
     before: |-
-      ```states
+      ::: states
       draft review
       . rejected
       {legend}
 
       draft -> review  submit
-      review -> rejected  refuse {fail}
-      rejected -> draft  rework {0.4 fail}
-      ```
+      review -> rejected  {refuse, fail}
+      rejected -> draft  {rework, 0.4, fail}
+      :::
     after: |-
       states
         frame -10 -25 206.82 179
@@ -118,23 +118,41 @@ examples:
         key step "a step"
         key fail "a refusal" move
 
-  - scenario: a move marked with a kind the project does not declare is refused
+  - scenario: a move's label takes a colour, and the move is drawn in it
     before: |-
-      ```states
+      ::: states
       draft review
 
-      draft -> review  submit {oops}
-      ```
+      draft -> review  submit
+      review -> draft  {rework, 0.4, color red}
+      :::
+    after: |-
+      states
+        frame -10 -30 190 86
+        box step 0 0 55 30 "draft"
+        box step 101 0 69 30 "review"
+        move 55 10 89 10 67 10 101 10
+          label 78 -8 middle "submit"
+        move 101 20 67 20 89 20 55 20 color "red"
+          label 80 40 middle "rework"
+
+  - scenario: a move marked with a kind the project does not declare is refused
+    before: |-
+      ::: states
+      draft review
+
+      draft -> review  {submit, oops}
+      :::
     error: "states: no kind called oops, line 3"
 
   - scenario: a move both ways is one line with a tip at each end
     before: |-
-      ```states
+      ::: states
       app gate msg
 
       app -> gate  ask
       gate <-> msg  messages
-      ```
+      :::
     after: |-
       states
         frame -10 -25 263 65
@@ -145,3 +163,195 @@ examples:
           label 70 -3 middle "ask"
         move both 145 15 179 15 157 15 191 15
           label 168 -3 middle "messages"
+
+  - scenario: a move to a later column on another row forks off the right side in an S, over a wider gap, and `active` marks a step
+    before: |-
+      ::: states
+      foo {bar, active} baz
+      . . bam
+
+      foo -> bar
+      bar -> baz
+      bar -> bam
+      :::
+    after: |-
+      states
+        frame -10 -25 354 179
+        box step 0 0 45 30 "foo"
+        box step 141 0 45 30 "bar" active
+        box step 282 0 52 30 "baz"
+        box step 282 114 52 30 "bam"
+        move 45 15 88.2 15 97.8 15 141 15
+        move 186 15 229.2 15 238.8 15 282 15
+        move 186 15 234 15 234 129 282 129
+
+  - scenario: an attribute may be written on any mention of a name, such as a move
+    before: |-
+      ::: states
+      foo bar baz
+      . . bam
+
+      foo -> bar
+      bar -> {baz, active}
+      bar -> {bam, active}
+      :::
+    after: |-
+      states
+        frame -10 -25 354 179
+        box step 0 0 45 30 "foo"
+        box step 141 0 45 30 "bar"
+        box step 282 0 52 30 "baz" active
+        box step 282 114 52 30 "bam" active
+        move 45 15 88.2 15 97.8 15 141 15
+        move 186 15 229.2 15 238.8 15 282 15
+        move 186 15 234 15 234 129 282 129
+
+  - scenario: a name in braces holds spaces, in the grid and the moves, and its attributes follow it after commas
+    before: |-
+      ::: states
+      nouveau {en attente, active} valide
+
+      nouveau -> {en attente}  soumettre
+      {en attente} -> valide  approuver
+      :::
+    after: |-
+      states
+        frame -10 -25 340 65
+        box step 0 0 75 30 "nouveau"
+        box step 121 0 89 30 "en attente" active
+        box step 256 0 64 30 "valide"
+        move 75 15 109 15 87 15 121 15
+          label 98 -3 middle "soumettre"
+        move 210 15 244 15 222 15 256 15
+          label 233 -3 middle "approuver"
+
+  - scenario: a name in braces with no attribute is only a name, not an active step
+    before: |-
+      ::: states
+      nouveau {en attente} valide
+
+      nouveau -> {en attente}  soumettre
+      {en attente} -> valide  approuver
+      :::
+    after: |-
+      states
+        frame -10 -25 340 65
+        box step 0 0 75 30 "nouveau"
+        box step 121 0 89 30 "en attente"
+        box step 256 0 64 30 "valide"
+        move 75 15 109 15 87 15 121 15
+          label 98 -3 middle "soumettre"
+        move 210 15 244 15 222 15 256 15
+          label 233 -3 middle "approuver"
+
+  - scenario: a brace that is not closed is refused
+    before: |-
+      ::: states
+      nouveau {en attente valide
+      :::
+    error: "states: a brace is not closed, line 1"
+
+  - scenario: "`color` gives a step a hue of the palette: a hue's name, or any word, hashed into the palette"
+    before: |-
+      ::: states
+      {draft, color red} review rejected
+
+      draft -> review  submit
+      review -> {rejected, color important}  refuse
+      :::
+    after: |-
+      states
+        frame -10 -25 311 65
+        box step 0 0 55 30 "draft" color "red"
+        box step 101 0 69 30 "review"
+        box step 216 0 75 30 "rejected" color "teal"
+        move 55 15 89 15 67 15 101 15
+          label 78 -3 middle "submit"
+        move 170 15 204 15 182 15 216 15
+          label 193 -3 middle "refuse"
+
+  - scenario: two mentions that give a name two colours are refused
+    before: |-
+      ::: states
+      {draft, color red} review
+
+      {draft, color blue} -> review  submit
+      :::
+    error: "states: draft has two colours, line 3"
+
+  - scenario: an attribute that a name cannot take is refused
+    before: |-
+      ::: states
+      {draft, 0.3} review
+
+      draft -> review  submit
+      :::
+    error: "states: draft cannot take 0.3, line 1"
+
+  - scenario: a label in braces says where it sits, and on which side of the way
+    before: |-
+      ::: states
+      draft review
+
+      draft -> review  {submit, 0.3 right}
+      :::
+    after: |-
+      states
+        frame -10 -10 190 61
+        box step 0 0 55 30 "draft"
+        box step 101 0 69 30 "review"
+        move 55 15 89 15 67 15 101 15
+          label 74 35 middle "submit"
+
+
+  - scenario: the eight hues of the palette, each named by its own word
+    before: |-
+      ::: states The palette
+      {grey, color grey} {red, color red} {orange, color orange} {yellow, color yellow}
+      {green, color green} {teal, color teal} {blue, color blue} {purple, color purple}
+      :::
+    after: |-
+      states
+        frame -10 -10 402 164
+        box step 0 0 59 30 "grey" color "grey"
+        box step 105 0 50 30 "red" color "red"
+        box step 201 0 66 30 "orange" color "orange"
+        box step 313 0 69 30 "yellow" color "yellow"
+        box step 0 114 59 30 "green" color "green"
+        box step 105 114 50 30 "teal" color "teal"
+        box step 201 114 66 30 "blue" color "blue"
+        box step 313 114 69 30 "purple" color "purple"
+        caption "The palette"
+
+  - scenario: colours give the steps of a workflow their meaning, and an active step keeps the tone of a plan's current stage
+    before: |-
+      ::: states A support ticket
+      {new, color blue} {in progress, active} {answered, color green}
+      . {waiting for the client, color yellow} .
+      . {closed without answer, color red} .
+
+      new -> {in progress}  taken
+      {in progress} -> answered  answer sent
+      {in progress} -> {waiting for the client}  {question asked, 0.5 right}
+      {waiting for the client} -> {in progress}  {client replied, 0.5 right}
+      {waiting for the client} -> {closed without answer}  no reply in 30 days
+      :::
+    after: |-
+      states
+        frame -10 -25 420 293
+        box step 0 0 52 30 "new" color "blue"
+        box step 98 0 171 30 "in progress" active
+        box step 315 0 85 30 "answered" color "green"
+        box step 98 114 171 30 "waiting for the client" color "yellow"
+        box step 98 228 171 30 "closed without answer" color "red"
+        move 52 15 86 15 64 15 98 15
+          label 75 -3 middle "taken"
+        move 269 15 303 15 281 15 315 15
+          label 292 -3 middle "answer sent"
+        move 155 30 155 67.8 155 76.2 155 114
+          label 144 76 end "question asked"
+        move 212 114 212 76.2 212 67.8 212 30
+          label 223 76 start "client replied"
+        move 183.5 144 183.5 181.8 183.5 190.2 183.5 228
+          label 195 190 start "no reply in 30 days"
+        caption "A support ticket"

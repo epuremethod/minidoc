@@ -1,0 +1,31 @@
+{
+  "name": "@minidoc/live",
+  "namespace": "MinidocLive",
+  "sources": [
+    {
+      "dir": "src",
+      "subdirs": ["edit"]
+    }
+  ],
+  "package-specs": [
+    {
+      "module": "esmodule",
+      "in-source": true
+    }
+  ],
+  "suffix": ".mjs",
+  "warnings": {
+    "number": "-30"
+  },
+  "jsx": {
+    "version": 4
+  },
+  "dependencies": [
+    "@minidoc/blocks",
+    "@rescript/react",
+    "@epure/editor",
+    "@tilia/editor",
+    "@tilia/react",
+    "tilia"
+  ]
+}

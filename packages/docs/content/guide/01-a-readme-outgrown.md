@@ -12,7 +12,7 @@ There is no code in it.
 minidoc is a small documentation website generator. It reads YAML configs,
 fills templates with your content, and writes files. It has no theme, no
 plugin system and no expression language. The HTML, the CSS and the fonts are
-yours; minidoc puts the words in the right places.
+yours; minidoc puts the words in the right place.
 
 ::: story
 Mara maintains `marmot`, a small date library. Its README has grown to

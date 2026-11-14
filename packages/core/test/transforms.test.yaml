@@ -1,0 +1,121 @@
+feature: Transform vars
+background:
+  given: a filesystem
+examples:
+  - scenario: it should transform a value after resolving the current directory item
+    source:
+      config.yaml:
+        var:
+          signature:
+            value: "{{signature.ts}}"
+            transform: md
+          entries:
+            dir: content
+            transform: none
+            each: "{{signature}}"
+        build:
+          - output: out.html
+            input: "{{entries}}"
+      content/entry.md: |-
+        ---
+        signature.ts: "**function entry(): void**"
+        ---
+        Body
+    target:
+      out.html: |
+        <p><strong>function entry(): void</strong></p>
+
+  - scenario: it should report an unknown transform
+    source:
+      config.yaml:
+        var:
+          title: Hello
+          rendered:
+            value: "{{title}}"
+            transform: missing
+        build:
+          - output: out.html
+            input: "{{rendered}}"
+    error: 'out.html: var (config.yaml).rendered: unknown transform "missing" (available: md, none)'
+
+  - scenario: it should report an undefined reference inside a transform value
+    source:
+      config.yaml:
+        var:
+          rendered:
+            value: "{{missing}}"
+            transform: none
+        build:
+          - output: out.html
+            input: "{{rendered}}"
+    error: "out.html: Undefined variable {{missing}} in var (config.yaml).rendered"
+
+  - scenario: it should detect a cycle through a transform value
+    source:
+      config.yaml:
+        var:
+          rendered:
+            value: "{{rendered}}"
+            transform: none
+        build:
+          - output: out.html
+            input: "{{rendered}}"
+    error: "out.html: Variable cycle in var (config.yaml).rendered: rendered -> rendered"
+
+  - scenario: a transform receives the page's lang from its frontmatter
+    options:
+      langs: true
+    source:
+      config.yaml:
+        var:
+          lang: en
+          entries:
+            dir: content
+            transform: lang
+            each: "{{body}}"
+        build:
+          - output: out.html
+            input: "{{entries}}"
+      content/controle.md: |-
+        ---
+        lang: fr
+        ---
+        Le contrôle passe avant l'envoi.
+    target:
+      out.html: "Le contrôle passe avant l'envoi. [fr]"
+
+  - scenario: a transform receives the lang of the config's vars when the page sets none
+    options:
+      langs: true
+    source:
+      config.yaml:
+        var:
+          lang: en
+          entries:
+            dir: content
+            transform: lang
+            each: "{{body}}"
+        build:
+          - output: out.html
+            input: "{{entries}}"
+      content/review.md: Review comes before sending.
+    target:
+      out.html: "Review comes before sending. [en]"
+
+  - scenario: a transform receives no lang when no var sets one
+    options:
+      langs: true
+    source:
+      config.yaml:
+        var:
+          entries:
+            dir: content
+            transform: lang
+            each: "{{body}}"
+        build:
+          - output: out.html
+            input: "{{entries}}"
+      content/review.md: Review comes before sending.
+    target:
+      out.html: "Review comes before sending. [no lang]"
+

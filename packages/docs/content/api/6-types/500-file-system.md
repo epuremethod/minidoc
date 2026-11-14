@@ -39,7 +39,7 @@ signature: |-
 #### Example
 
 ```ts
-import type { FileSystem } from "@epure/minidoc"
+import type { FileSystem } from "@minidoc/core"
 
 // Read-only content from a map, writes collected for the caller.
 const written: Record<string, string> = {}

@@ -1,0 +1,15 @@
+feature: A theme's colours for a light and a dark page
+# A theme gives each colour twice, `light-dark(<light>, <dark>)`, and the
+# browser picks one from the page's `color-scheme`. A page that declares
+# no scheme, or `light`, keeps the light colours. `single` lists each
+# variable of the theme that holds a colour outside a `light-dark()`.
+background:
+  given: a theme's colours
+examples:
+  - scenario: soft gives each colour for a light and a dark page
+    before: themes/soft.css
+    after: "single: none"
+
+  - scenario: graphic gives each colour for a light and a dark page
+    before: themes/graphic.css
+    after: "single: none"

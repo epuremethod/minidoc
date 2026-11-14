@@ -5,7 +5,8 @@ kind: type
 summary: A function from text to text, named in run and picked by name in a config.
 lang: ts
 signature: |-
-  type Transform = (text: string) => string
+  type Transform = (text: string, page: Page) => string
+  type Page = { lang?: string }
   type Transforms = Record<string, Transform>
 ---
 
@@ -25,6 +26,10 @@ signature: |-
   extension, unless it names one. A `value` var always names one.
 - A transform runs after the references of its text have rendered, and its
   result is never rendered again.
+- A transform receives the page it renders. `page.lang` is the `lang` var
+  that the page sees: its frontmatter's, else the config's. It is undefined
+  when no var sets one. A second parameter with a default value receives
+  the page too: read such a value inside the transform.
 - Synchronous only.
 - Edited transforms take effect in a dev server only with a `build` script.
   See [`watch`](#watch).
@@ -32,7 +37,7 @@ signature: |-
 #### Example
 
 ```js
-import { run } from "@epure/minidoc"
+import { run } from "@minidoc/core"
 import { Marked } from "marked"
 
 const md = (text) => new Marked({ gfm: true }).parse(text)

@@ -75,11 +75,14 @@ given to `run` by name:
 
 ```js
 // build.mjs
-import { run } from "@epure/minidoc"
+import { run } from "@minidoc/core"
 import { typescript } from "./highlight.mjs"
 
 await run({ glob: "content/**/config.yaml", transform: { typescript } })
 ```
+
+A transform also receives the page it renders, with the page's `lang` var,
+so one transform can write the words of each lang.
 
 The built-in transforms are `md` and `none`. A transform named `md`
 replaces the built-in one for every markdown file — this site does that to

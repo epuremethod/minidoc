@@ -1,5 +1,5 @@
-// @epure/blocks — common `:::` blocks for minidoc sites.
-// Public interface; kept parallel to Blocks.res.d.mts.
+// @minidoc/blocks — common `:::` blocks for minidoc sites.
+// Public interface; kept parallel to index.d.ts.
 
 /** The middle language: what a block means, between its markdown and its HTML. */
 type node = Node.t
@@ -22,14 +22,17 @@ type dialog = {
 /** A project's own block: its HTML from the rest of its opening line and its body. */
 type extra = {
   name: string,
-  /** A code fence named `name` instead of a `::: name` block. */
-  fence?: bool,
   render: (string, string) => string,
 }
 
+/** What a transform knows of the page it renders: its lang, and its file, as the site names it. */
+type rendered = {lang?: string, file?: string}
+
 type options = {
-  /** Callouts added to the common ones, by name, with their label. */
+  /** Callouts added to the common ones, by name, with their label. `fr.settled` is the label of `settled` on a page in `fr`. */
   callouts?: dict<string>,
+  /** The page's lang, which picks the labels written with its prefix. */
+  lang?: string,
   @as("ui-dialog") dialog?: dialog,
   sequence?: kinds,
   states?: kinds,
@@ -37,6 +40,8 @@ type options = {
   extra?: array<extra>,
   /** Called with the markdown-it instance, to add the site's own plugins. */
   markdown?: Markdown.t => unit,
+  /** The text of a file a block names, such as a changelog's, by its path from the page; none when there is no such file. */
+  read?: (string, rendered) => option<string>,
 }
 
 /** Read a document into nodes. Fails on an unknown, unclosed or mismatched block, and on a name or a reference the page cannot resolve. */
@@ -60,11 +65,15 @@ let editable: array<node> => bool
 /** Apply what the person does to the one block of `source`. Fails when the act names no field of it, or when the result would not read. */
 let edit: (string, Draw.act, options) => edited
 
-/** The callouts a site knows, by name with their label: the common ones first, then the site's own. */
+/** The callouts a site knows, by name with their label in `lang`: the common ones first, then the site's own. Fails on a translation of no callout. */
 let callouts: options => array<(string, string)>
 
-/** The names of the fences minidoc draws, such as `sequence`: the common ones, then the site's own. */
-let drawings: options => array<string>
+/** The callouts a page removes once done, such as `comment`: an editor shows a × that removes the block. Such a callout has no label: its author and its date head it on one line. */
+let removable: array<string>
 
-/** A minidoc transform: markdown in, HTML out, blocks included. */
-let blocks: options => string => string
+/** The keys of the `:::` blocks minidoc draws, other than callouts, such as `states` and `ui-dialog`: the common ones, then the site's own. */
+let keys: options => array<string>
+
+
+/** A minidoc transform: markdown in, HTML out, blocks included. The page's `lang` picks the labels written with its prefix, and `read` gets the page with its `file`. */
+let blocks: options => (string, option<rendered>) => string

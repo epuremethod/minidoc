@@ -1,0 +1,124 @@
+feature: Changelog
+# For a reader who wants to see what each release adds, changes, fixes or
+# removes. A scenario's `files` are the files the site gives the block,
+# by the path the page names.
+background:
+  given: a document
+examples:
+  - scenario: from a file, relative to the page, the last release shows and the earlier ones are closed
+    files:
+      ../../tilia/CHANGELOG.md: |-
+        # Changelog
+
+        For `@tilia/query`, see its own changelog.
+
+        - 2026-11-14 **6.0.2**
+          - Fix a derived value that stopped notifying after a redraw: `_ready`
+            rebuilds a pruned derived value.
+        - 2026-10-05 **6.0.1**
+          - Fix a read saved to target: write only if the value differs.
+        - 2026-09-26 **6.0.0**
+          - Remove `changing`. Use `@tilia/query` for data sync. **Breaking**
+          - Change `watch` and `observe`: they return a function that stops them.
+          - Add `_canopy`, which shows the keys that have observers.
+    before: |-
+      ::: changelog ../../tilia/CHANGELOG.md
+      :::
+    after: |-
+      changelog file "../../tilia/CHANGELOG.md"
+        version "6.0.2" date "2026-11-14"
+          fix "a derived value that stopped notifying after a redraw: `_ready` rebuilds a pruned derived value."
+        version "6.0.1" date "2026-10-05"
+          fix "a read saved to target: write only if the value differs."
+        version "6.0.0" date "2026-09-26"
+          remove breaking "`changing`. Use `@tilia/query` for data sync."
+          change "`watch` and `observe`: they return a function that stops them."
+          add "`_canopy`, which shows the keys that have observers."
+
+  - scenario: inline, a document under review keeps its own history, with the changes not released yet first
+    before: |-
+      ::: changelog
+      - Unreleased
+        - Add the sign-off of the legal team.
+      - 2026-11-14 **v2**
+        - Change the scope: the API calls are out.
+      - 2026-11-02 **v1**
+        - Add the first draft.
+      :::
+    after: |-
+      changelog
+        unreleased
+          add "the sign-off of the legal team."
+        version "v2" date "2026-11-14"
+          change "the scope: the API calls are out."
+        version "v1" date "2026-11-02"
+          add "the first draft."
+
+  - scenario: "::: release draws the last release alone, past the changes not released yet"
+    files:
+      CHANGELOG.md: |-
+        - Unreleased
+          - Add a `release` block.
+        - 2026-11-14 **6.0.2**
+          - Fix a derived value that stopped notifying after a redraw.
+    before: |-
+      ::: release CHANGELOG.md
+      :::
+    after: |-
+      release file "CHANGELOG.md"
+        unreleased
+          add "a `release` block."
+        version "6.0.2" date "2026-11-14"
+          fix "a derived value that stopped notifying after a redraw."
+
+  - scenario: a change with no kind is a change, and its words stay as written
+    before: |-
+      ::: changelog
+      - 2026-09-26 **6.0.0**
+        - `watch` and `observe` now return a function that stops them.
+      :::
+    after: |-
+      changelog
+        version "6.0.0" date "2026-09-26"
+          change unsaid "`watch` and `observe` now return a function that stops them."
+
+  - scenario: a path that leads to no file is refused, with the path
+    files: {}
+    before: |-
+      ::: changelog ../CHANGELOG.md
+      :::
+    error: "::: changelog on line 1: ../CHANGELOG.md leads to no file"
+
+  - scenario: a line that is neither an entry nor a change is refused, with its line
+    before: |-
+      ::: changelog
+      - 2026-11-14 **v2**
+        - Add the first draft.
+      Some text.
+      :::
+    error: "::: changelog on line 4: neither an entry (- YYYY-MM-DD **version**) nor a change under it: Some text."
+
+  - scenario: a changelog that holds entries and names a file is refused
+    files:
+      CHANGELOG.md: "- 2026-11-14 **v2**"
+    before: |-
+      ::: changelog CHANGELOG.md
+      - 2026-11-14 **v2**
+      :::
+    error: "::: changelog on line 1: holds entries and names a file; keep one"
+
+  - scenario: changes not released yet after a release are refused
+    before: |-
+      ::: changelog
+      - 2026-11-14 **v2**
+      - Unreleased
+      :::
+    error: "::: changelog on line 3: Unreleased comes before the first release"
+
+  - scenario: "::: release with no release yet is refused"
+    before: |-
+      ::: release
+      - Unreleased
+        - Add the first draft.
+      :::
+    error: "::: release on line 1: no release yet"
