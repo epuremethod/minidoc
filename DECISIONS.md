@@ -980,3 +980,535 @@ port, and two sites could draw the same port while one was down.
 
 Costs: a new site can still draw the port of a stopped site, about once in
 21,800 draws for each stopped site. Then the second to start fails loud.
+
+## 2026-11-11: A model draws a process as `a ..> b`
+
+A copy or a flow between two tables is not a link in the data, so it has no
+ends. `a ..> b` is written as it is drawn: dots, then a tip. It is the
+dependency of mermaid's and PlantUML's class diagrams, the family of `<-`.
+The line and the tip take `--drawing-line-secondary`, and the dash is
+`3 4`, as a sequence's lifeline, so it reads apart from a refusal's `5 4`.
+
+Refused: `~~>`. In radif, `~>` is a relation, a link in the data, so a
+reader of radif takes `~~>` for a reference.
+
+Refused: a relation for a copy, as gdos drew one. A reader takes its ends
+for a foreign key.
+
+Costs: a table called `..>` cannot be written.
+
+## 2026-11-11: A loop's label stands right of the loop, at its mid-height
+
+A label at the middle of a loop's length stood near its top, over the lines
+that pass above the table. It now stands right of the loop's rightmost point,
+halfway between the loop's top and its tail. The rightmost point and the top
+come from the roots of the cubic's derivative, so they are exact. A loop has
+one outer side, so `{0.2}` and `right` do not move its label.
+
+Refused: keep `{0.2}` for a loop. Its place would become an option in `way`,
+which flows and models share, for a case with no use yet.
+
+Costs a loop's label that a writer wants elsewhere: no syntax moves it.
+
+## 2026-11-11: A state machine forks off a right side, marks its active steps, and quotes a name with spaces
+
+A state machine reads left to right. A move to a later column on another
+row leaves its box's right side and reaches the other's left side. The
+moves that leave one right side start from one point, so the line along the
+row stays straight and the others turn off it. Between those sides the
+curve pulls by half the distance across: its handles meet at the middle of
+the gap, so it turns over its whole length and never bends back. A grid
+that holds a fork takes a model's gap between columns, 96 and not 46, so
+the curve leaves flat and arrives flat: in 46 it can only drop, and the
+tip seems to come from above. Each move
+reaches its tip in a straight piece, seven tenths of the tip, as a model's
+link does: else the line still curves under the tip, and the tip looks
+askew. `Grid.route ~forks` turns this on, and only `states`
+sets it: an entity diagram has no direction to read.
+
+A name in braces in the grid, `{b}`, marks a step in progress, where a
+reader looks for it first; `{active a b}` after the grid does the same from
+a line of its own. An active box
+takes `--tone-doing`, the tone of a plan's current stage, in place of its
+kind's. A name in double quotes, `"en attente"`, holds spaces in the grid,
+the moves and `{active}`.
+
+Refused: a fork in `flow`, a nested list, which cannot branch. Refused:
+`_` shown as a space, which reads as code to a person who is not a
+developer. Refused: a mark in the grid, `*bar`, which reads as emphasis.
+
+Costs: a fork's moves share a start, so two moves to boxes of one row
+cannot be told apart at their start. An active step loses its kind's tone.
+
+## 2026-11-11: A transform receives the page's lang, and a callout's label takes a lang prefix
+
+A site may hold pages in several langs, and a callout's label must follow
+the page. A transform now receives a second argument, the page:
+`(text, page) => string`, where `page.lang` is the `lang` var the page sees,
+from its frontmatter or its config. `@epure/blocks` reads `callouts: { "fr.settled": "Décidé" }`: on a
+page in `fr`, `settled` shows "Décidé", and a kind with no `fr.` label keeps
+its own. The kind typed in the source never changes. A prefixed key whose
+kind does not exist is refused. In `dev`, the site writes the lang beside
+the file on the editor's element, as `data-minidoc-lang`, and the editor
+gives it to the blocks.
+
+Refused: all of the page's vars, given to a transform. A var may be the
+page's body, and its own transform would render it again. Refused: a nested
+object, `{ fr: { settled: … } }`, where a lang and a kind share one level of
+keys.
+
+Costs: a transform whose second parameter has a default value now receives
+the page there, and breaks; radif had four. `lang` is now a name with a
+meaning. This site's API pages use
+`lang: ts` for the language of their signature, so their transform receives
+`ts`, which matches no label. Only callout labels follow the lang for now;
+the API labels and the legends keep one lang.
+
+## 2026-11-11: Every block starts with `:::`, and a fence only holds code
+
+A person starts every special block the same way, with three colons, and
+types a fence only for code, as everywhere else. `::: states`, `::: sequence`
+and `::: model` draw; `` ```states `` is a code block. `@epure/blocks` drops
+`extra.fence`, and gives `keys(options)`, the keys of every `:::` block it
+draws other than callouts. The editor's page reads by the keys minidoc
+declares, and `::: key` and a space, or `::: key rest` and Enter, makes the
+block and opens its source.
+
+Refused: reading both forms. Two ways to write one drawing, and a fence that
+a reader takes for code.
+
+Costs: every page that drew a fence is rewritten, here and in the sites that
+use minidoc.
+
+## 2026-11-12: The panel is a card over the page, and opens in the block's body
+
+In `dev`, the panel where a block's source opens is a card in the
+bottom-right corner, over the page. The page does not move, so the
+drawing stays in view while it follows each key. The card takes the
+theme's `--ui-dialog-shadow`, the shadow of a floating surface. A page
+note moves to the bottom-left. `Live.Pane` with `autoFocus` puts the caret
+at the end of the block's body, before its closing fence, so `::: states`
+and a space lets the person type the first line at once.
+
+Refused: the full-height side panel, which covered the right of the page
+and hid the drawing on a narrow window. Refused too: a `--pane-shadow`
+variable; the dialog's shadow already plays that role.
+
+Costs: a long source scrolls in a card at most 60% of the window high, and
+the card can cover a drawing in the bottom-right corner.
+
+## 2026-11-12: The panel's card moves, grows, and keeps its place in localStorage
+
+The person moves the card by its bar and makes it bigger by a grip at its
+top-left corner; the source fills it. Its place is its distance from the
+window's bottom-right corner, kept with its size in `localStorage` under
+`minidoc-pane`, and it stays inside the window. A press on the bar or the
+grip keeps the focus in the source. The card's ground is 5% of the ink in
+the surface, so the white source stands out on a white page, and its
+corners are `--ui-control-radius`.
+
+Refused: the text box's own resize corner, which grew the box past the
+card. Refused too: a new variable for the card's ground; it is mixed from
+the neutrals.
+
+Costs: the place is kept per origin, so a dev server on another port opens
+the card at its default place.
+
+## 2026-11-12: A press outside the panel and its section closes it
+
+minidoc closes the panel on a `pointerdown` outside the card and outside
+the section whose block is open. In the section, the editor decides, as it
+did: a press in its text closes the panel, and a press on a block opens
+that block's source. The browser then does its own work, so a press in
+another section puts the caret there.
+
+Refused: a change in `@tilia/editor`, which owns the selection. The card
+is minidoc's, and the editor's own pane, under the block, has other rules.
+
+Costs: a press on the page's menu or margin closes the panel, and the
+caret goes after the block.
+
+## 2026-11-12: A name in braces carries its attributes, and a colour comes from a palette
+
+In `states`, `model` and `sequence`, a name in braces holds spaces and its
+attributes after commas: `{en attente, active}`, `{Order, #eu, color teal}`,
+`{web browser, color blue}`. A label takes its place the same way:
+`{refuse, 0.4 right, fail}`. Any mention may carry them, and two that
+disagree are refused. `active` is explicit. `color` picks one of eight
+hues that each theme gives, `--hue-grey` to `--hue-purple`, by its name or
+by the FNV-1a hash of any other word. A model table without a colour takes
+the hue its tenant's name hashes to.
+
+Refused: a colour line, `{color red A B}`, which writes each name twice.
+Refused too: a tone per tenant in the order the tenants appear, which gave
+one tenant two colours in two drawings; and double quotes for a name with
+spaces, a second way to write what braces write.
+
+Costs: `{review}` alone is now a name, not an active step; the drawings
+that used it, quotes or `label {0.2}` were rewritten. Eight hues for any
+number of words: two tenants share a hue often, and `color` then fixes it.
+
+## 2026-11-12: A rule for a toned part matches its tone, not its style
+
+`blocks.css` keys the look of a coloured step, party, move, legend key and
+table on `[style*="--tone"]`, not on `[style]`. Live redraws a drawing with
+React, which reuses an element by its place and, when its tone goes,
+leaves an empty `style=""`. A rule on `[style]` then mixed a fill from a
+missing tone, and the part was drawn black until a reload.
+
+Refused: a class for a toned part, which adds a second mark of the same
+fact to the HTML.
+
+Costs: a style that names `--tone` for another reason would match too.
+
+## 2026-11-12: The pane colours a drawing's source under a clear text box
+
+`Tokens.read` gives the tokens of a `states`, `model` or `sequence` source
+in one pass over its lines, with no parse, so a source being typed is
+coloured too. `Live.Pane` draws them in a layer under its text box, whose
+own text is clear. Both carry `pane__source`, so a site's look applies to
+both and each letter lies under its own. Symbols are bold and names plain;
+each kind takes a variable that already plays its part, and a colour or a
+tenant shows in the hue it gives. Another block shows its source plain.
+
+Refused: a code editor such as CodeMirror, a dependency of its own for a
+few lines of source. Refused too: bold names, which made each line heavy.
+
+Costs: the layer and the box must wrap alike; a site that styles only one
+of them breaks the alignment. A page that looked for `.pane__source` finds
+the layer first and now asks for `textarea.pane__source`.
+
+## 2026-11-12: A model table has 12px of room on its left and 16px on its right
+
+The tenant at the right of a table's name and the values of its columns
+touched its right side. Only that side grows.
+
+Refused: 16px on both sides, which left an empty margin before the name.
+
+## 2026-11-12: Every word in braces holds spaces and takes a colour
+
+A word in braces is a text and its attributes, in every drawing and every
+place: a name, a label, and now a model column's name, type and value, and
+a sequence's message or state. `color <hue|word>` is valid on each. A
+colour on a label draws its line, its ends and its label in that hue; in
+`states` it comes before a kind's tone, as on a box. A column's name and
+type are each a word, plain or in braces, and the rest of the line is its
+value.
+
+The bug: `description {texte riche}` broke at its space, and the type
+showed `{texte`.
+
+A coloured line and its ends take `--drawing-edge-amount`. A coloured
+text takes a new variable, `--drawing-ink-amount`, 100% in soft and
+graphic: at the edge's 60%, a yellow text in soft was too pale to read. A
+kind's label in `states` takes it too. An end takes no colour from its
+line, so each hue a drawing uses gets its own markers.
+
+Refused: colour on model columns only, which leaves one more place where
+braces mean something else. Refused too: bold coloured text, which marks
+a colour by weight.
+
+Costs: a colour has no legend. When a hue means something, a kind says it
+better, and the docs say so.
+
+## 2026-11-12: A coloured text mixes toward the ink, and the themes' variables are checked
+
+A coloured text in a drawing mixes its hue toward `--blocks-ink`, not
+toward the surface: a fill or an edge sits on the surface, but a text must
+stand out from it. Soft sets `--drawing-ink-amount` to 80%, so a hue is a
+little darker and a yellow still reads; graphic keeps 100%. `blocks.css`
+falls back to 80% for a theme that predates the variable: without it, the
+`color-mix()` was invalid and the text turned black, as on gdos, whose
+copy of the theme was old.
+
+`blocks/test/themes.test.yaml` checks that each theme sets every variable
+that `blocks.css`, `live.css` and minidoc's `edit.css` read, but `--tone`
+and `--plan-rows`, which a block sets on its own element. It also checks
+that the contract page and llms.txt name each variable a theme sets, so a
+site that writes its own theme knows what to set.
+
+Refused: a fallback for every variable, which would hide a theme that
+misses one; the scenario finds it instead. The one fallback keeps the
+themes written before this change working.
+
+Costs: a new variable now means three edits, the themes, the contract's
+table and llms.yaml; the scenario names the one forgotten.
+
+## 2026-11-12: A coloured text takes its hue itself
+
+Soft sets `--drawing-ink-amount` to 100%, and `blocks.css` falls back to
+100%: a coloured text in a drawing shows the hue itself, as the pane's
+syntax colours show it. At 80% toward the ink, an orange text turned brown
+and no longer matched its source in the pane.
+
+Kept: the variable and the mix toward the ink, so a theme with pale hues
+can darken its texts.
+
+## 2026-11-12: A block selected whole shows an outline
+
+The editor selects a drawing's block whole on a first click, opens its
+source on the second, and hides it on the third. The browser painted its
+text highlight on each text of the drawing. `edit.css` draws an outline in
+`--tone-ui-clicked` around a block marked `data-selected`, as the editor's
+own docs do, and clears the highlight inside it. `--tone-ui-clicked`
+already outlines a clicked button, so no variable is new.
+
+Refused: a neutral outline in `--blocks-stroke`, which hardly shows on the
+drawing's own lines.
+
+Costs: the outline goes around the display line, the width of the text
+column, so a narrow table gets a wider frame.
+
+## 2026-11-12: No bold attribute; colour gives emphasis
+
+`{statut, bold}` was proposed as an attribute of every word in braces.
+Refused: bold is a look, not a meaning, and it opens a series of looks,
+italic and underline next, each a field in every drawing and the text
+form. A word that must stand out takes a colour. When the emphasis means
+something, such as a key, a word that names it is the better attribute.
+
+## 2026-11-12: A model column's type takes the pane's colour for a type
+
+A column's type is drawn in `--tone-principle`, a blue in soft, as the
+pane colours a type in the source. It was muted, like the value, and the
+two read as one. A type in braces with its own colour keeps it. In
+graphic, `--tone-principle` is black.
+
+## 2026-11-12: A coloured text is back at 80% toward the ink
+
+This replaces the entry "A coloured text takes its hue itself". That
+change came from a misread request: the person asked for a column's type
+in the pane's colour, not for pure hues. Soft and the fallback in
+`blocks.css` give 80% again, as first decided, so a hue reads a little
+darker on the surface.
+
+## 2026-11-12: A fixme callout, removed once done
+
+`::: fixme` joins the common callouts, labelled "Fix me". It marks what is
+left to fix on a page, and goes once fixed: in an editor, its head shows a
+× that removes the whole block from the markdown. `Blocks.removable` names
+the kinds that behave so, and minidoc passes it to the editor, which draws
+the ×. A static page shows none, as it cannot remove anything.
+
+Its colour is a new variable, `--tone-fixme`, asked for and set in every
+theme: soft's orange `#b0602a`, graphic's red.
+
+Refused: `task`, which clashes with gdos's Tâche and suggests a thing to
+track and tick; `todo`, which clashes with a plan's todos, ticked and kept.
+
+## 2026-11-12: The removable callout is a comment, not a fixme
+
+This replaces the kind of the entry "A fixme callout, removed once done".
+The owner settled on `comment`, labelled "Comment": a remark or a proposed
+change, often left by an agent, whose start carries its author and its
+date, `::: comment "Claude" 2026-11-12`. The × resolves it and removes the
+block. Its variable is `--tone-comment`, with the same values as before.
+`Blocks.removable` is `["comment"]`.
+
+## 2026-11-12: A comment floats into the right margin on a wide screen
+
+On a screen at least 75rem wide, `.callout--comment` floats right, out of
+the text's column, `--comment-width` wide (15rem) and `--comment-gap` from
+the text (1.5rem): it sits beside the lines it remarks on, as a comment in
+a word processor does. Below that width, it stays in the flow. Both are
+new theme variables, asked for and set in soft and graphic. A media query
+cannot read a variable, so 75rem is fixed. A site whose text fills the
+screen keeps comments in the flow with `data-comments="inline"` on its
+body.
+
+## 2026-11-12: A comment halts the article, shifted right, with a one-line head
+
+This replaces "A comment floats into the right margin on a wide screen".
+A comment holds a fix or a proposed fix to the text, often several
+paragraphs, so it halts the article: it is as wide as the text column,
+shifted right by `--comment-shift` (3rem) on a screen at least 60rem wide,
+and the text goes on under it. It never floats and never folds, so it is
+not forgotten. `--comment-shift` replaces `--comment-width` and
+`--comment-gap`; `data-comments="inline"` is gone.
+
+A comment has no label. Its head is one line: in edit mode the ×, then a
+speech bubble drawn as a CSS mask in `--tone`, its author, " · " and its
+date. The static HTML of a removable callout puts `callout__by` first,
+with no label and no "— ", and keeps it when empty, as it holds the icon.
+
+Refused: a comment in the margin, narrow, or folded: a fix must stop the
+reader where it applies.
+
+## 2026-11-12: Three `@minidoc` packages, compiled to `.mjs` and packed as tilia is
+
+`@epure/minidoc` becomes `@minidoc/core`, in `packages/core`: the
+generator and `dev`, with no React and no editor. `@epure/blocks` becomes
+`@minidoc/blocks`: the blocks written as HTML, `blocks.css` and the
+themes. `@minidoc/live`, new, in `packages/live`, holds all that needs
+React or the editor: live, which was `@epure/blocks/live`, and the page
+editor, which was `@epure/minidoc/edit` and is now `@minidoc/live/edit`,
+with `live.css` and `edit.css`. All three are at 0.2.0. React, tilia and
+the editor are peers of live alone, and live depends on blocks. The
+ReScript namespaces are `MinidocBlocks` and `MinidocLive`. This
+supersedes "minidoc publishes `@epure/minidoc` and `@epure/blocks`, with
+subpaths" (2026-11-07).
+
+Every package compiles with the suffix `.mjs`. ReScript 12 compiles a
+dependency with the consumer's suffix, and a compiled module imports
+another package's compiled module by its path, with that suffix. tilia,
+`@tilia/react` and the editor's packages ship `.mjs`, so a host that
+builds minidoc beside them needs the same.
+
+Each package is packed as tilia is. `src` ships whole, with its compiled
+`.mjs` and `rescript.json`. `src/index.js` re-exports the public API,
+esbuild bundles it into `dist` with every package external, so a host
+shares its React, and `src/index.d.ts` gives its types, written by hand.
+`clean-package` removes the scripts and the devDependencies, the `link:`
+ones included, from the packed manifest. Live bundles its two entries
+with code splitting, so they share one copy of Live. Core bundles sury's
+ReScript module, which sury ships under a suffix of its own, and moves to
+sury 11: up to 11.0.0-alpha.11, sury's JavaScript entry was `src/S.mjs`,
+the very file ReScript now writes from sury's source.
+
+Refused: the subpaths of 2026-11-07, which made React and the editor
+optional peers of the packages a static site installs, and needed a
+`"type": "dev"` source to keep the editor out of a ReScript build of the
+generator. Refused too: keeping `.res.mjs`, which a host that builds
+tilia's packages cannot import beside them, and a CommonJS bundle, since
+minidoc has been ESM only.
+
+Costs: a site renames its dependencies and its imports, and a host that
+builds with ReScript sets `"suffix": ".mjs"`. A site that loads both
+blocks and live in Node loads the blocks twice: from blocks' bundle, and
+from `src` through live. Each package's check builds its bundle first.
+The package test packs `@tilia/react` and the editor's packages from
+their repositories until they are on npm. An error now names its place
+as sury 11 writes it, `var.check[0]`.
+
+## 2026-11-12: A model table groups its columns with a line of dashes
+
+An indented `--- name` starts a group of columns, which runs to the next
+one or the table's end. A group gathers properties by facet, or by
+ancestor: a name that is a table of the drawing takes that table's hue,
+its own colour or its tenant's, and braces give any group a colour. A
+bare `---` is a group with no name, a plain separation. The group's row is
+20px with a name, 8px without, and draws a thin `--blocks-line` rule from
+after its name to the table's right side; a group first in the table
+draws no rule, as the head's rule is right above it. A group with no
+column under it is refused. The text form writes `group <top> "name"
+color "<hue>" from <x>` among the columns, top to bottom.
+
+Changed the same day: a group's name sits at the table's right, on the
+baseline of the group's first row, in 13px and `--drawing-line-secondary`,
+a light grey in both themes. A group's row is 8px, a rule alone, named or
+not, and the table is wide enough for the first row's text, a gap and the
+name. The rule spans the table's full width, so `from` is always the
+table's left side. An ancestor's hue no
+longer colours its name: it tints the group's rows, from its rule to the
+next group's or the table's foot, as that table's fill
+(`--drawing-fill-amount`), and the table's edge is drawn again over them.
+
+Refused: a link from an ancestor group to its table. The name and its hue
+say it already, and `Parent <- Child` draws the inheritance itself.
+Refused too: a separation that is not a group, which says less.
+
+## 2026-11-12: A failed save never drops the person's edits
+
+A page saves each file 300 ms after the last key. A write that fails
+shows a banner at the top of the page, `role="alert"`, in
+`--tone-refused`, that stays until a write of that file succeeds, with
+"Copy my text" and "Retry". Before each write, the file's text waits in
+`localStorage` under `minidoc-draft:<path>`, and a write that succeeds
+removes it. After a reload, a draft that differs from the file is offered
+back: "Restore my edits" writes it at once, over the file. While a file
+has edits not on disk, leaving or reloading the page asks first, the
+dev server's reload too. A 409, the file changed on disk, no longer
+reloads the page: a conflict banner offers "Keep my text", which writes
+the edits over the file, and "Load the file", which drops them.
+
+Refused: the 6-second note it replaces, which the owner missed while a
+stale dev server refused every write for an hour, and a reload on 409,
+which dropped the edits. Refused too: a merge of the two texts, as a
+section's merge is the editor's, not the page's.
+
+Costs: the draft lives in the browser of one origin, so it survives a
+restart of the dev server only on the same port, which the config
+remembers. The person answers the browser's own leave dialog when the
+server reloads a page that holds unsaved edits.
+
+## 2026-11-12: A page on a local name writes its files
+
+The dev server listens on 127.0.0.1, and a person may name it in
+`/etc/hosts`, as `a.local`, to give each port its own zoom. A write is
+accepted when its `Origin` is `http://` and the request's `Host`, on the
+server's port, and that host's name is local: `127.0.0.1`, `[::1]`,
+`localhost`, `*.localhost` or `*.local`. Every other origin is refused.
+
+Refused: every same-origin write, whatever the name. A public site could
+point its name here by DNS rebinding, and its page would then be the
+server's own. Public DNS never gives `.local` or `.localhost`. Refused
+too: a list of names in the config, a setting nobody should need.
+
+Costs: a name from `/etc/hosts` that ends in neither `.local` nor
+`.localhost` cannot write, and a proxy on another origin still cannot.
+
+## 2026-11-14: The blocks follow the page's colour scheme
+
+Each colour that a theme sets is `light-dark(<light>, <dark>)`, so the
+browser picks one from the page's `color-scheme`. A page that declares
+`color-scheme: light dark`, as the croquis's default style does, gets
+dark blocks when the system is dark. A page that declares no scheme, or
+`light`, keeps the light colours, as before. No variable is added: a
+theme still sets variables only. Soft's dark colours keep each tone's
+hue, lighter, on `#1f2024`; graphic swaps black and white. Every text of
+a callout, a plan and a drawing reaches 4.5 to 1 in both schemes.
+`blocks/test/schemes.test.yaml` checks that each colour of each theme
+has its two values.
+
+Refused: `@media (prefers-color-scheme: dark)` in the themes, which
+would draw dark blocks on a light-only page at night. Refused too: a
+dark theme of its own, which a site must switch with a script.
+
+Costs: `light-dark()` needs a browser of 2024 or later (Chrome 123,
+Safari 17.5, Firefox 120).
+
+## 2026-11-14: One changelog format, which minidoc reads
+
+A package keeps its changelog in `CHANGELOG.md`, beside its
+`package.json`. An entry is an item of the top list, `- YYYY-MM-DD
+**X.Y.Z**`, the newest first; `- Unreleased` holds the changes not
+released yet. A change is an item under its entry and starts with its
+kind: `Add`, `Change`, `Fix` or `Remove`; a change with no kind is a
+`Change`. A change that breaks ends with `**Breaking**`, so every line
+starts with its kind and the lines stay aligned. It is the shape that
+tilia's and minidoc's READMEs used, with a kind added. The rules are on
+the blocks' Changelog page, with a mockup of the `::: changelog` and
+`::: release` blocks.
+
+Refused: Keep a Changelog, with a heading for each release and each
+kind: three levels of headings for a short list. Refused too: the
+changelog as a section of `README.md`, which a block cannot find without
+a name to look for, and `**Breaking:**` at the start of a change, which
+pushes its kind to the right.
+
+Costs: a project that moves to the format adds the kinds to its old
+entries, or keeps them as `Change`.
+
+## 2026-11-14: The changelog is a block, inline or from a file
+
+`::: changelog` holds its entries, or names the markdown file that holds
+them on its opening line, by a path relative to the page, as an image's
+`src`. `::: release` draws the last release alone. The block draws the
+changes not released yet and the last release, then the earlier ones in
+a closed "Earlier releases (n)"; each change starts with its kind in its
+tone, and `**Breaking**` is a small mark at the end of the line.
+
+The blocks read a file through a `read` option, `(path, page) => text`,
+which the site gives; `@minidoc/core` now hands each transform its
+`page.file`, so the site resolves the path from the page's markdown file.
+A path that leads to no file stops the build.
+
+Refused: the path in a `file:` line inside the block, since the opening
+line is where a block names what it draws. Refused too: a component of
+the template only, since a document under review needs its changelog in
+its text.
+
+Costs: the blocks read a file for the first time. A `dev` server does
+not watch a file outside its root, and the page editor of `@minidoc/live`
+draws a changelog from a file only when its site gives a `read` in the
+browser.

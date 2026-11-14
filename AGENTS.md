@@ -18,11 +18,17 @@ literal in `blocks.css`, to style one block.
 - A theme sets variables and nothing else, under `[data-blocks-theme]`.
 - The neutrals are `--blocks-*`: ink, muted, line, stroke, surface, canvas,
   band, band-ink.
-- A block's colour is `--tone`, set on the block from a `--tone-*` variable.
-  A theme never names `--tone`.
+- A block's colour is `--tone`, set on the block from a `--tone-*` variable,
+  or from a `--hue-*` variable of the palette when a drawing asks for a
+  `color`. A theme never names `--tone`.
 - A fill, an edge or a label is mixed from `--tone` and `--blocks-surface`
   by the theme's amounts: `--fill-amount`, `--edge-amount`, and
-  `--drawing-fill-amount` and `--drawing-edge-amount` for drawings.
+  `--drawing-fill-amount`, `--drawing-edge-amount` and
+  `--drawing-ink-amount` for drawings. A coloured text mixes toward
+  `--blocks-ink` instead, so it stands out from the surface.
+- Every variable a theme sets is listed in `05-contracts.md` and in
+  llms.txt (`docs/content/llms.yaml`); `blocks/test/themes.test.yaml`
+  checks the themes and both lists.
 - Shapes are variables too: radii, padding, borders and gaps.
 
 To make something primary or secondary, pick the existing variable that
@@ -32,4 +38,4 @@ one. In that case, ask first, add the new variable to every theme, and
 record it in `DECISIONS.md`.
 
 Source: `DECISIONS.md`, 2026-10-03, "A theme sets variables, and never
-names --tone", and `packages/docs/content/blocks/10-contracts.md`.
+names --tone", and `packages/docs/content/blocks/05-contracts.md`.

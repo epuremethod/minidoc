@@ -1,79 +1,102 @@
-::: plan minidoc release, with live minidoc
-1. [x] **Ready to publish** committed
-   - [x] Root `pnpm docs:dev`, commit rules in AGENTS.md
-   - [x] Plan block, `@epure/minidoc` re-export, blocks pages in llms.txt
-   - [x] Root `pnpm pub <core|blocks|deprecated>`: core tags `v…`, blocks `blocks-v…`
-2. [x] **Every block live** maia 4bc6847
-   - [x] Cut from the notes as minidoc cuts them
-   - [x] Drawn by minidoc itself, in the reading theme
-   - [x] A click opens the source, with a live preview
-   - [x] Edits survive Claude writing the file
-3. [x] **React renderers** done
-   - [x] The editor's rule is `{data, view}` (editor 525263e, bf86c32)
-   - [x] a. Intention agreed: `@minidoc/live`, every block drawn once in our own JSX with fields, no editor dependency, maia switches
-   - [x] b. Testing agreed: HTML contract + sequence, states, model; fields.test.yaml; live draws the contract as DOM; live and pane fixtures
-   - [x] c. Technical agreed: a plain tree by our own JSX, HTML or React; one rule for every block; maia keeps the click in place
-   - [x] d. Built: `pnpm check` passes (core 131, blocks 106, live 25); maia 284 tests
-   - [x] Decisions in DECISIONS.md, SESSION.md cleared, handoff written
-   - [x] Committed: minidoc 9316c1c, maia 543b2b0 (each checked on its own)
-   - [x] e. You look in maia
-4. [x] **The plan, moved into minidoc** minidoc 47356eb, maia 021d77a
-   - [x] a. Intention agreed: edited in place by live; a text shows markdown only under the caret; an edit changes only what it touches
-   - [x] b, c. Tests and technical agreed: edits in blocks, the drawing names its clicks, the plan an ordinary block in maia
-   - [x] d. Built: edits, untick, Enter split, done stage moves back, the editor's line as the text field, the real-Chrome hit and look check
-   - [x] The editor fixed the line's caret and crash (editor 7a681d8)
-   - [x] The calmer stage list: number and title on one line, mark at the right, message below, no counts, one third wide
-   - [x] e. You tried it in maia; 11 decisions; checks green (blocks 129, live 51; 450 clicks, 74 texts)
-   - [x] Committed: minidoc 47356eb; maia 021d77a, and its crash guard a235a0e
-5. [x] **Drawings through their source** minidoc ec8123e
-   - [x] The plan rethought: the page is the editor; text in place, drawings through their source
-   - [x] a, b, c agreed: `Live.Pane` is the source only; `Live.Drawing` keeps the last good form; maia gives each drawing's rule a pane
-   - [x] d. Built in minidoc (live 52) and in maia by its session (338 tests)
-   - [x] e. You tried it in the docs
-6. [x] **minidoc's dev page is the editor** minidoc 163edfd, be14e05
-   - [x] a. `pnpm docs:dev` serves the docs as an editor; markdown read into blocks and atoms as CommonMark groups it; one editor view per section
-   - [x] b, c. Tests and technical agreed: `@minidoc/edit`, dev's edit option, save route and reload rule, the round trip over every docs file, ReScript 12.3.1
-   - [x] d. Built: guide, Blocks and API editable; core 131 + 28 dev, blocks 129, live 52, edit 8, docs 3
-   - [x] e. You edited the docs: it works; 9 decisions
-   - [x] Committed in three commits, each checked on its own
-7. [/] **Callouts in place** tried: ready to commit
-   - [x] a. Intention agreed: one editor for the page; a callout is a start block plus blocks marked as in it; the view draws the frame
-   - [x] `::: kind` and space makes a callout, caret in its author; Tab to the date, then the body; Shift-Tab back
-   - [x] The frame: no title of its own, the kind from the label, author and date in place, quotes too, maia's notes too
-   - [x] The editor's session builds callouts in the editor (editor 41320d8)
-   - [x] The editor's session commits `Block ~tag`, code spans with a backtick, the prefix fix (editor 16900d9)
-   - [x] minidoc drops its block-id workaround (minidoc dd5c306)
-   - [x] minidoc gives the editor its callout kinds and labels
-   - [x] minidoc reads a `:::` callout as a start and its rows, and writes it back
-   - [x] The callout's head and byline styled in edit.css; a Chrome check types one
-   - [x] You tried it on the dev page: it works
-   - [ ] Commit in minidoc
-   - [ ] maia's session follows
-8. [/] **Code blocks in place** built: you try it on the dev page
-   - [x] The editor's session builds code blocks in the editor (editor 30cb1d4)
-   - [x] minidoc reads a fence that is not a drawing as a code row, and writes it back
-   - [x] A code block in a callout keeps the callout in place
-   - [x] The language field styled in edit.css; a Chrome check types one
-   - [ ] You try it on the dev page
-   - [ ] Commit in minidoc
-9. [/] **Prepare the versions** renamed: minidoc 7badccf
-   - [x] The names agreed: `@epure/minidoc` with `/edit`; `@epure/blocks` with `/live`; the editor and React as optional peers
-   - [x] The rename agreed: `packages/minidoc` and `packages/blocks`; live, edit and deprecated go; existing tests moved
-   - [x] Nina 6 built the rename: minidoc 139 + 28 dev, blocks 181, docs green, Chrome checks unchanged
-   - [x] maia's session follows the new names (354 tests, uncommitted)
-   - [ ] Versions for `@epure/minidoc` and `@epure/blocks`
-   - [ ] maia's docs move to the published blocks
-   - [ ] Changelog: "Unreleased" gets the release date
-10. [ ] **Get npm access** needs you
-   - [ ] `npm login` on this machine
-   - [ ] You can publish to the `@epure` scope
-   - [ ] You publish the editor 0.1 (`@tilia/editor`, `@epure/editor`) before minidoc is pushed
-11. [ ] **Publish**
-   - [ ] `pnpm pub minidoc`, then `pnpm pub blocks`
-12. [ ] **Ship**
-   - [ ] Push main and the tags; the docs deploy to GitHub Pages
-   - [ ] Install the packages in a scratch project and build a page
-   - [ ] Move radif, vs/* and muse to `@epure/minidoc` and `@epure/blocks`
+::: plan Publish 0.2.0
+1. [x] **Packages: @minidoc scope and tilia's pattern**
+   - [x] @tilia/react ships its compiled src
+   - [x] Suffix .mjs in editor, @tilia/editor, pen, radif
+   - [x] @epure/editor and @tilia/editor: tilia's pattern, license, README, public access
+   - [x] Suffix .mjs in minidoc and blocks
+   - [x] @epure/minidoc becomes @minidoc/core
+   - [x] @epure/blocks becomes @minidoc/blocks
+   - [x] @minidoc/live: Live from blocks, and the page editor from core
+   - [x] Each minidoc package: compiled src, dist, index.d.ts, clean-package
+   - [x] Peers on the published versions, no link: in the manifest
+   - [x] Package test from tarballs
+   - [x] gdos, radif, maia app and docs, and nine vs projects on @minidoc
+2. [x] **A comment callout**
+   - [x] comment kind, --tone-comment, Blocks.removable
+   - [x] The × in the editor, and minidoc passes removable
+   - [x] As wide as the text, shifted right, one-line head with an icon
+   - [x] gdos colour and a test comment
+3. [x] **Groups in a model table**
+   - [x] --- name groups properties; an ancestor takes its hue
+   - [x] A group first shows its name with no line; an empty group is refused
+   - [x] A group's name under its line, at the right, larger and light grey
+4. [/] **A failed save stops you** restart gdos
+   - [x] A banner that stays until a save succeeds, with Copy my text and Retry
+   - [x] A warning before leaving with unsaved edits
+   - [x] A draft in the browser, offered after a reload
+   - [x] A conflict banner in place of a reload when the file changed
+   - [x] Chrome checks
+   - [x] gdos on the new build
+   - [ ] gdos restarted, and a save checked by the file's mtime
+5. [/] **The croquis: minidoc on a folder** step 5 built
+   - [x] Step 1: pages, default template, menu, the editor's view hydrated
+   - [x] A sober default style for long reading and writing, light and dark
+   - [x] Step 2: the sync through a socket, merged by View.land
+   - [x] Step 3: index.html fills article, nav and title
+   - [x] Step 4: image lines, paste, rename and redraw (16 Chrome checks pass)
+   - [x] Step 4: an image line drawn in @minidoc/live/edit
+   - [x] Step 4: recorded on the Live page
+   - [x] Callouts: the kind a small word at the top right, the byline only when needed, no extra space
+   - [x] Step 5: data-component, components/*.jsx, contents with slugs (21 Chrome checks pass)
+   - [x] The changelog format: CHANGELOG.md, a kind for each change (settled)
+   - [ ] Step 6: sections, frontmatter, sub-folders
+   - [ ] The release and changelog components, and a read for the changelog block
+   - [ ] Step 7: a template for each kind of page
+   - [ ] Step 8: code in colours, tilia's TypeScript and ReScript pair
+   - [ ] Step 9: the build, redirects, llms.txt; then tilia moves
+   - [ ] Step 10: YAML pipelines, the site's own blocks; then radif moves
+   - [ ] A block whose id changes keeps the words typed in it meanwhile
+   - [ ] Live splits a drawing's HTML without a document
+   - [ ] The editor draws plain HTML: no zero-width spaces, ids or contenteditable when static
+   - [ ] An image inside a sentence
+   - [ ] A drop of an image
+6. [ ] **Follow-ups of the move**
+   - [ ] maia's pane: syntax colours outside the shadow root
+   - [ ] editor/docs on @minidoc (editor session)
+   - [ ] Deprecate @epure/minidoc on npm, naming @minidoc/core
+7. [ ] **Guide and API**
+   - [ ] Editing the page: edit option, mount, clicks, typed blocks, autosave, reloads
+   - [ ] API page for mount and @minidoc/live
+   - [ ] Every block starts with :::, explained, with the full list of blocks
+   - [ ] (text, page) marked as breaking in the guide
+   - [ ] dev: random port range, X-Forwarded-Prefix, 400 and 405, a running server
+   - [ ] Braces typed on the page are escaped
+8. [/] **Fix bugs**
+   - [x] Blocks follow the page's colour scheme, with light-dark()
+   - [ ] A copied table loses its header, each row alone (editor-af has it)
+   - [ ] API pages set lang to ts: rename to signatureLang
+   - [ ] dev comment in Minidoc.resi about the port
+   - [ ] A write through a proxy on another origin gets 403
+   - [ ] A page outside dev stays static, and the editor never prints (gdos print)
+9. [/] **Blocks docs**
+   - [x] Blocks in alphabetical order, The package first, Errors last
+   - [x] Changelog: the format, ::: changelog and ::: release, with their plates
+   - [ ] JavaScript API page: read, write, draw, render, edit, keys, callouts, options
+   - [ ] Live page for a React host: props, token classes, an example
+   - [ ] States: kinds, label kinds, legend, caption, places
+   - [ ] Sequences and models: the attributes each name takes
+   - [ ] Flows and screens: their opening lines, with an example
+   - [ ] Comments with # in the drawings
+10. [ ] **llms.txt and llms-full.txt**
+   - [ ] No plate wording in llms-full
+   - [ ] A description for each blocks page
+   - [ ] Links to the API and Live pages
+11. [ ] **READMEs**
+   - [ ] @minidoc/blocks: install, CSS, themes
+   - [ ] @minidoc/live: install, React, the page editor
+12. [ ] **Changelog for 0.2.0**
+   - [ ] Heading with the version and date
+   - [ ] Current syntax in place of quotes and {active a b}
+   - [ ] Breaking: :::, label places, tenant classes, --hue-*, textarea.pane__source
+   - [ ] Missing entries: port, prefix, tables in place, card, pane colours, type colour, comment
+   - [ ] minidoc's own changelog in CHANGELOG.md, in the settled format
+   - [ ] Breaking: a transform's page gains file; the changelog and release blocks are new
+13. [ ] **Records**
+   - [ ] DECISIONS: tables are edited in place, not in the panel
+   - [ ] DECISIONS: components by data-component
+14. [ ] **Commits and push**
+   - [ ] tilia, editor, minidoc and each consumer: one commit per feature
+15. [ ] **Publish**
 :::
 
 ## hello

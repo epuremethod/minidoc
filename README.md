@@ -10,16 +10,18 @@ markdown file).
 
 This is a pnpm workspace:
 
-- [`packages/minidoc/`](packages/minidoc/README.md) — the `@epure/minidoc` package: model, API,
-  reference, and `@epure/minidoc/edit`, the dev page's editor.
-- [`packages/blocks/`](packages/blocks) — the `@epure/blocks` package: the `:::` blocks as HTML,
-  and `@epure/blocks/live`, the same blocks in React.
+- [`packages/core/`](packages/core/README.md) — the `@minidoc/core` package: model, API,
+  reference, `dev`, and the changelog.
+- [`packages/blocks/`](packages/blocks) — the `@minidoc/blocks` package: the `:::` blocks as
+  HTML, `blocks.css` and the themes.
+- [`packages/live/`](packages/live) — the `@minidoc/live` package: the same blocks in React,
+  and `@minidoc/live/edit`, the dev page's editor.
 - [`packages/docs/`](packages/docs) — the documentation site, built with minidoc (tilia all the
   way down), deployed to GitHub Pages on every push to `main`.
 
 ```sh
 pnpm install
-pnpm build     # build the package, then the site into packages/docs/dist
+pnpm build     # build the packages, then the site into packages/docs/dist
 pnpm docs:dev  # minidoc's own dev server on the docs — watch, rebuild, live reload
 pnpm check     # everything the CI runs
 ```

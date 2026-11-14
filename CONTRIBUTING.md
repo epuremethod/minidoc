@@ -18,49 +18,58 @@ This project follows the [épure](https://epuremethod.com) method.
 
 One pnpm workspace. The root holds no code.
 
-Two packages are published, each with a subpath for what needs React or
-the editor. Both are optional peers, so a site that only builds pages
-installs neither.
+Three packages are published, in the `@minidoc` scope. Only `@minidoc/live`
+needs React or the editor, so a site that only builds pages installs
+neither.
 
-- `packages/minidoc/` is the generator, package `@epure/minidoc`.
-  `src/edit/` is `@epure/minidoc/edit`: a page of a site as its editor in
-  `dev`. minidoc reads each file's markdown into the blocks of the tilia
-  editor, as CommonMark groups it, draws them with live, and writes the
-  file back, changing only the blocks the person edited. It is a ReScript
-  source of `"type": "dev"`, so a project that builds the package from its
-  ReScript never compiles it. It depends on `@tilia/editor` and
-  `@epure/editor`, linked from `../editor` until they are on npm. Its
-  scenarios are in `test/edit/` and run in jsdom.
-- `packages/blocks/` is the common `:::` blocks, package `@epure/blocks`:
+- `packages/core/` is the generator, package `@minidoc/core`: `run`,
+  `watch` and `dev`.
+- `packages/blocks/` is the common `:::` blocks, package `@minidoc/blocks`:
   a line scanner, readers into nodes, the nodes' text form, each block's
   drawing in a JSX of its own, `Draw`, written as HTML, `blocks.css`, two
   themes, and `viewer.js`, which opens a drawing full screen. Its scenarios
   are `packages/blocks/test/*.test.yaml`, and the site draws them on its
   Blocks page.
-  `src/live/` is `@epure/blocks/live`: the same drawings as React
-  elements, a block's source read into a value that keeps a refusal, a
-  pane that holds the source, and an editor that draws a plan's fields as
-  inputs. The edits themselves are in the blocks. Its scenarios are in
-  `test/live/` and run in jsdom, with the blocks' `html.test.yaml`.
+- `packages/live/` is the blocks in React, package `@minidoc/live`. Its
+  entry is the same drawings as React elements, a block's source read into
+  a value that keeps a refusal, a pane that holds the source, and an editor
+  that draws a plan's fields as inputs. The edits themselves are in the
+  blocks. Its scenarios are in `test/` and run in jsdom, with the blocks'
+  `html.test.yaml`.
+  `src/edit/` is `@minidoc/live/edit`: a page of a site as its editor in
+  `dev`. It reads each file's markdown into the blocks of the tilia
+  editor, as CommonMark groups it, draws them with live, and writes the
+  file back, changing only the blocks the person edited. It depends on
+  `@tilia/editor` and `@epure/editor`, linked from `../editor` until they
+  are on npm. Its scenarios are in `test/edit/` and run in jsdom.
 - `packages/docs/` is the documentation site, package `minidoc-docs`, private. It is
   built with minidoc and deployed to GitHub Pages on every push to `main`.
 
-`pnpm build` at the root builds the package, then the site. `pnpm docs:dev` serves
+Each package is packed as tilia is. `src` ships whole, with its compiled
+`.mjs` and `rescript.json`, for a project that builds it with ReScript.
+`src/index.js` re-exports the public API, esbuild bundles it into `dist`
+with every package external, and `src/index.d.ts` is its types, written
+by hand. `clean-package` removes the scripts and the devDependencies from
+the packed `package.json`.
+
+`pnpm build` at the root builds the packages, then the site. `pnpm docs:dev` serves
 the site with minidoc's own dev server, each page an editor of its markdown.
 
-`pnpm pub <minidoc|blocks>` at the root publishes a package at the
+`pnpm pub <core|blocks|live|all>` at the root publishes a package at the
 version in its `package.json`, from a clean tree, after `pnpm check`, once
-its tarball holds what each subpath needs. It tags minidoc `v0.2.0` and
-blocks `blocks-v0.1.0`. `--beta` publishes a dated beta and tags nothing.
+its tarball holds what each entry needs and no devDependencies. `all`
+publishes blocks, then core, then live. A stable publish tags core
+`v0.2.0`, blocks `blocks-v0.2.0` and live `live-v0.2.0`. `--beta`
+publishes a dated beta and tags nothing.
 
 ## Scenarios
 
-The scenarios are YAML fixtures in `packages/minidoc/test/*.test.yaml`, run by
+The scenarios are YAML fixtures in `packages/core/test/*.test.yaml`, run by
 `@epure/vitest`. A fixture is a `feature` with a `background` naming its
 `given`, and `examples`, one `scenario` each. A scenario has a `source`
 filesystem, optional run `options`, and either a `target`, the expected
 outputs, or the `error` the run must reject with. The steps file,
-`packages/minidoc/test/steps.ts`, binds the `given`. It runs the public API against
+`packages/core/test/steps.ts`, binds the `given`. It runs the public API against
 the in-memory filesystem.
 
 Two things cannot run on the in-memory filesystem, and they have plain
@@ -68,15 +77,20 @@ Two things cannot run on the in-memory filesystem, and they have plain
 
 - `test/dev.test.mjs` drives `dev` and `watch` against a real filesystem and
   a real socket.
-- `test/package.test.mjs` checks the packed package.
+- `test/package.test.mjs` packs the three packages, installs them in an
+  empty folder, imports each, and bundles `@minidoc/live/edit`. It packs
+  `@tilia/react` from `../tilia/react` and the editor's packages from
+  `../editor` too, until they are on npm.
 
-`pnpm check` at the root is the standing check. In `packages/minidoc/` it
-runs the fixtures, the editor's scenarios, the dev tests and the package
-test; in `packages/blocks/` the scenarios, then live's scenarios and the
-blocks' HTML contract, drawn live; in `packages/docs/` the site's build, which
-fails when a plate cannot be drawn, then every docs page read into the
-editor and written back byte for byte, a word changed in each block
-changing only that block, and a static build with nothing of the editor.
+`pnpm check` at the root is the standing check. Each package's check
+builds it first. In `packages/core/` it runs the fixtures and the dev
+tests; in `packages/blocks/` the scenarios; in `packages/live/` live's
+scenarios, the blocks' HTML contract drawn live, and the editor's
+scenarios; in `packages/docs/` the site's build, which fails when a plate
+cannot be drawn, then every docs page read into the editor and written
+back byte for byte, a word changed in each block changing only that
+block, and a static build with nothing of the editor. Then, once every
+package is checked, the package test.
 
 `pnpm live:hit` at the root is the hit check. It draws each block that has
 inputs, in editing mode, and asks headless Chrome whether each field and
@@ -92,19 +106,22 @@ stays out of `pnpm check`, which CI runs.
 copy of the docs. Typing keeps the caret and writes the file, a drawing
 opens its source in the panel and follows each key, a save by another
 program reloads the page, and the edited text looks as on the static page,
-word by word. Run it at the end of every build that touches `@epure/minidoc/edit`,
+word by word. Run it at the end of every build that touches `@minidoc/live/edit`,
 the docs' dev page, or the editor.
 
 ## Architecture
 
 ```
-packages/minidoc/src/
+packages/core/src/
   Schema.res         config and frontmatter schemas, path anchoring, the port
   Minidoc.res        contexts, rendering, the filesystems, run
   Minidoc.resi       the public interface
-  Minidoc.res.d.mts  the same interface for TypeScript, written by hand
+  index.js           the package's entry, bundled into dist/index.mjs
+  index.d.ts         the same interface for TypeScript, written by hand
   Dev.res            watch and dev: the watcher, the rebuild loop, the server
-  edit/              `@epure/minidoc/edit`: Page reads and writes a file, Edit mounts it
+packages/live/src/
+  Live.res, Tree.res `@minidoc/live`: the blocks drawn in React, and the pane
+  edit/              `@minidoc/live/edit`: Page reads and writes a file, Edit mounts it
 ```
 
 All input and output goes through the injected `filesystem`. Transforms are
@@ -113,7 +130,8 @@ injected too. `Minidoc.res` never imports a Node module.
 `Dev.res` is Node-only. It loads every builtin through a dynamic import, so
 importing minidoc in a browser stays safe.
 
-`Minidoc.resi` and `Minidoc.res.d.mts` change together.
+`Minidoc.resi` and `index.d.ts` change together, and so do `Blocks.resi`
+and blocks' `index.d.ts`.
 
 ## Session order
 
@@ -134,14 +152,14 @@ and clear `SESSION.md`. The scenarios remain.
 
 ## Documentation
 
-The reference lives twice: in `packages/minidoc/README.md` and in the site's API,
+The reference lives twice: in `packages/core/README.md` and in the site's API,
 `packages/docs/content/api/`, one file per entry. The site's guide,
 `packages/docs/content/guide/`, tells the same features as one story, one file
 per chapter. A change to behavior changes all three where it shows. The build
 writes `llms.txt` and `llms-full.txt` from the guide and the API.
 
 Every change a user can see gets a line under "Unreleased" in the changelog
-of `packages/minidoc/README.md`. A change that breaks an existing config, a custom
+of `packages/core/README.md`. A change that breaks an existing config, a custom
 filesystem or a caller starts with **Breaking:**.
 
 ## Writing
