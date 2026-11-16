@@ -2,11 +2,25 @@
 
 import * as Stdlib_Array from "@rescript/runtime/lib/es6/Stdlib_Array.js";
 import * as Stdlib_Option from "@rescript/runtime/lib/es6/Stdlib_Option.js";
+import * as Stdlib_Result from "@rescript/runtime/lib/es6/Stdlib_Result.js";
+import * as Primitive_object from "@rescript/runtime/lib/es6/Primitive_object.js";
 import * as Primitive_option from "@rescript/runtime/lib/es6/Primitive_option.js";
 import * as Primitive_string from "@rescript/runtime/lib/es6/Primitive_string.js";
+import * as Yaml$TiliaEditor from "@tilia/editor/src/view/Yaml.mjs";
+import * as Frontmatter$Editor from "@epure/editor/src/domain/feature/Frontmatter.mjs";
 
 function isMarkdown(name) {
-  return name.endsWith(".md");
+  if (name.endsWith(".md")) {
+    return name.split("/").every(part => {
+      if (part !== "" && part !== "node_modules") {
+        return !part.startsWith(".");
+      } else {
+        return false;
+      }
+    });
+  } else {
+    return false;
+  }
 }
 
 let imagesFolder = "images/";
@@ -51,12 +65,182 @@ function headingOf(text) {
   });
 }
 
-function pageOf(name, text) {
-  return {
-    file: name,
-    href: name.slice(0, -3) + ".html",
-    title: Stdlib_Option.getOr(headingOf(text), name.slice(0, -3))
+function base(name) {
+  return Stdlib_Option.getOr(name.split("/").at(-1), name).slice(0, -3);
+}
+
+function split(text) {
+  let found = Frontmatter$Editor.fenced.exec(text);
+  if (found == null) {
+    return [
+      "",
+      text
+    ];
+  }
+  let front = found[0];
+  return [
+    front,
+    text.slice(front.length)
+  ];
+}
+
+function frontOf(text) {
+  let match = split(text);
+  return Stdlib_Option.getOr(Frontmatter$Editor.read(match[0], Yaml$TiliaEditor.encoder), {});
+}
+
+function scalar(value) {
+  switch (typeof value) {
+    case "boolean" :
+      return value ? "true" : "false";
+    case "string" :
+      return value;
+    case "number" :
+      return value.toString();
+    default:
+      return;
+  }
+}
+
+function navOf(front) {
+  return Stdlib_Option.flatMap(front["nav"], scalar);
+}
+
+function titleOf(text) {
+  let match = split(text);
+  return headingOf(match[1]);
+}
+
+function globsOf(front) {
+  let match = front["sections"];
+  if (match === undefined) {
+    return [];
+  }
+  if (Array.isArray(match)) {
+    return Stdlib_Array.filterMap(match, glob => {
+      if (typeof glob === "string") {
+        return glob;
+      }
+    });
+  }
+  switch (typeof match) {
+    case "string" :
+      return [match];
+    default:
+      return [];
+  }
+}
+
+function pattern(glob) {
+  return new RegExp("^" + glob.replace(/^\.\//, "").replace(/[.+?^${}()|[\]\\]/g, "\\$&").replaceAll("*", "[^/]*") + "$");
+}
+
+function slugOf(name) {
+  let whole = base(name);
+  let slug = whole.replace(/^\d+[-_. ]*/, "");
+  if (slug === "") {
+    return whole;
+  } else {
+    return slug;
+  }
+}
+
+function relative(from, to_) {
+  let folder = from.split("/").slice(0, -1);
+  let parts = to_.split("/");
+  let shared = _at => {
+    while (true) {
+      let at = _at;
+      if (!(at < folder.length && at < (parts.length - 1 | 0) && Primitive_object.equal(folder[at], parts[at]))) {
+        return at;
+      }
+      _at = at + 1 | 0;
+      continue;
+    };
   };
+  let common = shared(0);
+  return "../".repeat(folder.length - common | 0) + parts.slice(common).join("/");
+}
+
+function rootOf(href) {
+  return "../".repeat(href.split("/").length - 1 | 0);
+}
+
+function pagesOf(texts) {
+  let names = Object.keys(texts).filter(isMarkdown).toSorted(Primitive_string.compare);
+  let fronts = Object.fromEntries(names.map(name => [
+    name,
+    frontOf(texts[name])
+  ]));
+  let named = name => Stdlib_Array.reduce(globsOf(fronts[name]), [], (found, glob) => {
+    let matches = pattern(glob);
+    return found.concat(names.filter(other => {
+      if (other !== name && matches.test(other)) {
+        return !found.includes(other);
+      } else {
+        return false;
+      }
+    }));
+  });
+  let naming = names.filter(name => named(name).length !== 0);
+  let taken = new Set(naming.flatMap(named));
+  let heads = naming.filter(name => !taken.has(name));
+  let owner = {};
+  let shared = {
+    contents: undefined
+  };
+  heads.forEach(head => {
+    named(head).forEach(file => {
+      let first = owner[file];
+      if (first !== undefined) {
+        if (shared.contents === undefined) {
+          shared.contents = file + ` is a section of ` + first + ` and of ` + head;
+          return;
+        } else {
+          return;
+        }
+      } else {
+        owner[file] = head;
+        return;
+      }
+    });
+  });
+  let message = shared.contents;
+  if (message !== undefined) {
+    return {
+      TAG: "Error",
+      _0: message
+    };
+  } else {
+    return {
+      TAG: "Ok",
+      _0: names.filter(name => !(name in owner)).map(name => {
+        let front = fronts[name];
+        let slugs = {};
+        let sections = heads.includes(name) ? named(name).map(file => {
+            let front = fronts[file];
+            let slug = slugOf(file);
+            let count = slugs[slug];
+            let slug$1 = count !== undefined ? (slugs[slug] = count + 1 | 0, slug + `-` + (count + 1 | 0).toString()) : (slugs[slug] = 0, slug);
+            return {
+              file: file,
+              slug: slug$1,
+              title: Stdlib_Option.getOr(titleOf(texts[file]), slug$1),
+              nav: navOf(front),
+              front: front
+            };
+          }) : [];
+        return {
+          file: name,
+          href: name.slice(0, -3) + ".html",
+          title: Stdlib_Option.getOr(titleOf(texts[name]), base(name)),
+          nav: navOf(front),
+          front: front,
+          sections: sections
+        };
+      })
+    };
+  }
 }
 
 function imagesOf(folder) {
@@ -71,21 +255,18 @@ function read(folder) {
       _0: "the folder holds no markdown file"
     };
   } else {
-    return {
-      TAG: "Ok",
-      _0: {
-        files: Object.fromEntries(names.map(name => [
-          name,
-          {
-            version: 1,
-            text: folder[name]
-          }
-        ])),
-        pages: names.map(name => pageOf(name, folder[name])),
-        images: imagesOf(folder),
-        versions: {}
-      }
-    };
+    return Stdlib_Result.map(pagesOf(folder), pages => ({
+      files: Object.fromEntries(names.map(name => [
+        name,
+        {
+          version: 1,
+          text: folder[name]
+        }
+      ])),
+      pages: pages,
+      images: imagesOf(folder),
+      versions: {}
+    }));
   }
 }
 
@@ -102,9 +283,20 @@ export {
   stem,
   heading,
   headingOf,
-  pageOf,
+  base,
+  split,
+  frontOf,
+  scalar,
+  navOf,
+  titleOf,
+  globsOf,
+  pattern,
+  slugOf,
+  relative,
+  rootOf,
+  pagesOf,
   imagesOf,
   read,
   pageAt,
 }
-/* No side effect */
+/* Yaml-TiliaEditor Not a pure module */

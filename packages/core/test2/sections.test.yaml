@@ -1,0 +1,363 @@
+feature: A page of several files
+# For a person whose page is one story told in several files, as tilia's
+# Guide and API: a head file names its sections with a glob in its
+# frontmatter, and each section is a file of a sub-folder. The template
+# shows values of the frontmatter, and names the site's own callouts.
+#
+# A target is as in folder.test.yaml: `title`, `nav`, `article`,
+# `carries`, `head`, `text` by selector, `links` in an element, and
+# `contents`.
+background:
+  given: a folder
+examples:
+  - scenario: a page draws its own text, then each section its glob names, in the order of the file names
+    source:
+      guide.md: |-
+        ---
+        sections: guide/*.md
+        ---
+        # The Guide
+
+        Read in order.
+      guide/02-values-that-follow.md: |-
+        ## Values that follow
+
+        A value follows.
+      guide/01-a-living-object.md: |-
+        ## A living object
+
+        An object.
+    target:
+      guide.html:
+        title: The Guide
+        nav: [The Guide (current)]
+        article: [The Guide, Read in order., A living object, An object., Values that follow, A value follows.]
+
+  - scenario: each section is an element whose id is its file name without the number
+    source:
+      guide.md: |-
+        ---
+        sections: guide/*.md
+        ---
+        # The Guide
+      guide/01-a-living-object.md: |-
+        ## A living object
+
+        An object.
+      guide/02-values-that-follow.md: "## Values that follow"
+    target:
+      guide.html:
+        text:
+          "article section#a-living-object h2": A living object
+          "article section#a-living-object p": An object.
+          "article section#values-that-follow h2": Values that follow
+
+  - scenario: a slug or a sort in a section's frontmatter changes neither its id nor its place
+    source:
+      guide.md: |-
+        ---
+        sections: guide/*.md
+        ---
+        # The Guide
+      guide/01-first.md: |-
+        ---
+        slug: other
+        sort: 2
+        ---
+        ## First
+      guide/02-second.md: |-
+        ---
+        sort: 1
+        ---
+        ## Second
+    target:
+      guide.html:
+        article: [The Guide, First, Second]
+        text:
+          "article section#first h2": First
+
+  - scenario: sections takes a list of globs, and draws the files of each glob in turn
+    source:
+      api.md: |-
+        ---
+        sections: [api/objects/*.md, api/effects/*.md]
+        ---
+        # API
+      api/effects/030-observe.md: "## observe"
+      api/objects/020-tilia.md: "## tilia"
+      api/objects/010-make.md: "## make"
+    target:
+      api.html:
+        article: [API, make, tilia, observe]
+
+  - scenario: a section with no heading takes its slug as its title
+    source:
+      guide.md: |-
+        ---
+        sections: guide/*.md
+        ---
+        # The Guide
+      guide/01-notes.md: Some text.
+    target:
+      guide.html:
+        carries:
+          pages:
+            - href: guide.html
+              sections:
+                - { file: guide/01-notes.md, slug: notes, title: notes }
+
+  - scenario: a glob that names no file gives the page no section
+    source:
+      guide.md: |-
+        ---
+        sections: guide/*.md
+        ---
+        # The Guide
+    target:
+      guide.html:
+        article: [The Guide]
+
+  - scenario: a markdown file in a sub-folder that no page names is a page, and its links and stylesheets are relative to it
+    source:
+      a.md: "# First"
+      notes/today.md: "# Today"
+    target:
+      notes/today.html:
+        title: Today
+        nav: [First, Today (current)]
+        links:
+          nav: ["../a.html First", "today.html Today"]
+        head: [../__minidoc/blocks.css, ../__minidoc/soft.css, ../__minidoc/editor.css, ../__minidoc/minidoc.css]
+
+  - scenario: contents lists each section by its title, linked to its slug, with its headings under it
+    source:
+      index.html: <html><head></head><body><aside data-component="contents"></aside><article></article></body></html>
+      guide.md: |-
+        ---
+        sections: guide/*.md
+        ---
+        # The Guide
+      guide/01-living.md: |-
+        ## A living object
+
+        ### An object, unchanged
+      guide/02-values-that-follow.md: "## Values that follow"
+    target:
+      guide.html:
+        links:
+          aside: ["#living A living object", "#an-object-unchanged An object, unchanged", "#values-that-follow Values that follow"]
+
+  - scenario: a page carries the files of its sections, and the pages with their sections
+    source:
+      guide.md: |-
+        ---
+        sections: guide/*.md
+        nav: Guide
+        ---
+        # The Guide
+      guide/01-a-living-object.md: |-
+        ---
+        refs: [tilia, observe]
+        ---
+        ## A living object
+    target:
+      guide.html:
+        carries:
+          files:
+            guide.md: { version: 1, text: "---\nsections: guide/*.md\nnav: Guide\n---\n# The Guide" }
+            guide/01-a-living-object.md: { version: 1, text: "---\nrefs: [tilia, observe]\n---\n## A living object" }
+          pages:
+            - href: guide.html
+              title: The Guide
+              nav: Guide
+              front: { sections: guide/*.md, nav: Guide }
+              sections:
+                - file: guide/01-a-living-object.md
+                  slug: a-living-object
+                  title: A living object
+                  front: { refs: [tilia, observe] }
+
+  - scenario: a file that two pages name as a section is refused, with both pages
+    source:
+      guide.md: |-
+        ---
+        sections: guide/*.md
+        ---
+        # The Guide
+      tour.md: |-
+        ---
+        sections: guide/01-*.md
+        ---
+        # The tour
+      guide/01-a-living-object.md: "## A living object"
+    error: "guide/01-a-living-object.md is a section of guide.md and of tour.md"
+
+  # ── The frontmatter in the template ────────────────────────────────
+
+  - scenario: an element with data-front shows the value of that key of the page's frontmatter
+    source:
+      index.html: |-
+        <html><head></head><body>
+        <p class="eyebrow" data-front="eyebrow"></p>
+        <p class="since" data-front="since"></p>
+        <article></article>
+        </body></html>
+      guide.md: |-
+        ---
+        eyebrow: Guide · v6.x
+        since: 6
+        ---
+        # The Guide
+    target:
+      guide.html:
+        text:
+          p.eyebrow: Guide · v6.x
+          p.since: "6"
+
+  - scenario: an element whose key the page lacks, or whose value is a list, keeps what the template wrote
+    source:
+      index.html: |-
+        <html><head></head><body>
+        <p class="lead" data-front="lead">No lead.</p>
+        <p class="tags" data-front="tags">No tags.</p>
+        <article></article>
+        </body></html>
+      a.md: |-
+        ---
+        tags: [core, react]
+        ---
+        # First
+    target:
+      a.html:
+        text:
+          p.lead: No lead.
+          p.tags: No tags.
+
+  - scenario: a component gets the frontmatter of the page and of each section, a key with a dot as one key
+    source:
+      index.html: <html><head></head><body><aside data-component="entries"></aside><article></article></body></html>
+      api.md: |-
+        ---
+        sections: api/*.md
+        eyebrow: Reference
+        ---
+        # API
+      api/010-make.md: |-
+        ---
+        label: make(gc?)
+        signature.ts: "function make(gc?: number): Tilia"
+        ---
+        `make` creates a context.
+      components/entries.jsx: |-
+        export default function Entries({ page }) {
+          return (
+            <ul>
+              <li>{page.front.eyebrow}</li>
+              {page.sections.map((s) => <li key={s.slug}>{s.slug}: {s.front.label}, {s.front["signature.ts"]}</li>)}
+            </ul>
+          );
+        }
+    target:
+      api.html:
+        text:
+          aside: "Referencemake: make(gc?), function make(gc?: number): Tilia"
+
+  - scenario: each page of pages gives its frontmatter to a component
+    source:
+      index.html: <html><head></head><body><header data-component="switcher"></header><article></article></body></html>
+      query.md: |-
+        ---
+        tagline: Data that reaches the domain
+        ---
+        # query
+      tilia.md: |-
+        ---
+        tagline: Domain-driven state management
+        ---
+        # tilia
+      components/switcher.jsx: |-
+        export default function Switcher({ pages }) {
+          return <ul>{pages.map((p) => <li key={p.href}>{p.title}: {p.front.tagline}</li>)}</ul>;
+        }
+    target:
+      tilia.html:
+        text:
+          header: "query: Data that reaches the domaintilia: Domain-driven state management"
+
+  - scenario: nav in a page's frontmatter names the page in the menu
+    source:
+      guide.md: |-
+        ---
+        nav: Guide
+        ---
+        # The Guide
+      a.md: "# First"
+    target:
+      guide.html:
+        title: The Guide
+        nav: [First, Guide (current)]
+
+  # ── Callouts of the site's own ─────────────────────────────────────
+
+  - scenario: a callout named in the template's meta is drawn by the editor, with its label
+    source:
+      index.html: |-
+        <html><head>
+        <meta name="callout" content="story Story">
+        <meta name="callout" content="pro Pro tip">
+        <meta name="callout" content="def Definition">
+        </head><body><article></article></body></html>
+      a.md: |-
+        # First
+
+        ::: pro
+        Read the guide in order.
+        :::
+
+        ::: story
+        Claudine's first task.
+        :::
+    target:
+      a.html:
+        text:
+          "article .callout--pro .callout__label": Pro tip
+          "article .callout--story .callout__label": Story
+          "article .callout--pro p:not(.callout__byline)": Read the guide in order.
+
+  - scenario: a page carries the site's own callouts for its hydration
+    source:
+      index.html: |-
+        <html><head>
+        <meta name="callout" content="story Story">
+        <meta name="callout" content="pro Pro tip">
+        </head><body><article></article></body></html>
+      a.md: "# First"
+    target:
+      a.html:
+        carries:
+          callouts: { story: Story, pro: Pro tip }
+
+  - scenario: a callout of the template in a section is drawn as in a page
+    source:
+      index.html: <html><head><meta name="callout" content="def Definition"></head><body><article></article></body></html>
+      guide.md: |-
+        ---
+        sections: guide/*.md
+        ---
+        # The Guide
+      guide/01-drawn-before-built.md: |-
+        ## Drawn before built
+
+        ::: def
+        A domain, drawn first.
+        :::
+    target:
+      guide.html:
+        text:
+          "section#drawn-before-built .callout--def .callout__label": Definition
+
+  - scenario: a callout that names a block of minidoc is refused
+    source:
+      index.html: <html><head><meta name="callout" content="states States"></head><body><article></article></body></html>
+      a.md: "# First"
+    error: "index.html names the callout \"states\", which is a block of minidoc"

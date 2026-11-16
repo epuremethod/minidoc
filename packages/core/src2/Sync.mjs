@@ -18,6 +18,8 @@ function make(folder) {
       }
     ])),
     shows: {},
+    stood: [],
+    refusal: undefined,
     template: folder[Render.templateFile],
     components: Object.fromEntries(Object.entries(folder).filter(param => Site.isComponent(param[0]))),
     images: Object.fromEntries(Site.imagesOf(folder).map(path => [
@@ -43,7 +45,14 @@ function listed(sync) {
 }
 
 function pages(sync) {
-  return Object.keys(sync.files).toSorted(Primitive_string.compare).map(name => Site.pageOf(name, sync.files[name].text));
+  let pages$1 = Site.pagesOf(Stdlib_Dict.mapValues(sync.files, file => file.text));
+  if (pages$1.TAG === "Ok") {
+    sync.stood = pages$1._0;
+    sync.refusal = undefined;
+  } else {
+    sync.refusal = pages$1._0;
+  }
+  return sync.stood;
 }
 
 function site(sync) {
@@ -56,7 +65,7 @@ function site(sync) {
 }
 
 function writable(path) {
-  if (Site.isMarkdown(path) && !path.includes("/")) {
+  if (Site.isMarkdown(path)) {
     return !path.includes("\\");
   } else {
     return false;
@@ -65,7 +74,7 @@ function writable(path) {
 
 function showing(sync, path, but) {
   return Object.entries(sync.shows).filter(param => {
-    if (param[1] === path) {
+    if (param[1].includes(path)) {
       return Primitive_object.notequal(param[0], but);
     } else {
       return false;
@@ -74,13 +83,7 @@ function showing(sync, path, but) {
 }
 
 function titles(before, after) {
-  if (Primitive_object.equal(before.map(page => [
-      page.href,
-      page.title
-    ]), after.map(page => [
-      page.href,
-      page.title
-    ]))) {
+  if (Primitive_object.equal(JSON.stringify(before), JSON.stringify(after))) {
     return [];
   } else {
     return [{
@@ -94,7 +97,10 @@ function titles(before, after) {
 }
 
 function opens(sync, page, path, on) {
-  sync.shows[page] = path;
+  let shown = Stdlib_Option.getOr(sync.shows[page], []);
+  if (!shown.includes(path)) {
+    sync.shows[page] = shown.concat([path]);
+  }
   let file = sync.files[path];
   if (file !== undefined) {
     if (file.version !== on) {
@@ -575,4 +581,4 @@ export {
   wire,
   where,
 }
-/* Render Not a pure module */
+/* Site Not a pure module */

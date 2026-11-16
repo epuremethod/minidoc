@@ -1,6 +1,6 @@
 // An image on a line of its own: an atom of the editor's format `image`,
 // whose value is its markdown line. It draws an `<img>` whose `src` is
-// relative to the page, at the image's version, or the browser's own copy
+// its path from the folder, at the image's version, or the browser's own copy
 // of a pasted image until `dev` stores it. Its pane holds the image's text
 // and its name: a new name renames the file, and every link to it.
 
@@ -19,16 +19,21 @@ let write = ({alt, src, title}: line) =>
   `![${alt}](${src}${title->Option.mapOr("", title => ` "${title}"`)})`
 
 /** The `src` the page draws: the browser's own copy while it uploads, or the file at its version. */
-let shown = (site: Site.t, uploads: dict<string>, src: string) =>
+let shown = (site: Site.t, uploads: dict<string>, src: string, ~root="") => {
+  // An image of the folder is named from the folder: `root` leads there from the page.
+  let from = RegExp.test(/^([a-z][a-z0-9+.-]*:|\/)/i, src) ? "" : root
   switch (uploads->Dict.get(src), site.versions->Dict.get(src)) {
   | (Some(copy), _) => copy
-  | (None, Some(version)) => `${src}?v=${Int.toString(version)}`
-  | (None, None) => src
+  | (None, Some(version)) => `${from}${src}?v=${Int.toString(version)}`
+  | (None, None) => from ++ src
   }
+}
 
 /** What the pane needs of the page: the images uploading, and a way to ask for a rename. */
 type host = {
   site: Site.t,
+  /** The way from the page to the folder. */
+  root: string,
   /** The browser's own copy of each image that uploads, by its path. */
   uploads: dict<string>,
   /** Ask `dev` to rename an image: it answers a refusal, or nothing. */
@@ -42,7 +47,7 @@ module Drawn = {
     switch read(value) {
     | Some({alt, src, title}) =>
       <span className="picture">
-        <img src={shown(host.site, host.uploads, src)} alt ?title />
+        <img src={shown(host.site, host.uploads, src, ~root=host.root)} alt ?title />
         {host.uploads->Dict.has(src)
           ? <span className="picture__uploading"> {React.string("Uploading…")} </span>
           : React.null}

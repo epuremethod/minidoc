@@ -380,3 +380,108 @@ Left:
 2. Commit, one commit, when the owner says.
 3. Croquis step 6: what the page shows of the frontmatter (FrontFields
    or none).
+
+## Intention (2026-11-16): croquis step 6, a page of several files
+
+Built on 2026-11-16, not committed. Recorded in `DECISIONS.md` (two
+entries) and on the Live page ("Step 6 is built").
+
+tilia's website is the first real site for minidoc v2. Its Guide is one
+head and thirteen chapter files, and its API has one file for each
+entry, in sub-folders. Its templates read frontmatter values, and its
+text uses three callouts of its own: `story`, `pro` and `def`. Step 6
+gives the croquis these three things, together. It serves a person who
+writes tilia's guide and edits one chapter in the page while agents
+change other files. The Live page teaches it first: "Step 6: a page of
+several files" in `packages/docs/content/live/03-gently.md`.
+
+## Technical (2026-11-16): croquis step 6
+
+Conventions chosen (proposed on the Live page):
+
+- A head file names its sections with `sections:` in its frontmatter,
+  one glob or a list. A glob is relative to the folder, with `*` in one
+  folder. The files of each glob are in file-name order; the globs are
+  in turn. A glob that names no file gives no section.
+- The section's slug is its file name without the number and `.md`.
+  `slug` and `sort` in the frontmatter change nothing.
+- The section's title is its first heading (as proposed on the A page
+  page), or else its slug. `nav` in the frontmatter is a short label,
+  for a page and a section.
+- A section is `<section id="slug">` in `<article>`, after the head's
+  text. Its title heading takes no slug of its own; `contents` links it
+  to the section. Heading slugs stay unique over the whole page.
+- A markdown file at any depth is a page, unless a page names it as a
+  section. A page in a sub-folder gets links and stylesheets relative
+  to it. A file named by two pages is refused.
+- `data-front="key"` in the template shows the page's value: a text, a
+  number, a date, a yes or no. A missing key, a list or a map leaves
+  what the template wrote. A key is read whole (`signature.ts`).
+- Components get `page.front`, `page.sections` (file, slug, title,
+  nav, front) and `front` on each page of `pages`. The page carries
+  them, with each section file, for its hydration.
+- The frontmatter shows no fields in step 6. A change on disk lands.
+- A site names its callouts in its template: `<meta name="callout"
+  content="pro Pro tip">`, the name and then the label. They go to
+  `Blocks.callouts` (`options.callouts`), so the editor draws them and
+  live knows them. A name that is a block of minidoc is refused.
+- One editor engine for each file of a page. A save names its file. A
+  new block at a section's end stays in that file. A new section is a
+  new file.
+- The sync: a section file is not a page. `pages` carries each page's
+  sections, and goes again when a section's title, a glob, or a file
+  that a glob names changes.
+
+Rejected: one editor over the whole page, split into files on save (the
+editor has no such engine, and a border block has no home); `slug` and
+`sort` in the frontmatter (they repeat the file name); the callouts in
+the head's frontmatter, a `callouts/` folder, or a config file.
+
+What the editor gives at febb75b, read, not changed:
+
+- `TiliaEditor.Markdown` is one engine for one text, with `json` (the
+  frontmatter, read by an injected encoder) and `front`. One engine per
+  file is enough for step 6.
+- `FrontFields` draws the frontmatter as labelled inputs
+  (`MarkdownField.res:61`). Not used in step 6.
+- No engine for a page of several texts, and no hook for the caret to
+  leave a view at its first or last line (`onLeave` is for atoms only).
+  A caret that crosses sections needs that hook: asked later, not
+  needed for step 6.
+- The `Rule` block form in the editor's working tree is not used.
+
+Built:
+
+- `Site`: `pagesOf` (sections, slugs, `front`, `nav`, the refusal),
+  `relative` and `rootOf`. `Outline`: the headings of each file, and
+  `page`, which gives the slugs over the whole page.
+- `Body` is the island of `<article>`: the head's `Article`, then one
+  `Article` in a `<section>` for each section. `Article` takes a `kit`
+  (the site's callouts), a `prefix` for its block ids, and opens its own
+  file on the channel.
+- `Render`: `calloutsOf`, `data-front`, links relative to a page in a
+  sub-folder. The page carries `root`, `outline` and `callouts`.
+- `Sync`: a page shows several files; the pages go when anything of them
+  changes; a refused folder keeps the last pages (`refusal`).
+- `Client`: on `pages`, it asks for a section file it lacks (`opens` on
+  version 0) and the section shows when the text comes.
+- `serve.mjs` reads markdown at any depth, but not `node_modules` nor a
+  name that starts with a dot.
+
+Changed in the fixtures: one selector, `.callout--pro
+p:not(.callout__byline)`, because the byline is the callout's first
+`<p>`. `chrome.mjs` gives each server its own port: two servers took the
+same random port once.
+
+Checks: core 213 (25 new), dev 32, `chrome.mjs` 30 (6 new). Not run
+again: live, blocks, docs, `pnpm docs:edit-check`. This work did not
+change their code.
+
+Left:
+
+1. The owner tries a page of several files, then says when to commit.
+2. An element with `data-front` keeps its last value when its key
+   leaves the frontmatter, until a reload.
+3. tilia's chapters take their title as a first heading before the move
+   (step 9).
+4. The caret crossing two sections: ask the editor for the hook.

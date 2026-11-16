@@ -1,19 +1,33 @@
 // The page's end of the sync: a socket to `dev`, relative to the page, so
-// it works under maia's base. The article saves through it and hears the
-// file it shows; the site hears the pages.
+// it works under maia's base. Each file of the page opens through it, saves
+// through it and hears its file; the site hears the pages.
 
 type t = {
   send: JSON.t => unit,
+  /** The page shows a file, on the version it holds. */
+  opens: (string, int) => unit,
   /** Who hears each message: the article, the site. */
   listeners: array<JSON.t => unit>,
   /** What must be done before the page reloads: the article saves its edits. */
   flushers: array<unit => promise<unit>>,
 }
 
-let listen = (channel: t, listener) => channel.listeners->Array.push(listener)
+let without: (array<'a>, 'a) => unit = %raw(`(list, one) => {
+  const at = list.indexOf(one)
+  if (at >= 0) list.splice(at, 1)
+}`)
 
-/** Run `flusher` before the page reloads. */
-let beforeReload = (channel: t, flusher) => channel.flushers->Array.push(flusher)
+/** Hear each message, until the answer is called. */
+let listen = (channel: t, listener) => {
+  channel.listeners->Array.push(listener)
+  () => channel.listeners->without(listener)
+}
+
+/** Run `flusher` before the page reloads, until the answer is called. */
+let beforeReload = (channel: t, flusher) => {
+  channel.flushers->Array.push(flusher)
+  () => channel.flushers->without(flusher)
+}
 
 /** Reload the page once every edit is saved. */
 let reload: t => unit = %raw(`(channel) => {
@@ -21,20 +35,26 @@ let reload: t => unit = %raw(`(channel) => {
 }`)
 
 /**
- The socket of the page that shows `path`, on the version it holds. A
+ The socket of a page, `root` being its way to the folder. Once open, it
+ says each file the page shows, on the version the page holds. A
  socket that was open and closes means `dev` restarted: the page reloads
  once the server answers. A socket that never opens, as behind a proxy
  that does not pass it, or a page that reloaded 3 times in 10 s, does not
  reload: the page says the sync is off and tries again, later each time.
 */
-let open_: (~path: string, ~version: int) => t = %raw(`(path, version) => {
-  const url = new URL("./__minidoc/sync", location.href)
+let open_: (~root: string) => t = %raw(`(root) => {
+  const url = new URL(root + "__minidoc/sync", location.href)
   url.protocol = url.protocol === "https:" ? "wss:" : "ws:"
   const waiting = []
+  const shown = new Map()
   let socket
   const channel = {
     listeners: [],
     flushers: [],
+    opens: (path, version) => {
+      shown.set(path, version)
+      if (socket?.readyState === 1) socket.send(JSON.stringify({ opens: path, on: version }))
+    },
     send: (message) => {
       const text = JSON.stringify(message)
       socket?.readyState === 1 ? socket.send(text) : waiting.push(text)
@@ -75,12 +95,12 @@ let open_: (~path: string, ~version: int) => t = %raw(`(path, version) => {
       opened = true
       delay = 500
       off(false)
-      socket.send(JSON.stringify({ opens: path, on: version }))
+      for (const [path, version] of shown) socket.send(JSON.stringify({ opens: path, on: version }))
       for (const text of waiting.splice(0)) socket.send(text)
     })
     socket.addEventListener("message", ({ data }) => {
       const message = JSON.parse(data)
-      for (const listener of channel.listeners) listener(message)
+      for (const listener of [...channel.listeners]) listener(message)
     })
     socket.addEventListener("close", () => {
       if (!opened || reloads().length >= 3) {

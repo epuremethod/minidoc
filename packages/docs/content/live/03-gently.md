@@ -820,6 +820,218 @@ sections, slugs, frontmatter nor a build.
 Cost: five more steps before a real site moves.
 :::
 
+### Step 6: a page of several files
+
+tilia's Guide is one page. Its head is `guide.md`, and its thirteen
+chapters are the files of `guide/`. Each chapter is edited on its own,
+and the page reads them in order, as one story. The API is one page too,
+with one file for each entry. Step 6 gives a folder three things: a page
+made of several files, the frontmatter in the template, and callouts of
+the site's own.
+
+#### A page names its sections
+
+```markdown
+---
+sections: guide/*.md
+nav: Guide
+eyebrow: Guide · v6.x
+---
+# The Guide
+
+A reading path through tilia, in order.
+```
+
+```markdown
+## A living object
+
+Everything in tilia starts with two moves.
+
+::: story
+Claudine's first task is the first scenario.
+:::
+```
+
+You get:
+
+- `guide.md` is the page `guide.html`. Its own text comes first, then
+  each section, in the order of the file names.
+- `guide/03-a-living-object.md` is a section, not a page. It has no
+  HTML file and no place in the menu.
+- The section's slug is its file name without the number:
+  `a-living-object`. `guide.html#a-living-object` leads to it.
+- The section's title is its first heading. You edit it in place, as any
+  other text. The contents follow it after the editor's pause.
+- `sections` takes one glob or a list of them. The API lists its groups
+  in turn: `[api/objects/*.md, api/effects/*.md]`.
+- A markdown file in a sub-folder that no page names is a page of its
+  own. `notes/today.md` is `notes/today.html`, and its links and
+  stylesheets are relative to it.
+
+::: settled
+**The file name gives a section its slug and its place** 2026-11-16
+`01-drawn-before-built.md` is the first section, and its slug is
+`drawn-before-built`. A `slug` or a `sort` in the frontmatter changes
+nothing. A file name is the one place for both: a link stays when the
+title changes, and the order shows in any file list.
+
+Rejected: `slug` and `sort` in the frontmatter, as in today's
+`config.yaml`. They repeat the file name, and the two can disagree.
+
+Cost: tilia's 94 files lose `slug` and `sort`. Each of their slugs is
+already the file name without its number.
+:::
+
+::: settled
+**A section is drawn in its own element, and its title heading takes no slug** 2026-11-16
+Each section is a `<section id="a-living-object">` in `<article>`, after
+the page's own text. Its first heading takes no slug of its own, so the
+page has one id for it. `contents` links that heading to the section.
+The other headings take their slugs as before, unique over the whole
+page.
+
+Rejected: one heading id and no element. A section needs an element
+anyway, because each file is its own editor.
+:::
+
+::: settled
+**Each section is its own editor, and saves to its own file** 2026-11-16
+The page opens each of its files: the head and every section. A key
+typed in a section changes that section's file, and nothing else. A
+new block at the end of a section stays in that section. A new section
+is a new file. A file that appears on disk and matches the glob becomes
+a section of every open page that names it, at once.
+
+Rejected: one editor over the whole page, which splits its blocks into
+files on save. The editor has no such engine, and a block on the border
+of two files has no clear home.
+
+Cost: the caret does not cross from one section to the next with the
+arrow keys, until the editor gives a way to do it.
+:::
+
+#### The frontmatter in the template
+
+An element of `index.html` with `data-front` shows the value of that
+key of the page's frontmatter:
+
+```html
+<p class="eyebrow" data-front="eyebrow"></p>
+<p class="lead" data-front="lead">A page with no lead shows this.</p>
+```
+
+- A text, a number, a date or a yes or no shows as written.
+- When the page has no such key, the element keeps what you wrote.
+- A list or a map shows nothing. A component reads it.
+- A key is read whole: `signature.ts` is one key.
+
+A component gets the frontmatter too. `page.front` is the page's,
+`page.sections` gives each section its `slug`, `title`, `nav`, `file`
+and `front`, and each page of `pages` has its `front`:
+
+```jsx
+export default function Entries({ page }) {
+  return (
+    <ul>
+      {page.sections.map((s) => (
+        <li key={s.slug}><a href={`#${s.slug}`}>{s.front.label}</a></li>
+      ))}
+    </ul>
+  );
+}
+```
+
+`nav` in a page's frontmatter names the page in the menu. Without it,
+the menu shows the title.
+
+::: settled
+**The page does not show its frontmatter as fields, in step 6** 2026-11-16
+The frontmatter stays a text of the file. A value changed on disk, by
+you or an agent, lands through the sync, and each element and component
+that reads it draws again. The editor's `FrontFields` can come later,
+as a panel.
+
+Rejected for step 6: the fields above the text. tilia's API entries
+have ten keys each, and ten inputs over each entry make the page a form.
+:::
+
+#### Callouts of the site's own
+
+tilia writes `::: story`, `::: pro` and `::: def`. A site names its own
+callouts in `index.html`, one `<meta>` each, the name first and then the
+label:
+
+```html
+<meta name="callout" content="story Story">
+<meta name="callout" content="pro Pro tip">
+<meta name="callout" content="def Definition">
+```
+
+The editor draws them as it draws `note` or `settled`: a callout of the
+kind, with its label, which you edit in place. Its class is
+`callout--pro`, so the site's stylesheet gives it its look. A name that
+is already a block of minidoc, such as `states`, is refused.
+
+::: settled
+**A site names its callouts in its template** 2026-11-16
+The template is the one file that each page of the site shares, and its
+stylesheet styles the callouts. A `<meta>` is plain HTML, and the
+template's author already writes the head.
+
+Rejected: a key in the head page's frontmatter. Each page would repeat
+it. Rejected: a `callouts/` folder. A label is one word, not a file.
+Rejected: a config file. The croquis has none, by design.
+
+Cost: a folder with no `index.html` has only the common callouts.
+:::
+
+The fixtures of step 6:
+
+- **`sections.test.yaml`**, a folder in the shape of tilia's guide and
+  API: the sections in order, their slugs, a list of globs, a page in a
+  sub-folder, the contents, what the page carries, `data-front`, a
+  component that reads the frontmatter, `nav`, the callouts, and the
+  refusals.
+- **`sections-sync.test.yaml`**: a section file is not a page, a save of
+  a section writes its file, a new heading or a new file sends the
+  pages with their sections.
+
+Chrome checks, on a copy of tilia's guide:
+
+1. The page shows its head, then each chapter in order, hydrated with
+   no error.
+2. A word typed in a chapter is saved to that chapter's file only.
+3. A chapter's heading typed anew changes the contents.
+4. A new chapter file on disk shows in place, in its order.
+5. A word typed in a `::: pro` callout is saved, and the callout keeps
+   its kind.
+6. `guide.html#a-living-object` opens at the chapter.
+
+::: settled
+**Step 6 is built** 2026-11-16
+The 19 scenarios of `sections.test.yaml` and the 6 of
+`sections-sync.test.yaml` pass, and `node test2/chrome.mjs` checks the 6
+above in Chrome, on a copy of the twelve chapters of tilia's guide. Put
+`sections: guide/*.md` in the frontmatter of `guide.md`, and the page
+shows each chapter.
+
+Three things came while building:
+
+- Each section's editor puts the section's slug before the ids of its
+  blocks, so two files of a page never share an id.
+- A folder that is refused while `dev` runs, such as a file that two
+  pages name, shows its reason in place of each page, and the open pages
+  keep what they show.
+- An edited block takes the editor's spelling, `_word_` for `*word*`.
+  Each other block of the file keeps its bytes.
+
+Not done: an element with `data-front` whose key leaves the frontmatter
+keeps the last value until the page loads again.
+
+Before tilia's website moves, each of its chapters takes its title as
+its first heading. Today the title is in the frontmatter.
+:::
+
 ### A changelog
 
 A project shows that it is alive: the date and the version of its last

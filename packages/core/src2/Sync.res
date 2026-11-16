@@ -1,6 +1,6 @@
 // The sync of a folder with its open pages, on the server's side. Each
-// markdown file is held at a version, and each open page names the file it
-// shows. Three events change it: a page opens a file, a page saves, and a
+// markdown file is held at a version, and each open page names the files it
+// shows: its own and each of its sections. Three events change it: a page opens a file, a page saves, and a
 // file changes on disk. Each answers the messages to send. Nothing here
 // reads a disk or a socket: `serve.mjs` wires both.
 
@@ -34,8 +34,12 @@ type sent = {to: to, message: message}
 
 type t = {
   files: dict<file>,
-  /** The file each open page shows, by page. */
-  shows: dict<string>,
+  /** The files each open page shows, by page. */
+  shows: dict<array<string>>,
+  /** The pages as they last stood: a folder that is refused keeps them. */
+  mutable stood: array<Site.page>,
+  /** Why the folder is refused now, such as a file that two pages name as a section. */
+  mutable refusal: option<string>,
   /** The folder's `index.html`, when it has one. */
   mutable template: option<string>,
   /** The text of each component of `components/`. */
@@ -54,6 +58,8 @@ let make = (folder: dict<string>): t => {
   ->Array.map(((name, text)) => (name, ({version: 1, text}: file)))
   ->Dict.fromArray,
   shows: Dict.make(),
+  stood: [],
+  refusal: None,
   template: folder->Dict.get(Render.templateFile),
   components: folder->Dict.toArray->Array.filter(((name, _)) => Site.isComponent(name))->Dict.fromArray,
   images: Site.imagesOf(folder)->Array.map(path => (path, 1))->Dict.fromArray,
@@ -66,12 +72,16 @@ let images = (sync: t) => sync.images->Dict.keysToArray->Array.toSorted(String.c
 /** The images to every page. */
 let listed = (sync: t) => {to: All, message: Images(images(sync))}
 
-/** The pages of the folder, in the order of the file names. */
-let pages = (sync: t): array<Site.page> =>
-  sync.files
-  ->Dict.keysToArray
-  ->Array.toSorted(String.compare)
-  ->Array.map(name => Site.pageOf(name, (sync.files->Dict.getUnsafe(name)).text))
+/** The pages of the folder, in the order of the file names, each with its sections. */
+let pages = (sync: t): array<Site.page> => {
+  switch Site.pagesOf(sync.files->Dict.mapValues(file => file.text)) {
+  | Ok(pages) =>
+    sync.stood = pages
+    sync.refusal = None
+  | Error(message) => sync.refusal = Some(message)
+  }
+  sync.stood
+}
 
 /** The site as it stands, for a page drawn now. An image at its first version needs no version. */
 let site = (sync: t): Site.t => {
@@ -81,27 +91,27 @@ let site = (sync: t): Site.t => {
   versions: sync.images->Dict.toArray->Array.filter(((_, version)) => version > 1)->Dict.fromArray,
 }
 
-/** A file of the folder that a page may write: a markdown file, by its name alone. */
-let writable = (path: string) =>
-  Site.isMarkdown(path) && !(path->String.includes("/")) && !(path->String.includes("\\"))
+/** A file of the folder that a page may write: a markdown file, by its path from the folder, with no way out of it. */
+let writable = (path: string) => Site.isMarkdown(path) && !(path->String.includes("\\"))
 
 /** The other pages that show `path`. */
 let showing = (sync: t, path: string, ~but: option<string>=?) =>
   sync.shows
   ->Dict.toArray
-  ->Array.filter(((page, shown)) => shown == path && Some(page) != but)
+  ->Array.filter(((page, shown)) => shown->Array.includes(path) && Some(page) != but)
   ->Array.map(((page, _)) => page)
   ->Array.toSorted(String.compare)
 
-/** The pages to every page, when a title, or the list of files, changed. */
+/** The pages to every page, when one changed: a title, a frontmatter, a section, or the list of files. */
 let titles = (before: array<Site.page>, after: array<Site.page>) =>
-  before->Array.map(page => (page.href, page.title)) == after->Array.map(page => (page.href, page.title))
-    ? []
-    : [{to: All, message: Pages(after)}]
+  JSON.stringifyAny(before) == JSON.stringifyAny(after) ? [] : [{to: All, message: Pages(after)}]
 
-/** A page opens the file it shows, on the version it holds: an older one gets the file that stands. */
+/** A page opens a file it shows, on the version it holds: another one gets the file that stands. */
 let opens = (sync: t, ~page: string, ~path: string, ~on: int): array<sent> => {
-  sync.shows->Dict.set(page, path)
+  let shown = sync.shows->Dict.get(page)->Option.getOr([])
+  if !(shown->Array.includes(path)) {
+    sync.shows->Dict.set(page, shown->Array.concat([path]))
+  }
   switch sync.files->Dict.get(path) {
   | Some(file) if file.version != on => [{to: Page(page), message: File({path, version: file.version, text: file.text})}]
   | _ => []

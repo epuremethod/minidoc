@@ -17,22 +17,31 @@ import * as JsxRuntime from "react/jsx-runtime";
 import * as Blocks$MinidocBlocks from "@minidoc/blocks/src/Blocks.mjs";
 import * as Markdown$TiliaEditor from "@tilia/editor/src/view/Markdown.mjs";
 
-let options = {};
-
-let kinds = Blocks$MinidocBlocks.callouts(options);
-
-let kindNames = kinds.map(param => param[0]);
-
-let blocks = Object.fromEntries(Blocks$MinidocBlocks.keys(options).map(key => [
-  key,
-  Page$Editor.format
-]));
-
-function read(text) {
-  return Page$Editor.read(text, kindNames, blocks, undefined, undefined, undefined, undefined, undefined);
+function kitOf(callouts) {
+  let options_callouts = callouts;
+  let options = {
+    callouts: options_callouts
+  };
+  let kinds = Blocks$MinidocBlocks.callouts(options);
+  return {
+    options: options,
+    kinds: kinds,
+    kindNames: kinds.map(param => param[0]),
+    blocks: Object.fromEntries(Blocks$MinidocBlocks.keys(options).map(key => [
+      key,
+      Page$Editor.format
+    ]))
+  };
 }
 
-function rules(host) {
+let plain = kitOf({});
+
+function read(kit, text) {
+  return Page$Editor.read(text, kit.kindNames, kit.blocks, undefined, undefined, undefined, undefined, undefined);
+}
+
+function rules(param, host) {
+  let options = param.options;
   return Object.fromEntries([
     [
       Page$Editor.imageFormat,
@@ -89,7 +98,7 @@ let bytesOf = ((file) =>
   }));
 
 function nameFor(host, path, extension) {
-  let stem = Site.stem(path);
+  let stem = Site.base(path);
   let _number = 1;
   while (true) {
     let number = _number;
@@ -102,10 +111,10 @@ function nameFor(host, path, extension) {
   };
 }
 
-function engineOptions(drawn) {
+function engineOptions(param, drawn) {
   return {
-    kinds: kinds,
-    blocks: blocks,
+    kinds: param.kinds,
+    blocks: param.blocks,
     rules: drawn
   };
 }
@@ -115,11 +124,17 @@ function Article(props) {
   let channel = props.channel;
   let version = props.version;
   let text = props.text;
+  let __prefix = props.prefix;
   let path = props.path;
+  let __root = props.root;
+  let kit = props.kit;
   let site = props.site;
+  let __root_value = __root !== undefined ? __root : "";
+  let __prefix_value = __prefix !== undefined ? __prefix : "";
   let renaming = React.useMemo(() => ({}), []);
   let host = React.useMemo(() => ({
     site: site,
+    root: __root_value,
     uploads: Tilia.tilia({}),
     rename: (from, to_) => new Promise((resolve, param) => {
       if (channel !== undefined) {
@@ -139,7 +154,7 @@ function Article(props) {
     sending: undefined,
     save: () => {}
   }), []);
-  let notes = React.useMemo(() => Markdown$TiliaEditor.make(text, param => held.save(), engineOptions(rules(host)), undefined, undefined, undefined, undefined), []);
+  let notes = React.useMemo(() => Markdown$TiliaEditor.make(text, param => held.save(), engineOptions(kit, rules(kit, host)), undefined, undefined, undefined, undefined), []);
   let state = notes.state;
   let storage = notes.storage;
   let paste = Stdlib_Option.map(channel, channel => (file => {
@@ -164,9 +179,9 @@ function Article(props) {
   }));
   React.useEffect(() => Stdlib_Option.map(outline, outline => {
     let stops = Tilia.watch(() => View$TiliaEditor.doc(state), doc => {
-      let headings = Outline.of_(doc);
-      if (Primitive_object.notequal(headings, outline.headings)) {
-        outline.headings = headings;
+      let headings = Outline.raws(doc);
+      if (Primitive_object.notequal(outline.files[path], headings)) {
+        outline.files[path] = headings;
         return;
       }
     });
@@ -190,6 +205,7 @@ function Article(props) {
       }
     };
     held.save = save;
+    channel.opens(path, held.version);
     let lands = (version, text) => {
       let base = held.written;
       held.version = version;
@@ -197,7 +213,7 @@ function Article(props) {
       held.sending = undefined;
       notes.land(text, base);
     };
-    Channel.listen(channel, json => {
+    let unheard = Channel.listen(channel, json => {
       let saved = json.saved;
       let exit = 0;
       if (saved !== undefined) {
@@ -322,7 +338,7 @@ function Article(props) {
         }
       }
     });
-    Channel.beforeReload(channel, async () => {
+    let unasked = Channel.beforeReload(channel, async () => {
       notes.flush();
       save();
       let tries = 0;
@@ -333,13 +349,18 @@ function Article(props) {
         });
       };
     });
-    return () => notes.close();
+    return () => {
+      notes.close();
+      unheard();
+      unasked();
+    };
   }), []);
   return JsxRuntime.jsx(View$TiliaEditor.make, {
     state: state,
     storage: storage,
     paste: paste,
     editable: match[0],
+    prefix: __prefix_value,
     kinds: notes.kinds
   });
 }
@@ -359,10 +380,8 @@ export {
   Markdown,
   Rule,
   Live,
-  options,
-  kinds,
-  kindNames,
-  blocks,
+  kitOf,
+  plain,
   read,
   rules,
   isImageFile,
@@ -373,4 +392,4 @@ export {
   engineOptions,
   make,
 }
-/* kinds Not a pure module */
+/* plain Not a pure module */

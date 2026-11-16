@@ -27,8 +27,8 @@
    - [x] A conflict banner in place of a reload when the file changed
    - [x] Chrome checks
    - [x] gdos on the new build
-   - [ ] gdos restarted, and a save checked by the file's mtime
-5. [/] **The croquis: minidoc on a folder** step 5 built
+   - [x] gdos restarted, and a save checked by the file's mtime
+5. [/] **The croquis: minidoc on a folder** step 6 built
    - [x] Step 1: pages, default template, menu, the editor's view hydrated
    - [x] A sober default style for long reading and writing, light and dark
    - [x] Step 2: the sync through a socket, merged by View.land
@@ -39,7 +39,9 @@
    - [x] Callouts: the kind a small word at the top right, the byline only when needed, no extra space
    - [x] Step 5: data-component, components/*.jsx, contents with slugs (21 Chrome checks pass)
    - [x] The changelog format: CHANGELOG.md, a kind for each change (settled)
-   - [ ] Step 6: sections, frontmatter, sub-folders
+   - [x] Step 6: sections, frontmatter, sub-folders, callouts of the site (30 Chrome checks pass)
+   - [ ] data-front: a key that leaves the frontmatter restores the template's text
+   - [ ] The caret crosses from one section to the next (needs a hook of the editor)
    - [ ] The release and changelog components, and a read for the changelog block
    - [ ] Step 7: a template for each kind of page
    - [ ] Step 8: code in colours, tilia's TypeScript and ReScript pair

@@ -24,15 +24,17 @@ function write(param) {
   return `![` + param.alt + `](` + param.src + Stdlib_Option.mapOr(param.title, "", title => ` "` + title + `"`) + `)`;
 }
 
-function shown(site, uploads, src) {
+function shown(site, uploads, src, rootOpt) {
+  let root = rootOpt !== undefined ? rootOpt : "";
+  let from = /^([a-z][a-z0-9+.-]*:|\/)/i.test(src) ? "" : root;
   let match = uploads[src];
   let match$1 = site.versions[src];
   if (match !== undefined) {
     return match;
   } else if (match$1 !== undefined) {
-    return src + `?v=` + match$1.toString();
+    return from + src + `?v=` + match$1.toString();
   } else {
-    return src;
+    return from + src;
   }
 }
 
@@ -53,7 +55,7 @@ function Picture$Drawn(props) {
       JsxRuntime.jsx("img", {
         title: match.title,
         alt: match.alt,
-        src: shown(host.site, host.uploads, src)
+        src: shown(host.site, host.uploads, src, host.root)
       }),
       src in host.uploads ? JsxRuntime.jsx("span", {
           children: "Uploading…",

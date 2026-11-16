@@ -1,12 +1,12 @@
-// The island of `<article>`: the page's markdown as the editor's view. It
-// is drawn with editing off, on the server and at hydration, so the two
-// give the same HTML; editing turns on once the page has hydrated.
+// One file of the page, its head or a section, as the editor's view. It is
+// drawn with editing off, on the server and at hydration, so the two give
+// the same HTML; editing turns on once the page has hydrated.
 //
-// The page is the editor's engine for one markdown text: it keeps the
+// Each file is the editor's engine for one markdown text: it keeps the
 // bytes of each block nobody edited and of the frontmatter, saves 300 ms
 // after the last key, and merges a file that lands with what the person
-// typed. minidoc adds the sync: each save names the version it starts
-// from, and a file from the server lands in the engine.
+// typed. minidoc adds the sync: each save names its file and the version
+// it starts from, and a file from the server lands in the engine.
 //
 // A block that the editor does not read itself, such as a quote or a
 // `:::` drawing, is an atom of the editor's markdown format, drawn by the
@@ -17,19 +17,34 @@ module Markdown = TiliaEditor.Markdown
 module Rule = TiliaEditor.Rule
 module Live = MinidocLive.Live
 
-/** The blocks' options: the croquis has no site of its own yet. */
-let options: MinidocBlocks.Blocks.options = {}
+/** What the site knows of its text: the blocks' options with its own callouts, the callouts the editor draws itself, and the blocks. */
+type kit = {
+  options: MinidocBlocks.Blocks.options,
+  kinds: array<(string, string)>,
+  kindNames: array<string>,
+  blocks: dict<string>,
+}
 
-/** The callouts of the blocks, which the editor draws itself. */
-let kinds = MinidocBlocks.Blocks.callouts(options)
-let kindNames = kinds->Array.map(((kind, _)) => kind)
-let blocks = MinidocBlocks.Blocks.keys(options)->Array.map(key => (key, Editor.Page.format))->Dict.fromArray
+/** The kit of a site whose template names `callouts`, by name with their label. */
+let kitOf = (callouts: dict<string>): kit => {
+  let options: MinidocBlocks.Blocks.options = {callouts: callouts}
+  let kinds = MinidocBlocks.Blocks.callouts(options)
+  {
+    options,
+    kinds,
+    kindNames: kinds->Array.map(((kind, _)) => kind),
+    blocks: MinidocBlocks.Blocks.keys(options)->Array.map(key => (key, Editor.Page.format))->Dict.fromArray,
+  }
+}
 
-/** The page's markdown, read as the editor reads it. */
-let read = (text: string) => Editor.Page.read(text, ~kinds=kindNames, ~blocks)
+/** The kit of a folder with no callout of its own. */
+let plain = kitOf(Dict.make())
+
+/** A file's markdown, read as the editor reads it. */
+let read = (kit: kit, text: string) => Editor.Page.read(text, ~kinds=kit.kindNames, ~blocks=kit.blocks)
 
 /** A block of the editor's markdown format, drawn by the blocks; an image, drawn by minidoc. */
-let rules = (host: Picture.host) => Dict.fromArray([
+let rules = ({options}: kit, host: Picture.host) => Dict.fromArray([
   (Editor.Page.imageFormat, Picture.rule(host)),
   (
     Editor.Page.format,
@@ -85,9 +100,9 @@ let bytesOf: TiliaEditor.Browser.file => promise<string> = %raw(`(file) =>
     reader.readAsDataURL(file)
   })`)
 
-/** The name of the next image pasted into the page `path`: `images/notes-1.png`. */
+/** The name of the next image pasted into the file `path`: `images/notes-1.png`. */
 let nameFor = (host: Picture.host, ~path: string, ~extension: string) => {
-  let stem = Site.stem(path)
+  let stem = Site.base(path)
   let rec next = number => {
     let name = `${Site.imagesFolder}${stem}-${Int.toString(number)}.${extension}`
     host.site.images->Array.includes(name) || host.uploads->Dict.has(name) ? next(number + 1) : name
@@ -97,7 +112,7 @@ let nameFor = (host: Picture.host, ~path: string, ~extension: string) => {
 external heard: JSON.t => heard = "%identity"
 
 /** The engine's options: the callouts, the blocks, and the rules that draw them. */
-let engineOptions = (drawn): Markdown.options => {kinds, blocks, rules: drawn}
+let engineOptions = ({kinds, blocks}: kit, drawn): Markdown.options => {kinds, blocks, rules: drawn}
 
 /** What the page holds of the sync. */
 type held = {
@@ -113,7 +128,12 @@ type held = {
 @react.component
 let make = (
   ~site: Site.t,
+  ~kit: kit,
+  // The way from the page to the folder.
+  ~root: string="",
   ~path: string,
+  // What goes before each block's id: the head has none, a section its own.
+  ~prefix: string="",
   ~text: string,
   ~version: int,
   ~channel: option<Channel.t>=?,
@@ -123,6 +143,7 @@ let make = (
   let renaming: dict<option<string> => unit> = React.useMemo0(() => Dict.make())
   let host: Picture.host = React.useMemo0(() => {
     Picture.site,
+    root,
     uploads: Tilia.tilia(Dict.make()),
     rename: (from, to_) =>
       Promise.make((resolve, _) =>
@@ -136,7 +157,7 @@ let make = (
   })
   let held = React.useMemo0(() => {version, written: text, sending: None, save: () => ()})
   let notes = React.useMemo0(() =>
-    Markdown.make(~markdown=text, ~onChange=_ => held.save(), ~options=engineOptions(rules(host)))
+    Markdown.make(~markdown=text, ~onChange=_ => held.save(), ~options=engineOptions(kit, rules(kit, host)))
   )
   let state = notes.state
   let storage = notes.storage
@@ -161,14 +182,14 @@ let make = (
       None
     }
   )
-  // The page's headings, set again at each change of a heading: the
+  // The file's headings, set again at each change of a heading: the
   // parts that read them draw again.
   React.useEffect0(() =>
     outline->Option.map(outline => {
       let stops = Tilia.watch(() => View.doc(state), doc => {
-        let headings = Outline.of_(doc)
-        if headings != outline.headings {
-          outline.headings = headings
+        let headings = Outline.raws(doc)
+        if outline.files->Dict.get(path) != Some(headings) {
+          outline.files->Dict.set(path, headings)
         }
       })
       () => stops()
@@ -190,6 +211,7 @@ let make = (
         }
       }
       held.save = save
+      channel.opens(path, held.version)
       // A file that landed: the engine merges it with what the person
       // typed, and gives the merged text when it differs.
       // The base is the text the server held before: a save it refused
@@ -201,7 +223,7 @@ let make = (
         held.sending = None
         notes.land(text, ~base)
       }
-      channel->Channel.listen(json => {
+      let unheard = channel->Channel.listen(json => {
         let message = heard(json)
         switch message {
         | {saved, version} if saved == path =>
@@ -242,7 +264,7 @@ let make = (
       })
       // Before a reload: save now, and wait until the server holds the
       // page's text, for three seconds at most.
-      channel->Channel.beforeReload(async () => {
+      let unasked = channel->Channel.beforeReload(async () => {
         notes.flush()
         save()
         let tries = ref(0)
@@ -251,8 +273,13 @@ let make = (
           await Promise.make((resolve, _) => later(() => resolve(), 50)->ignore)
         }
       })
-      () => notes.close()
+      // The file leaves the page: its waiting text is saved first.
+      () => {
+        notes.close()
+        unheard()
+        unasked()
+      }
     })
   )
-  <View state storage editable kinds=notes.kinds ?paste />
+  <View state storage editable prefix kinds=notes.kinds ?paste />
 }

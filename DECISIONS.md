@@ -1512,3 +1512,46 @@ Costs: the blocks read a file for the first time. A `dev` server does
 not watch a file outside its root, and the page editor of `@minidoc/live`
 draws a changelog from a file only when its site gives a `read` in the
 browser.
+
+## 2026-11-16: A page of several files names its sections with a glob
+
+In the croquis, a page names its sections in `sections` of its
+frontmatter: one glob or a list, each a path from the folder with `*` in
+one folder. A file that a page names is a section of that page, and no
+page. The file name gives a section its place and its slug:
+`03-a-living-object.md` is `<section id="a-living-object">`. The
+section's title is its first heading. A markdown file at any depth that
+no page names is a page, with its links relative to it.
+
+Each file of a page is its own editor engine, and saves to its own file.
+A page opens each of its files on the sync, and the pages go to every
+open page with their sections and their frontmatter.
+
+Refused: `slug` and `sort` in the frontmatter, which repeat the file
+name and can disagree with it. Refused: a `title` in the frontmatter,
+which the person cannot edit in place. Refused: one editor over the
+whole page, split into files on save. The editor has no such engine, and
+a block on the border of two files has no clear home.
+
+Costs: the caret does not cross from one section to the next with the
+arrow keys. tilia's files lose `slug` and `sort`, and take their title
+as a heading. A file that two pages name is refused.
+
+## 2026-11-16: The template shows the frontmatter and names the site's callouts
+
+An element of `index.html` with `data-front="key"` shows that value of
+the page's frontmatter when it is a text, a number or a yes or no. Else
+it keeps what the template wrote. A component gets `page.front`,
+`page.sections` and `front` on each page of `pages`. `nav` names a page
+in the menu. The page shows no fields for its frontmatter.
+
+A site names its own callouts in the template, one
+`<meta name="callout" content="pro Pro tip">` each. They go to the
+blocks as `options.callouts`, so the editor draws them. A name that is a
+block of minidoc is refused.
+
+Refused: the frontmatter as fields above the text, which makes an API
+entry of ten keys a form. Refused: the callouts in a page's frontmatter,
+in a `callouts/` folder, or in a config file.
+
+Costs: a folder with no `index.html` has only the common callouts.

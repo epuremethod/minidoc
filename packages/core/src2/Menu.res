@@ -1,4 +1,5 @@
-// `menu`: a link to each page, the current one marked. What `<nav>` gets.
+// `menu`: a link to each page, by its `nav` or else its title, the current
+// one marked. What `<nav>` gets.
 
 let make: Part.component = ({page, pages}) =>
   <ul>
@@ -6,7 +7,7 @@ let make: Part.component = ({page, pages}) =>
     ->Array.map(one =>
       <li key=one.href>
         <a href=one.href ariaCurrent=?{one.href == page.href ? Some(#page) : None}>
-          {React.string(one.title)}
+          {React.string(one.nav->Option.getOr(one.title))}
         </a>
       </li>
     )

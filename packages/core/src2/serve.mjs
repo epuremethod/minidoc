@@ -1,5 +1,5 @@
 // The croquis's server: each page drawn from the sync's files on each
-// request, the client bundled once at the start, the folder's other files
+// request, with its sections, the client bundled once at the start, the folder's other files
 // served as they are, and the sync: a WebSocket to each open page, and a
 // watcher on the folder. `pnpm dev` runs it under `node --watch-path=src2`,
 // so a change to the croquis restarts it, and each page reloads.
@@ -34,12 +34,21 @@ const one = {
 /** Whether the sync reads a file of the folder: a markdown file, the template, or a component. */
 const synced = (name) => Site.isMarkdown(name) || name === Render.templateFile || Site.isComponent(name);
 
-/** The folder's files, by name: the markdown files and the template, with their text, and the images, with none. */
+/** The files of a folder at any depth, by their path from it. A folder that holds no page is not read: `node_modules`, or a name that starts with a dot. */
+async function walk(folder, under = "") {
+  const entries = await readdir(join(folder, under), { withFileTypes: true }).catch(() => []);
+  const found = [];
+  for (const entry of entries) {
+    if (entry.name.startsWith(".") || entry.name === "node_modules") continue;
+    if (entry.isDirectory()) found.push(...(await walk(folder, `${under}${entry.name}/`)));
+    else if (entry.isFile()) found.push(under + entry.name);
+  }
+  return found;
+}
+
+/** The folder's files, by name: the markdown files at any depth, the template and the components, with their text, and the images, with none. */
 async function read(folder) {
-  const names = [
-    ...(await readdir(folder, { withFileTypes: true })).filter((entry) => entry.isFile()).map((entry) => entry.name),
-    ...(await Parts.pathsOf(folder)),
-  ];
+  const names = await walk(folder);
   const images = (await readdir(join(folder, Site.imagesFolder), { withFileTypes: true }).catch(() => []))
     .filter((entry) => entry.isFile())
     .map((entry) => Site.imagesFolder + entry.name)
@@ -154,6 +163,7 @@ export async function serve(folder) {
       if (path === "__minidoc/blocks.css") return send(200, "text/css", await readFile(join(blocks, "blocks.css")));
       if (path === "__minidoc/soft.css") return send(200, "text/css", await readFile(join(blocks, "themes/soft.css")));
       const site = Sync.site(sync);
+      if (sync.refusal !== undefined) return send(500, "text/plain", `${folder}: ${sync.refusal}`);
       if (site.pages.length === 0) return send(404, "text/plain", `${folder}: the folder holds no markdown file`);
       const href = path === "" ? (Site.pageAt(site, "index.html") ? "index.html" : site.pages[0].href) : path;
       const page = Site.pageAt(site, href);

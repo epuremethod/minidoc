@@ -3,11 +3,12 @@
 // and turns editing on. Then the sync, on a folder of its own in the
 // system's temporary folder: a key writes the file, a save on disk lands
 // with the caret kept, both sides' changes stay, two pages follow each
-// other, and a renamed heading renames the page. Chrome is driven through
+// other, and a renamed heading renames the page. Then a page of several
+// files, on a copy of tilia's guide. Chrome is driven through
 // its DevTools protocol, on Node's own WebSocket. Run it by hand:
 // `node test2/chrome.mjs [screenshot.png]`.
 import { spawn, spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { createServer, request } from "node:http";
 import { crc32, deflateSync } from "node:zlib";
@@ -41,8 +42,9 @@ function chrome() {
 
 // A croquis server on `folder`, on a port of its own, under a base as maia
 // serves an app: `/serve/<project>/`, the prefix left on each request.
+let ports = 19000 + Math.floor(Math.random() * 1000);
 async function serve(folder) {
-  const port = 19000 + Math.floor(Math.random() * 1000);
+  const port = ports++;
   const child = spawn(process.execPath, ["src2/cli.mjs", folder], {
     cwd: core,
     env: { ...process.env, PORT: String(port), MAIA_BASE: "/serve/croquis/" },
@@ -118,6 +120,27 @@ const tabled = mkdtempSync(join(tmpdir(), "minidoc-table-"));
 const grid = "---\ntitle: Grid # the page's name\n---\n# Grid\n\n| Name | Count |\n| --- | ---: |\n| one | 1 |\n| two | 2 |\n";
 writeFileSync(join(tabled, "a.md"), grid);
 const table = { ...(await serve(tabled)), folder: tabled };
+
+// The folder of the sections' checks: a copy of tilia's guide, from the
+// sibling repo, as it will be once tilia's website moves. The head names
+// the chapters with a glob, each chapter's title is its first heading, and
+// the template names tilia's three callouts.
+const tilia = join(core, "../../../tilia/docs/content/tilia/guide");
+const guided = mkdtempSync(join(tmpdir(), "minidoc-guide-"));
+mkdirSync(join(guided, "guide"));
+writeFileSync(
+  join(guided, "index.html"),
+  '<!doctype html><html><head><title>t</title><meta name="callout" content="story Story"><meta name="callout" content="pro Pro tip"><meta name="callout" content="def Definition"></head><body><nav></nav><p class="eyebrow" data-front="eyebrow"></p><aside data-component="contents"></aside><article></article></body></html>',
+);
+writeFileSync(join(guided, "guide.md"), "---\nsections: guide/*.md\nnav: Guide\neyebrow: Guide · v6.x\n---\n# The Guide\n\nA reading path through tilia, in order.\n");
+const chapters = existsSync(tilia) ? readdirSync(tilia).filter((name) => name.endsWith(".md")).sort() : [];
+for (const name of chapters) {
+  const text = readFileSync(join(tilia, name), "utf8");
+  const title = /^title:\s*(.+)$/m.exec(text)?.[1] ?? name;
+  writeFileSync(join(guided, "guide", name), text.replace(/^(---\n[\s\S]*?\n---\n)\n?/, `$1## ${title}\n\n`));
+}
+const guide = { ...(await serve(guided)), folder: guided };
+const chapterOf = (name) => readFileSync(join(guided, "guide", name), "utf8");
 
 const profile = mkdtempSync(join(tmpdir(), "minidoc-croquis-"));
 const browser = spawn(chrome(), ["--headless=new", "--disable-gpu", "--remote-debugging-port=0", `--user-data-dir=${profile}`, "about:blank"], { stdio: "ignore" });
@@ -453,6 +476,130 @@ try {
   const celled = placed && (await waitFor(() => tableFile() === grid.replace("| two |", "| two more |")));
   report("a table cell is edited in place, and the frontmatter keeps its bytes", celled, JSON.stringify(tableFile()));
 
+  // ── A page of several files ──────────────────────────────────────────
+  if (chapters.length === 0) {
+    report("a page of several files, on a copy of tilia's guide", false, `${tilia} is not there`);
+  } else {
+    const book = await tab();
+    const seen = messages.length;
+    await book.on("Page.navigate", { url: `${guide.base}guide.html` });
+    await pause(2500);
+    const bookErrors = messages
+      .slice(seen)
+      .filter((m) => m.sessionId === book.sessionId)
+      .filter((m) => m.method === "Runtime.exceptionThrown" || (m.method === "Runtime.consoleAPICalled" && ["error", "warning"].includes(m.params.type)))
+      .map((m) => m.params.exceptionDetails?.exception?.description ?? m.params.args?.map((a) => a.value ?? a.description).join(" "));
+    const slugs = chapters.map((name) => name.replace(/^\d+-/, "").replace(/\.md$/, ""));
+    const drawn = await book.evaluate(`(() => {
+      const article = document.querySelector("article");
+      return JSON.stringify({
+        head: article.firstElementChild.querySelector("h1")?.textContent,
+        sections: [...article.querySelectorAll(":scope > section")].map((section) => section.id),
+        editable: [...article.querySelectorAll(".editor")].every((editor) => editor.getAttribute("contenteditable") === "true"),
+        editors: article.querySelectorAll(".editor").length,
+        eyebrow: document.querySelector(".eyebrow").textContent,
+        menu: document.querySelector("nav").textContent,
+      });
+    })()`);
+    const page = JSON.parse(drawn);
+    report(
+      "the page shows its head, then each chapter in order, hydrated with no error",
+      bookErrors.length === 0 &&
+        page.head === "The Guide" &&
+        JSON.stringify(page.sections) === JSON.stringify(slugs) &&
+        page.editable &&
+        page.editors === chapters.length + 1 &&
+        page.eyebrow === "Guide · v6.x" &&
+        page.menu === "Guide",
+      `${page.sections.length} sections, ${page.editors} editors, eyebrow "${page.eyebrow}", menu "${page.menu}"; ${bookErrors.join(" | ").slice(0, 600)}`,
+    );
+
+    // The caret at the end of the first block of a section that starts with `start`.
+    const caretIn = (slug, start) =>
+      book.evaluate(`(() => {
+        const el = [...document.querySelectorAll("section#${slug} [id^='block-']")].find((b) => b.textContent.replace(/\u200b/g, "").startsWith(${JSON.stringify(start)}));
+        if (!el) return false;
+        el.closest("[contenteditable=true]").focus();
+        const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+        let node = null;
+        while (walker.nextNode()) if (walker.currentNode.data.replace(/\u200b/g, "").length) node = walker.currentNode;
+        const range = document.createRange();
+        range.setStart(node, node.length);
+        range.collapse(true);
+        getSelection().removeAllRanges();
+        getSelection().addRange(range);
+        return true;
+      })()`);
+
+    const living = "03-a-living-object.md";
+    const before = Object.fromEntries(["guide.md", ...chapters.map((name) => `guide/${name}`)].map((name) => [name, readFileSync(join(guided, name), "utf8")]));
+    const inChapter = await caretIn("a-living-object", "Claudine's first task");
+    await book.on("Input.insertText", { text: " Typed." });
+    const savedOne = inChapter && (await waitFor(() => chapterOf(living).includes("fit in her first commit. Typed.")));
+    const others = Object.keys(before).filter((name) => name !== `guide/${living}` && readFileSync(join(guided, name), "utf8") !== before[name]);
+    // The edited block takes the editor's spelling, `_x_` for `*x*`: each other line keeps its bytes.
+    const lines = before[`guide/${living}`].split("\n");
+    const onlyLine = chapterOf(living).split("\n").every((line, at) => line === lines[at] || line.endsWith("fit in her first commit. Typed."));
+    report("a word typed in a chapter is saved to that chapter's file only", savedOne && others.length === 0 && onlyLine, `saved ${savedOne}, other files changed: ${others.join(", ") || "none"}, other bytes kept: ${onlyLine}`);
+
+    const bookContents = () => book.evaluate(`[...document.querySelectorAll("aside > ul > li > a")].map((a) => a.getAttribute("href") + " " + a.textContent).join(" | ")`);
+    const firstBook = await bookContents();
+    await caretIn("a-living-object", "A living object");
+    await book.on("Input.insertText", { text: ", alive" });
+    const retitled = await waitFor(async () => (await bookContents()).includes("#a-living-object A living object, alive"));
+    const titled = await waitFor(() => chapterOf(living).includes("## A living object, alive"));
+    report(
+      "a chapter's heading typed anew changes the contents, and keeps the chapter's slug",
+      firstBook.split(" | ").length === chapters.length && retitled && titled,
+      (await bookContents()).split(" | ").slice(0, 4).join(" | "),
+    );
+
+    writeFileSync(join(guided, "guide", "035-between.md"), "## Between two chapters\n\nA new chapter, written by an agent.\n");
+    const inPlace = await waitFor(async () =>
+      book.evaluate(`(() => {
+        const ids = [...document.querySelectorAll("article > section")].map((section) => section.id);
+        const at = ids.indexOf("between");
+        return at > 0 && ids[at - 1] === "a-living-object" && ids[at + 1] === "values-that-follow" &&
+          document.querySelector("section#between h2")?.textContent === "Between two chapters" &&
+          document.querySelector("section#between .editor")?.getAttribute("contenteditable") === "true";
+      })()`),
+    );
+    const listed = await waitFor(async () => (await bookContents()).includes("#between Between two chapters"));
+    report("a new chapter file on disk shows in place, in its order", inPlace && listed, `in place ${inPlace}, in the contents ${listed}`);
+
+    const tip = await book.evaluate(`(() => {
+      const callout = document.querySelector("section#a-living-object .callout--pro");
+      const text = callout && [...callout.querySelectorAll("[id^='block-']")].find((b) => b.textContent.startsWith("Use"));
+      if (!text) return "none";
+      text.closest("[contenteditable=true]").focus();
+      const walker = document.createTreeWalker(text, NodeFilter.SHOW_TEXT);
+      let node = null;
+      while (walker.nextNode()) if (walker.currentNode.data.replace(/\u200b/g, "").length) node = walker.currentNode;
+      const range = document.createRange();
+      range.setStart(node, node.length);
+      range.collapse(true);
+      getSelection().removeAllRanges();
+      getSelection().addRange(range);
+      return callout.querySelector(".callout__label")?.textContent;
+    })()`);
+    await book.on("Input.insertText", { text: " Noted." });
+    const tipped = await waitFor(() => /^::: pro\n[^\n]*two chapters from here\. Noted\.\n:::$/m.test(chapterOf(living)));
+    const kept = await book.evaluate(`document.querySelector("section#a-living-object .callout--pro .callout__label")?.textContent`);
+    report("a word typed in a ::: pro callout is saved, and the callout keeps its kind", tip === "Pro tip" && tipped && kept === "Pro tip", `label "${tip}", saved ${tipped}`);
+
+    const linked = await tab();
+    await linked.on("Page.navigate", { url: `${guide.base}guide.html#a-living-object` });
+    const opened = await waitFor(async () =>
+      linked.evaluate(`(() => {
+        const section = document.getElementById("a-living-object");
+        if (!section) return false;
+        const top = section.getBoundingClientRect().top;
+        return scrollY > 0 && top > -5 && top < innerHeight / 2;
+      })()`).catch(() => false),
+    );
+    report("guide.html#a-living-object opens at the chapter", opened, await linked.evaluate(`"scrollY " + scrollY + ", top " + Math.round(document.getElementById("a-living-object")?.getBoundingClientRect().top)`));
+  }
+
   // With a path, a screenshot of the page in light and one in dark.
   const shot = process.argv[2];
   if (shot) {
@@ -471,5 +618,6 @@ try {
   pictured.child.kill();
   parts.child.kill();
   table.child.kill();
+  guide.child.kill();
 }
 process.exit(results.every(Boolean) ? 0 : 1);

@@ -95,11 +95,17 @@ type Step =
 type Exchange = { files: Record<string, string>; steps: Step[]; sent: Record<string, unknown>[] };
 type Sent = { to: unknown; message: unknown };
 
+type Named = { title: string; sections?: { title: string }[] };
+
+/** A page as the fixture writes it: its title, and after a colon the title of each of its sections. */
+const named = ({ title, sections = [] }: Named) =>
+  sections.length === 0 ? title : `${title}: ${sections.map((section) => section.title).join(", ")}`;
+
 /** A message as the fixture writes it: where it goes, and the pages by their titles. */
 const written = ({ to, message }: Sent) => {
   const json = Sync.wire(message) as Record<string, unknown>;
-  const pages = json.pages as { title: string }[] | undefined;
-  return { to: Sync.where(to), ...json, ...(pages && { pages: pages.map((page) => page.title) }) };
+  const pages = json.pages as Named[] | undefined;
+  return { to: Sync.where(to), ...json, ...(pages && { pages: pages.map(named) }) };
 };
 
 /**
@@ -132,12 +138,12 @@ type Section = { blocks: Pair[]; atoms: { id: string; value: unknown }[] };
 Given("a landing", (_steps, data) => {
   const { agreed, typed, sent, lands, blocks, atoms, writes } = data as Landing;
   // The pause is longer than a scenario: what is typed is not given yet.
-  const notes = Markdown.make(agreed, () => {}, Article.engineOptions({}), 60000);
+  const notes = Markdown.make(agreed, () => {}, Article.engineOptions(Article.plain, {}), 60000);
   const shown = (): Section => Storage.write(View.doc(notes.state), "page");
   const known = new Set([...shown().blocks.map(([id]) => id), ...shown().atoms.map((atom) => atom.id)]);
   if (typed !== undefined) {
     let next = 0;
-    const page = Page.read(typed, Article.kindNames, Article.blocks, undefined, undefined, undefined, shown(), () => `t${++next}`);
+    const page = Page.read(typed, Article.plain.kindNames, Article.plain.blocks, undefined, undefined, undefined, shown(), () => `t${++next}`);
     View.act(notes.state, notes.storage, () => Storage.read(page.section));
   }
   // A typed text that was sent: the engine gave it, and the server did not take it.

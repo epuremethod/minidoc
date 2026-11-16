@@ -1,9 +1,11 @@
 // The page's own code: it reads what the page carries, and hydrates each
 // part and the article with the values the server had. `start` takes the
-// folder's components, which the bundle hands it. Then the channel keeps the page in
-// sync: the article saves and lands its file, and a `pages` message sets
-// the site's pages, so the menu draws again and a tilia `observe` keeps
-// the document's title on the current page's title.
+// folder's components, which the bundle hands it. Then the channel keeps
+// the page in sync: each file of the article saves and lands, and a `pages`
+// message sets the site's pages. So the menu draws again, a section whose
+// file is new shows once the page holds its text, and a tilia `observe`
+// keeps the document's title and each `data-front` element on the current
+// page's values.
 
 type element
 @val @scope("document") external byId: string => Nullable.t<element> = "getElementById"
@@ -19,11 +21,14 @@ external asCarried: JSON.t => Render.carried = "%identity"
 /** Each element of the page that `selector` finds. */
 let elements: string => array<Dom.element> = %raw(`(selector) => Array.from(document.querySelectorAll(selector))`)
 @send external attributeOf: (Dom.element, string) => Nullable.t<string> = "getAttribute"
+@set external setText: (Dom.element, string) => unit = "textContent"
+@get external text: Dom.element => string = "textContent"
 
 /**
  A link to a slug leads to its heading: a click on it, a page opened with
  it, or a change of the address's hash. The editor draws a heading with
  its block's id, so the page finds the heading by its slug in the headings.
+ A section with no heading is the element of that id: the browser leads there.
 */
 let follow: (unit => array<Outline.heading>) => unit = %raw(`(headings) => {
   const go = (slug, smooth) => {
@@ -64,6 +69,9 @@ let markCaret: unit => unit = %raw(`() => {
 
 type heard = {
   pages?: array<Site.page>,
+  file?: string,
+  text?: string,
+  gone?: string,
   reloads?: string,
   images?: array<string>,
   image?: string,
@@ -79,9 +87,11 @@ let carried =
 let start = (components: dict<Part.component>) =>
   switch carried {
   | None => ()
-  | Some({current, files, pages, images, versions, headings}) =>
+  | Some({current, root, files, pages, images, versions, outline, callouts}) =>
     let site = Tilia.tilia(({files, pages, images, versions}: Site.t))
-    let outline: Outline.t = Tilia.tilia({Outline.headings: headings})
+    let outline: Outline.t = Tilia.tilia({Outline.files: outline})
+    let kit = Article.kitOf(callouts)
+    let page = () => site.pages->Array.find(page => page.href == current)
     elements(`[${Part.attribute}]`)->Array.forEach(element =>
       element
       ->attributeOf(Part.attribute)
@@ -91,16 +101,41 @@ let start = (components: dict<Part.component>) =>
         ReactDOM.Client.hydrateRoot(element, <Part component site current outline />)->ignore
       )
     )
-    follow(() => outline.headings)
+    follow(() => page()->Option.mapOr([], page => Outline.page(page, outline.files)))
     markCaret()
-    pages
-    ->Array.find(page => page.href == current)
-    ->Option.forEach(page => {
-      let file = files->Dict.getUnsafe(page.file)
-      let channel = Channel.open_(~path=page.file, ~version=file.version)
-      channel->Channel.listen(json =>
+    if page()->Option.isSome {
+      let channel = Channel.open_(~root)
+      // The files the page shows: its own and each section's. A file it
+      // shows no more leaves it; a file it lacks is asked for, and its
+      // section shows when its text comes.
+      let follows = () =>
+        page()->Option.forEach(page => {
+          let named = [page.file]->Array.concat(page.sections->Array.map(section => section.file))
+          site.files
+          ->Dict.keysToArray
+          ->Array.filter(file => !(named->Array.includes(file)))
+          ->Array.forEach(file => {
+            site.files->Dict.delete(file)
+            outline.files->Dict.delete(file)
+          })
+          named
+          ->Array.filter(file => !(site.files->Dict.has(file)))
+          ->Array.forEach(file => channel.opens(file, 0))
+        })
+      channel
+      ->Channel.listen(json =>
         switch heard(json) {
-        | {pages} => site.pages = pages
+        | {pages} =>
+          site.pages = pages
+          follows()
+        // The text of a file the page asked for.
+        | {file, version, text} =>
+          if !(site.files->Dict.has(file)) {
+            site.files->Dict.set(file, {version, text})
+          }
+        | {gone} =>
+          site.files->Dict.delete(gone)
+          outline.files->Dict.delete(gone)
         | {images} => site.images = images
         // An image changed on disk: each page that shows it draws it again.
         | {image, version} => site.versions->Dict.set(image, version)
@@ -109,16 +144,29 @@ let start = (components: dict<Part.component>) =>
         | _ => ()
         }
       )
+      ->ignore
       select(`[data-minidoc="article"]`)
       ->Nullable.toOption
       ->Option.forEach(element =>
-        ReactDOM.Client.hydrateRoot(
-          element,
-          <Article site path=page.file text=file.text version=file.version channel outline />,
-        )->ignore
+        ReactDOM.Client.hydrateRoot(element, <Body site current kit root channel outline />)->ignore
       )
+      Tilia.observe(() => page()->Option.forEach(one => setTitle(one.title)))->ignore
+      // Each element that names a key of the frontmatter follows its value.
       Tilia.observe(() =>
-        site.pages->Array.find(one => one.href == current)->Option.forEach(one => setTitle(one.title))
+        page()->Option.forEach(one =>
+          elements(`[${Render.frontAttribute}]`)->Array.forEach(element =>
+            element
+            ->attributeOf(Render.frontAttribute)
+            ->Nullable.toOption
+            ->Option.flatMap(key => one.front->Dict.get(key))
+            ->Option.flatMap(Site.scalar)
+            ->Option.forEach(value =>
+              if element->text != value {
+                element->setText(value)
+              }
+            )
+          )
+        )
       )->ignore
-    })
+    }
   }

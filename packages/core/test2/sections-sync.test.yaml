@@ -1,0 +1,84 @@
+feature: The sync of a page of several files
+# For a person who edits one section of a page while other programs change
+# its files. A page opens each of its files, its head and each section,
+# and saves each to its own file. The pages carry their sections, so a
+# new section file, or a new title, reaches every open page.
+#
+# As in sync.test.yaml, with one more form: in `pages`, a page with
+# sections is written "Title: section, section", each section by its title.
+background:
+  given: a sync
+examples:
+  - scenario: a section file is not a page, and the pages give it under its page
+    files:
+      guide.md: "---\nsections: guide/*.md\n---\n# The Guide"
+      guide/01-a-living-object.md: "## A living object"
+      a.md: "# First"
+    steps:
+      - { page: 1, opens: a.md }
+      - { disk: b.md, text: "# Second" }
+    sent:
+      - { to: all, pages: [First, Second, "The Guide: A living object"] }
+
+  - scenario: a save of a section writes its file, and goes to the other pages that show it
+    files:
+      guide.md: "---\nsections: guide/*.md\n---\n# The Guide"
+      guide/01-a-living-object.md: "## A living object\n\nAn object."
+    steps:
+      - { page: 1, opens: guide.md }
+      - { page: 1, opens: guide/01-a-living-object.md }
+      - { page: 2, opens: guide.md }
+      - { page: 2, opens: guide/01-a-living-object.md }
+      - { page: 1, saves: guide/01-a-living-object.md, on: 1, text: "## A living object\n\nAn object, unchanged." }
+    sent:
+      - { to: disk, writes: guide/01-a-living-object.md, text: "## A living object\n\nAn object, unchanged." }
+      - { to: 1, saved: guide/01-a-living-object.md, version: 2 }
+      - { to: 2, file: guide/01-a-living-object.md, version: 2, text: "## A living object\n\nAn object, unchanged." }
+
+  - scenario: a changed first heading of a section sends the pages
+    files:
+      guide.md: "---\nsections: guide/*.md\n---\n# The Guide"
+      guide/01-a-living-object.md: "## A living object"
+    steps:
+      - { page: 1, opens: guide/01-a-living-object.md }
+      - { page: 1, saves: guide/01-a-living-object.md, on: 1, text: "## Living objects" }
+    sent:
+      - { to: disk, writes: guide/01-a-living-object.md, text: "## Living objects" }
+      - { to: 1, saved: guide/01-a-living-object.md, version: 2 }
+      - { to: all, pages: ["The Guide: Living objects"] }
+
+  - scenario: a new file that a glob names sends the pages, with the new section in its place
+    files:
+      guide.md: "---\nsections: guide/*.md\n---\n# The Guide"
+      guide/01-a-living-object.md: "## A living object"
+      guide/03-onward.md: "## Onward"
+    steps:
+      - { page: 1, opens: guide.md }
+      - { disk: guide/02-values-that-follow.md, text: "## Values that follow" }
+    sent:
+      - { to: all, pages: ["The Guide: A living object, Values that follow, Onward"] }
+
+  - scenario: a changed glob in the head's frontmatter sends the pages
+    files:
+      guide.md: "---\nsections: guide/*.md\n---\n# The Guide"
+      guide/01-a-living-object.md: "## A living object"
+      tour/01-a-tour.md: "## A tour"
+    steps:
+      - { page: 1, opens: guide.md }
+      - { page: 1, saves: guide.md, on: 1, text: "---\nsections: tour/*.md\n---\n# The Guide" }
+    sent:
+      - { to: disk, writes: guide.md, text: "---\nsections: tour/*.md\n---\n# The Guide" }
+      - { to: 1, saved: guide.md, version: 2 }
+      - { to: all, pages: ["The Guide: A tour", "A living object"] }
+
+  - scenario: a removed section file sends the pages, and the pages that showed it learn it is gone
+    files:
+      guide.md: "---\nsections: guide/*.md\n---\n# The Guide"
+      guide/01-a-living-object.md: "## A living object"
+      guide/02-onward.md: "## Onward"
+    steps:
+      - { page: 1, opens: guide/02-onward.md }
+      - { disk: guide/02-onward.md, removed: true }
+    sent:
+      - { to: 1, gone: guide/02-onward.md }
+      - { to: all, pages: ["The Guide: A living object"] }
