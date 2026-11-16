@@ -113,6 +113,12 @@ writeFileSync(
 writeFileSync(join(parted, "b.md"), "# Other\n");
 const parts = { ...(await serve(parted)), folder: parted };
 
+// The folder of the table's check: a frontmatter with a comment, and a table.
+const tabled = mkdtempSync(join(tmpdir(), "minidoc-table-"));
+const grid = "---\ntitle: Grid # the page's name\n---\n# Grid\n\n| Name | Count |\n| --- | ---: |\n| one | 1 |\n| two | 2 |\n";
+writeFileSync(join(tabled, "a.md"), grid);
+const table = { ...(await serve(tabled)), folder: tabled };
+
 const profile = mkdtempSync(join(tmpdir(), "minidoc-croquis-"));
 const browser = spawn(chrome(), ["--headless=new", "--disable-gpu", "--remote-debugging-port=0", `--user-data-dir=${profile}`, "about:blank"], { stdio: "ignore" });
 const active = join(profile, "DevToolsActivePort");
@@ -427,6 +433,26 @@ try {
   report("a socket that never opens does not reload the page, and the page says the sync is off", loads <= 1 && banner, `${loads} loads in 5 s, banner ${banner}`);
   refusing.close();
 
+  // A table is edited in place, cell by cell, and the frontmatter keeps its bytes.
+  const cells = await tab();
+  await cells.on("Page.navigate", { url: `${table.base}a.html` });
+  await pause(1200);
+  const placed = await cells.evaluate(`(() => {
+    const cell = [...document.querySelectorAll("article td")].find((td) => td.textContent === "two");
+    if (!cell) return false;
+    const text = [...cell.childNodes].reverse().find((node) => node.nodeType === 3) ?? cell.firstChild;
+    const range = document.createRange();
+    range.setStart(text, text.textContent.length);
+    range.collapse(true);
+    getSelection().removeAllRanges();
+    getSelection().addRange(range);
+    return true;
+  })()`);
+  await cells.on("Input.insertText", { text: " more" });
+  const tableFile = () => readFileSync(join(tabled, "a.md"), "utf8");
+  const celled = placed && (await waitFor(() => tableFile() === grid.replace("| two |", "| two more |")));
+  report("a table cell is edited in place, and the frontmatter keeps its bytes", celled, JSON.stringify(tableFile()));
+
   // With a path, a screenshot of the page in light and one in dark.
   const shot = process.argv[2];
   if (shot) {
@@ -444,5 +470,6 @@ try {
   synced.child.kill();
   pictured.child.kill();
   parts.child.kill();
+  table.child.kill();
 }
 process.exit(results.every(Boolean) ? 0 : 1);

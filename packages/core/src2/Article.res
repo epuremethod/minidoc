@@ -2,14 +2,18 @@
 // is drawn with editing off, on the server and at hydration, so the two
 // give the same HTML; editing turns on once the page has hydrated.
 //
-// With a channel, the page saves 300 ms after the last key, on the version
-// it holds, and a file that lands is merged with what the person typed.
+// The page is the editor's engine for one markdown text: it keeps the
+// bytes of each block nobody edited and of the frontmatter, saves 300 ms
+// after the last key, and merges a file that lands with what the person
+// typed. minidoc adds the sync: each save names the version it starts
+// from, and a file from the server lands in the engine.
 //
 // A block that the editor does not read itself, such as a quote or a
 // `:::` drawing, is an atom of the editor's markdown format, drawn by the
 // blocks, as live draws it.
 
 module View = TiliaEditor.View
+module Markdown = TiliaEditor.Markdown
 module Rule = TiliaEditor.Rule
 module Live = MinidocLive.Live
 
@@ -22,7 +26,7 @@ let kindNames = kinds->Array.map(((kind, _)) => kind)
 let blocks = MinidocBlocks.Blocks.keys(options)->Array.map(key => (key, Editor.Page.format))->Dict.fromArray
 
 /** The page's markdown, read as the editor reads it. */
-let read = (text: string) => Land.read(text, ~kinds=kindNames, ~blocks)
+let read = (text: string) => Editor.Page.read(text, ~kinds=kindNames, ~blocks)
 
 /** A block of the editor's markdown format, drawn by the blocks; an image, drawn by minidoc. */
 let rules = (host: Picture.host) => Dict.fromArray([
@@ -50,7 +54,6 @@ let rules = (host: Picture.host) => Dict.fromArray([
 
 type timer
 @val external later: (unit => unit, int) => timer = "setTimeout"
-@val external cancel: timer => unit = "clearTimeout"
 
 /** A message of the sync, as the page reads it. */
 type heard = {
@@ -93,18 +96,18 @@ let nameFor = (host: Picture.host, ~path: string, ~extension: string) => {
 }
 external heard: JSON.t => heard = "%identity"
 
-/** What the page holds of its file, and of the sync. */
+/** The engine's options: the callouts, the blocks, and the rules that draw them. */
+let engineOptions = (drawn): Markdown.options => {kinds, blocks, rules: drawn}
+
+/** What the page holds of the sync. */
 type held = {
-  /** The file as last read: its kept lines write a block nobody changed with its own bytes. */
-  mutable file: Editor.Page.t,
-  /** The section the page and the server last agreed on: the base of a merge. */
-  mutable agreed: Editor.Section.t,
   mutable version: int,
   /** The text the server holds. */
   mutable written: string,
-  /** A save sent and not answered yet: its text and its section. */
-  mutable sending: option<(string, Editor.Section.t)>,
-  mutable minted: int,
+  /** A save sent and not answered yet: its text. */
+  mutable sending: option<string>,
+  /** Sends the engine's text, once the channel is open. */
+  mutable save: unit => unit,
 }
 
 @react.component
@@ -131,16 +134,12 @@ let make = (
         }
       ),
   })
-  let held = React.useMemo0(() => {
-    let file = read(text)
-    {file, agreed: file.section, version, written: text, sending: None, minted: 0}
-  })
-  let storage: Editor.Section.storage = React.useMemo0(() => {
-    Editor.Section.sections: [],
-    update: _ => (),
-    merge: (~base as _, ~local, ~remote) => Land.merge(~base=held.agreed, ~local, ~remote),
-  })
-  let state = React.useMemo0(() => View.prepare(held.file.section, ~rules=rules(host)))
+  let held = React.useMemo0(() => {version, written: text, sending: None, save: () => ()})
+  let notes = React.useMemo0(() =>
+    Markdown.make(~markdown=text, ~onChange=_ => held.save(), ~options=engineOptions(rules(host)))
+  )
+  let state = notes.state
+  let storage = notes.storage
   // A pasted image: named, drawn at once from the browser's own copy, sent
   // to `dev`, and its pane opened on its text.
   let paste: option<View.paste> = channel->Option.map(channel => file =>
@@ -182,56 +181,34 @@ let make = (
   })
   React.useEffect0(() =>
     channel->Option.map(channel => {
-      let section = () => Editor.Storage.write(View.doc(state), ~id="page")
-      let current = () => Editor.Page.write(held.file, section())
-      let waiting = ref(None)
+      // One save at a time, on the version the page holds.
       let save = () => {
-        let text = current()
+        let text = notes.text()
         if text != held.written && held.sending == None {
-          held.sending = Some((text, section()))
+          held.sending = Some(text)
           channel.send({"saves": path, "on": held.version, "text": text}->Obj.magic)
         }
       }
-      let soon = () => {
-        waiting.contents->Option.forEach(cancel)
-        waiting := Some(later(save, 300))
-      }
-      // A file that landed: merged with what the person typed since the
-      // last agreement, then saved again if the page still differs.
+      held.save = save
+      // A file that landed: the engine merges it with what the person
+      // typed, and gives the merged text when it differs.
+      // The base is the text the server held before: a save it refused
+      // keeps its words.
       let lands = (~version, ~text) => {
-        let file = Land.against(
-          text,
-          ~base=held.agreed,
-          ~mint=() => {
-            held.minted = held.minted + 1
-            `l${Int.toString(held.minted)}`
-          },
-          ~kinds=kindNames,
-          ~blocks,
-        )
-        View.land(state, storage, file.section)->ignore
-        held.file = file
-        held.agreed = file.section
+        let base = held.written
         held.version = version
         held.written = text
         held.sending = None
-        if current() != text {
-          soon()
-        }
+        notes.land(text, ~base)
       }
       channel->Channel.listen(json => {
         let message = heard(json)
         switch message {
         | {saved, version} if saved == path =>
-          held.sending->Option.forEach(((text, section)) => {
-            held.written = text
-            held.agreed = section
-          })
+          held.sending->Option.forEach(text => held.written = text)
           held.sending = None
           held.version = version
-          if current() != held.written {
-            soon()
-          }
+          save()
         | {file, version, text} if file == path => lands(~version, ~text)
         | {stale, version, text} if stale == path => lands(~version, ~text)
         // A pasted image is stored: under the name the page asked, or
@@ -266,17 +243,16 @@ let make = (
       // Before a reload: save now, and wait until the server holds the
       // page's text, for three seconds at most.
       channel->Channel.beforeReload(async () => {
-        waiting.contents->Option.forEach(cancel)
+        notes.flush()
         save()
         let tries = ref(0)
-        while (held.sending != None || current() != held.written) && tries.contents < 60 {
+        while (held.sending != None || notes.text() != held.written) && tries.contents < 60 {
           tries := tries.contents + 1
           await Promise.make((resolve, _) => later(() => resolve(), 50)->ignore)
         }
       })
-      let stops = Tilia.watch(() => View.doc(state), _ => soon())
-      () => stops()
+      () => notes.close()
     })
   )
-  <View state storage editable kinds ?paste />
+  <View state storage editable kinds=notes.kinds ?paste />
 }

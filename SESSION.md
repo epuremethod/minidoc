@@ -321,3 +321,62 @@ Steps of the build, all done:
    76 pass, `test2/chrome.mjs` 21 pass.
 5. [x] Not needed: the Chrome check "a word typed in one block and a
    change on disk to another both stay" saves after a landing.
+
+## Intention (2026-11-16): the croquis page on the editor's Markdown engine
+
+Built on 2026-11-16 on the editor's bf3eada, not committed. The owner
+tests it in ci-scan before a commit.
+
+The croquis page held its own engine around the editor's `Page`:
+`Article.res` kept the file, the agreed section, the pause and the
+landing, and `Land.res` merged. The page now uses the editor's engine
+for one markdown text, `TiliaEditor.Markdown`: the view's state, the
+pause, the text, `land` with a three-way merge, `flush`, and the
+frontmatter. minidoc keeps only what is its own: the sync messages and
+their versions, images and paste, the outline, the components, the pager
+footer, and the reload fix of `Channel`.
+
+## Technical (2026-11-16): the croquis page on the Markdown engine
+
+Done:
+
+- `Land.res` is removed (59 lines). `Article.res` loses 61 lines and
+  gains 34: `Markdown.make` with `engineOptions` (kinds, blocks, rules);
+  `onChange` sends a save on the version the page holds; `file` and
+  `stale` call `notes.land`; `saved` sends again when the text moved on;
+  a reload runs `notes.flush()`; an unmount runs `notes.close()`.
+- The engine adds the editor's markdown shortcuts (`# `, `- `, a callout)
+  by default: the croquis did not have them.
+- The frontmatter: not drawn, kept byte for byte, merged key by key on a
+  landing. No FrontFields is shown: croquis step 6 decides what the page
+  shows of it. The Yaml encoder resolves `yaml` from the editor's own
+  `node_modules`.
+- Tables: the editor reads and edits them in place, with no rule.
+- `land.test.yaml` drives the engine (`a landing` in `steps.ts`): an id
+  the agreed text lacks is `new`, atoms compare in any order, and the
+  engine's pause is longer than a scenario, so what is typed is not given
+  yet. 3 new scenarios: words merged in one block, a frontmatter kept
+  through a landing, a frontmatter value landed beside a typed block.
+- `folder.test.yaml`: a table drawn with its header, the frontmatter not
+  drawn. `chrome.mjs`: a table cell edited in place, the frontmatter kept.
+- Checks: core 187, dev 32, live 76, `chrome.mjs` 24.
+
+Done after editor-20's `land(text, ~base)` (editor working tree over
+bf3eada, not committed there yet):
+
+- `Article.res` lands each file over the text the server held before it
+  (`held.written`): a save the disk made stale keeps its words.
+- `land.test.yaml`: "words the page sent in a save that the disk made
+  stale stay when the disk's text lands" (`sent: true`), seen failing
+  without the base. Checks: core 188, `chrome.mjs` 24.
+- No Chrome check for a stale save: forcing the race needs a disk write
+  inside the 300 ms pause after the server's version moved, too fragile.
+- minidoc needs the editor to commit `land ~base` before a minidoc
+  commit.
+
+Left:
+
+1. The owner tries ci-scan after a restart of `pnpm docs:dev`.
+2. Commit, one commit, when the owner says.
+3. Croquis step 6: what the page shows of the frontmatter (FrontFields
+   or none).

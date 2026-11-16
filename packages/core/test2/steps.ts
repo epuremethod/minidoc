@@ -7,8 +7,10 @@ import * as Render from "../src2/Render.mjs";
 import * as Sync from "../src2/Sync.mjs";
 import * as Parts from "../src2/parts.mjs";
 import * as Article from "../src2/Article.mjs";
-import * as Land from "../src2/Land.mjs";
 import * as Page from "@epure/editor/src/domain/feature/Page.mjs";
+import * as Storage from "@epure/editor/src/domain/feature/Storage.mjs";
+import * as Markdown from "@tilia/editor/src/view/Markdown.mjs";
+import * as View from "@tilia/editor/src/view/View.mjs";
 
 /** The default template: level 0 of the croquis. */
 const template = readFileSync(new URL("../src2/template.html", import.meta.url), "utf8");
@@ -119,28 +121,37 @@ Given("a sync", (_steps, data) => {
 });
 
 type Pair = [string, string];
-type Landing = { agreed: string; typed?: string; lands: string; blocks?: Pair[]; atoms?: Pair[]; writes: string };
+type Landing = { agreed: string; typed?: string; sent?: boolean; lands: string; blocks?: Pair[]; atoms?: Pair[]; writes: string };
 type Section = { blocks: Pair[]; atoms: { id: string; value: unknown }[] };
-
-/** A mint as the page's: `prefix` and the next number. */
-const minter = (prefix: string) => {
-  let next = 0;
-  return () => `${prefix}${++next}`;
-};
 
 /**
  * A scenario is the `agreed` text, the `typed` text the page holds, and the
- * text that `lands`. The page reads `typed` and `lands` against the agreed
- * section, merges them, and writes the result.
+ * text that `lands`. The page's engine starts from the agreed text, the
+ * person's typing changes its view, and the file lands in it.
  */
 Given("a landing", (_steps, data) => {
-  const { agreed, typed, lands, blocks, atoms, writes } = data as Landing;
-  const base = Article.read(agreed).section;
-  const local = typed === undefined ? base : Land.against(typed, base, minter("t"), Article.kindNames, Article.blocks).section;
-  const file = Land.against(lands, base, minter("l"), Article.kindNames, Article.blocks);
-  const section = file.section as Section;
-  if (blocks !== undefined) expect(section.blocks, "blocks").toEqual(blocks);
-  if (atoms !== undefined) expect(section.atoms.map((atom) => [atom.id, atom.value]), "atoms").toEqual(atoms);
-  const merged = Land.merge(base, local, file.section);
-  expect(Page.write(file, merged), "writes").toBe(writes);
+  const { agreed, typed, sent, lands, blocks, atoms, writes } = data as Landing;
+  // The pause is longer than a scenario: what is typed is not given yet.
+  const notes = Markdown.make(agreed, () => {}, Article.engineOptions({}), 60000);
+  const shown = (): Section => Storage.write(View.doc(notes.state), "page");
+  const known = new Set([...shown().blocks.map(([id]) => id), ...shown().atoms.map((atom) => atom.id)]);
+  if (typed !== undefined) {
+    let next = 0;
+    const page = Page.read(typed, Article.kindNames, Article.blocks, undefined, undefined, undefined, shown(), () => `t${++next}`);
+    View.act(notes.state, notes.storage, () => Storage.read(page.section));
+  }
+  // A typed text that was sent: the engine gave it, and the server did not take it.
+  if (sent) notes.flush();
+  // The page lands a text over the one the server held before it.
+  notes.land(lands, agreed);
+  // An id the agreed text did not have is `new`, wherever it shows.
+  const named = (id: string) => (known.has(id) ? id : "new");
+  const section = shown();
+  if (blocks !== undefined)
+    expect(section.blocks.map(([id, row]) => [named(id), row.replace(/(?<!\\)\{\{([^}]+)\}\}/g, (_, ref) => `{{${named(ref)}}}`)]), "blocks").toEqual(blocks);
+  // The atoms in any order: the section keeps the order they were made in.
+  const sorted = (pairs: unknown[][]) => pairs.map((pair) => JSON.stringify(pair)).sort();
+  if (atoms !== undefined) expect(sorted(section.atoms.map((atom) => [named(atom.id), atom.value])), "atoms").toEqual(sorted(atoms));
+  expect(notes.text(), "writes").toBe(writes);
+  notes.close();
 });

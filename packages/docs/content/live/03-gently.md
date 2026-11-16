@@ -26,6 +26,14 @@ menu of the pages beside the text, the editor on the text, and a footer
 with the previous and the next page, so you see where a page ends. A change
 in the page writes the file, and a change of the file lands in the page.
 
+The page is the editor's engine for one markdown text. A block that you
+did not edit keeps its bytes, and so does the frontmatter: minidoc does
+not draw it, and writes it back as it was. A table is edited in place,
+cell by cell. When the file changes on disk while you type, the two
+merge: each block keeps the words of the side that changed it, and the
+words of a block changed on both sides merge. The frontmatter merges key
+by key, and your value wins on a clash.
+
 ### Level 1: `index.html`
 
 When the folder holds an `index.html`, it is the template. minidoc keeps

@@ -2,21 +2,21 @@ feature: A file that lands in an open page
 # For a person who edits a page while another program saves the same file.
 # `agreed` is the text the page and the server last agreed on, read with
 # ids b0, b1, ... for its blocks and a1, a2, ... for its atoms. `typed` is the
-# text the page holds now, when the person typed since. `lands` is the text
-# that arrives from the disk. A new block or atom takes l1, l2, ... in the
-# order the file is read, and one in `typed` takes t1, t2, .... `blocks` is each block of the landed file, by id,
-# as the editor holds it, and `atoms` each atom by id. `writes` is the text
-# the page holds after the merge, which it saves when it differs from
-# `lands`.
+# text the page holds now, when the person typed since; `sent` says that
+# the page sent it in a save that the disk made stale. `lands` is the text
+# that arrives from the disk. `blocks` is each block of the page after the
+# landing, by id, and `atoms` each atom: `new` is an id that the agreed
+# text did not have. `writes` is the text the page holds after the
+# landing, which it saves when it differs from `lands`.
 background:
   given: a landing
 examples:
-  - scenario: a block that stays keeps its id, and a new block takes a minted one
+  - scenario: a block that stays keeps its id, and a new block takes a new one
     agreed: "Intro\n\nEnd\n"
     lands: "Intro\n\nMiddle\n\nEnd\n"
     blocks:
       - [b0, "Intro"]
-      - [l1, "Middle"]
+      - [new, "Middle"]
       - [b1, "End"]
     writes: "Intro\n\nMiddle\n\nEnd\n"
 
@@ -25,11 +25,11 @@ examples:
     lands: "Intro\n\n::: quote\nZero\n:::\n\n::: quote\nOne\n:::\n\nEnd\n"
     blocks:
       - [b0, "Intro"]
-      - [l2, ":: {{l1}}"]
+      - [new, ":: {{new}}"]
       - [b1, ":: {{a1}}"]
       - [b2, "End"]
     atoms:
-      - [l1, "::: quote\nZero\n:::"]
+      - [new, "::: quote\nZero\n:::"]
       - [a1, "::: quote\nOne\n:::"]
     writes: "Intro\n\n::: quote\nZero\n:::\n\n::: quote\nOne\n:::\n\nEnd\n"
 
@@ -38,7 +38,7 @@ examples:
     lands: "Intro\n\nNew\n\n![a](images/a.png)\n"
     blocks:
       - [b0, "Intro"]
-      - [l1, "New"]
+      - [new, "New"]
       - [b1, ":: {{a1}}"]
     atoms:
       - [a1, "![a](images/a.png)"]
@@ -55,7 +55,7 @@ examples:
     typed: "Intro typed\n\nGone\n\nEnd\n"
     lands: "Intro\n\nEnd\n"
     blocks:
-      - [b0, "Intro"]
+      - [b0, "Intro typed"]
       - [b2, "End"]
     writes: "Intro typed\n\nEnd\n"
 
@@ -64,7 +64,7 @@ examples:
     lands: "A {{latex x}} and {{name}}\n\nB\n"
     blocks:
       - [b0, "A \\{{latex x}} and \\{{name}}"]
-      - [l1, "B"]
+      - [new, "B"]
     writes: "A {{latex x}} and {{name}}\n\nB\n"
 
   - scenario: a page that landed a file saves again with no error
@@ -72,3 +72,27 @@ examples:
     typed: "Intro\n\nEnd typed\n"
     lands: "Intro now\n\nEnd\n"
     writes: "Intro now\n\nEnd typed\n"
+
+  - scenario: the words typed in a block and the words changed on disk in the same block both stay
+    agreed: "One two three four\n"
+    typed: "One more two three four\n"
+    lands: "One two three four five\n"
+    writes: "One more two three four five\n"
+
+  - scenario: a frontmatter keeps its bytes, its comment included, when a block lands
+    agreed: "---\ntitle: Notes # the page's name\n---\nIntro\n"
+    lands: "---\ntitle: Notes # the page's name\n---\nIntro\n\nMore\n"
+    writes: "---\ntitle: Notes # the page's name\n---\nIntro\n\nMore\n"
+
+  - scenario: a frontmatter value changed on disk lands, and a block typed in the page stays
+    agreed: "---\ntitle: Notes\n---\nIntro\n"
+    typed: "---\ntitle: Notes\n---\nIntro typed\n"
+    lands: "---\ntitle: Pages\n---\nIntro\n"
+    writes: "---\ntitle: Pages\n---\nIntro typed\n"
+
+  - scenario: words the page sent in a save that the disk made stale stay when the disk's text lands
+    agreed: "Intro\n\nEnd\n"
+    typed: "Intro typed\n\nEnd\n"
+    sent: true
+    lands: "Intro\n\nEnd from disk\n"
+    writes: "Intro typed\n\nEnd from disk\n"

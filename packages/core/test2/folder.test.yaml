@@ -23,6 +23,24 @@ examples:
         nav: [First (current)]
         article: [First, Some text.]
 
+  - scenario: a table is drawn in place with its header, and the frontmatter is not drawn
+    source:
+      a.md: |-
+        ---
+        title: Notes # the page's name
+        ---
+        # Grid
+
+        | Name | Count |
+        | --- | ---: |
+        | one | 1 |
+    target:
+      a.html:
+        title: Grid
+        article: [Grid, NameCount, one1]
+        text:
+          article th: Name
+
   - scenario: the pages are in the order of their file names, and each marks itself in the menu
     source:
       b.md: "# Second"
