@@ -3,6 +3,7 @@
 import * as Menu from "./Menu.mjs";
 import * as Part from "./Part.mjs";
 import * as Site from "./Site.mjs";
+import * as Pager from "./Pager.mjs";
 import * as Article from "./Article.mjs";
 import * as Outline from "./Outline.mjs";
 import * as Contents from "./Contents.mjs";
@@ -38,6 +39,10 @@ let builtin = Object.fromEntries([
   [
     Part.menu,
     Menu.make
+  ],
+  [
+    "pager",
+    Pager.make
   ]
 ]);
 

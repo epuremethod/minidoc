@@ -229,6 +229,16 @@ try {
   await pause(1200);
   await one.evaluate("window.__kept = 1");
 
+  const footer = await one.evaluate(`(() => {
+    const footer = document.querySelector("body > footer");
+    const article = document.querySelector("article");
+    if (!footer) return "no footer";
+    const links = [...footer.querySelectorAll("a")].map((a) => a.getAttribute("href") + " " + getComputedStyle(a, "::after").content + " " + a.textContent);
+    const below = footer.getBoundingClientRect().top >= article.getBoundingClientRect().bottom;
+    return links.join(", ") + (below ? ", below the article" : ", not below") + (footer.closest("[contenteditable]") ? ", editable" : "");
+  })()`);
+  report("the default template ends the page with a footer to the next page, below the article and not editable", footer === 'b.html " →" Other, below the article', footer);
+
   await caret(one.evaluate, "First paragraph");
   await one.on("Input.insertText", { text: " typed" });
   const written = await waitFor(() => fileOf("a.md") === start.replace("First paragraph.", "First paragraph. typed"));

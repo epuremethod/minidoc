@@ -56,7 +56,11 @@ let sheets = ["./__minidoc/blocks.css", "./__minidoc/soft.css", "./__minidoc/edi
 let theme = "soft"
 
 /** The components minidoc gives, by name. */
-let builtin: dict<Part.component> = Dict.fromArray([("contents", Contents.make), (Part.menu, Menu.make)])
+let builtin: dict<Part.component> = Dict.fromArray([
+  ("contents", Contents.make),
+  (Part.menu, Menu.make),
+  ("pager", Pager.make),
+])
 
 /** A component by its name: the folder's, or minidoc's. */
 let componentOf = (components: dict<Part.component>, name: string) =>

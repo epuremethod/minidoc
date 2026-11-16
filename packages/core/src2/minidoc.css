@@ -90,6 +90,24 @@ nav a[aria-current="page"] { color: var(--ink); font-weight: 600; border-left-co
   nav a[aria-current="page"] { border-bottom-color: var(--accent); }
 }
 
+/* ── The footer: the previous and the next page ────────────────────────── */
+
+body > footer {
+  grid-column: -2;
+  display: flex;
+  gap: 1rem;
+  margin-top: 4rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--rule);
+  color: var(--muted);
+  font-size: .85rem;
+}
+body > footer a { color: var(--muted); text-decoration: none; }
+body > footer a:hover { color: var(--ink); }
+body > footer .pager__prev::before { content: "← "; }
+body > footer .pager__next { margin-left: auto; }
+body > footer .pager__next::after { content: " →"; }
+
 /* ── The text ─────────────────────────────────────────────────────────── */
 
 article { --minidoc-leading: var(--leading); }

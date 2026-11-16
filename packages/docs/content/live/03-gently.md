@@ -22,7 +22,8 @@ minidoc notes/
 
 Each `.md` file of the folder is a page, in the order of the file names.
 minidoc serves them with a default template: a sober, clean style, a
-menu of the pages beside the text, and the editor on the text. A change
+menu of the pages beside the text, the editor on the text, and a footer
+with the previous and the next page, so you see where a page ends. A change
 in the page writes the file, and a change of the file lands in the page.
 
 ### Level 1: `index.html`
@@ -71,12 +72,17 @@ apply, and draws the component in it. Each element that names a
 component gets it, and the part follows each key: type a heading, and
 the contents show it at once.
 
-minidoc gives two components:
+minidoc gives three components:
 
 | Name | What it draws |
 | --- | --- |
 | `contents` | the page's `##` and `###` headings, each a link to its heading |
 | `menu` | a link to each page, the current one marked: what `<nav>` gets |
+| `pager` | a link to the previous page and one to the next, in the menu's order: what the default template's `<footer>` gets |
+
+A component is outside the article: the editor does not see it, and it
+is never written to a file. A file of yours with the same name, such as
+`components/pager.jsx`, replaces minidoc's.
 
 To write one of your own, put it in the `components/` folder, in a
 `.jsx` file named after it. It needs no import and no `package.json`:

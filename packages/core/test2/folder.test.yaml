@@ -233,6 +233,45 @@ examples:
         text:
           nav: "[First]Second"
 
+  - scenario: each page of the default template ends with the previous and the next page, the first with no previous and the last with no next
+    source:
+      a.md: "# First"
+      b.md: "# Second"
+      c.md: "# Third"
+    target:
+      a.html:
+        links:
+          footer: ["b.html Second"]
+      b.html:
+        links:
+          footer: ["a.html First", "c.html Third"]
+      c.html:
+        links:
+          footer: ["b.html Second"]
+
+  - scenario: the footer is not part of the article
+    source:
+      a.md: "# First"
+      b.md: "# Second"
+    target:
+      a.html:
+        article: [First]
+        links:
+          footer: ["b.html Second"]
+
+  - scenario: components/pager.jsx replaces minidoc's pager
+    source:
+      a.md: "# First"
+      b.md: "# Second"
+      components/pager.jsx: |-
+        export default function Pager({ pages }) {
+          return <p>The end, one of {pages.length} pages</p>;
+        }
+    target:
+      a.html:
+        text:
+          footer: The end, one of 2 pages
+
   - scenario: an element that names no component is refused, with the name
     source:
       index.html: <html><head></head><body><aside data-component="contnets"></aside><article></article></body></html>
