@@ -264,3 +264,60 @@ Settled with the owner (2026-11-13), as croquis choices that can change:
 - The sync carries files: a path, a version, a text. A save names the
   version it starts from; a stale one is refused with the file that
   stands, and the page merges it with `View.land`.
+
+## Intention (2026-11-16): a file lands with the editor's ids
+
+Built on 2026-11-16, not committed.
+
+A person edits a page while another program saves the same file. The
+file lands in the page and merges with what the person typed. Today
+the croquis gives ids to a landed file in its own `Land.against`. It
+keeps block ids, but it numbers atoms (drawings, images) by their order.
+A drawing added before another takes the other's id. Since the editor's
+commit da2dfc7, `Page.read ~base ~mint` keeps the ids of blocks and
+atoms. The croquis uses it, and `Land.against` goes. The scenarios are
+in `packages/core/test2/land.test.yaml`.
+
+## Technical (2026-11-16): a file lands with the editor's ids
+
+Checked in a scratch script against the compiled code:
+
+- `Page.read ~base ~mint` (editor `Page.res:854-1007`) keeps an atom
+  whose format and value stay, then keeps block ids with
+  `Identity.read`. It keys `blocks` by these ids, so nothing is renamed.
+  It takes the section id and `uses` from `base`, and gives `rules` and
+  `spelt`. It covers all of `Land.against`.
+- A real fault today: `Land.mjs` was compiled before `rules` and `spelt`
+  existed, so `Land.against` drops them. `Page.write` then throws
+  "reading 'formats'" on the first save after a landing.
+- A real fault by design: `Land.against` numbers atoms by order, so the
+  merge can keep a typed drawing under the id of a new one.
+- `spelt` is filled only for `~formats` and `~notations`. minidoc passes
+  none, so `{{x}}` stays text and writes back as it was. No loss today.
+- `Land.merge` stays. It is a copy of `Sections.merge` in `@radif/editor`,
+  which minidoc does not depend on.
+- `Article.read` keeps `Land.read` with no base: a first read.
+
+Settled with the owner:
+
+- minidoc passes no `~formats` and no `~notations`.
+- The `rescript build` of this work fixes the throw; no separate fix.
+- `Land.merge` stays as it is.
+- The editor version requirement stays: `@minidoc/live` asks for
+  `^0.1.0-beta.3`, and the editor packages are at beta.2, unpublished.
+  The release needs a beta.3 that holds da2dfc7.
+
+Open: ask the editor to export a merge, so `Land.merge` goes too?
+
+Steps of the build, all done:
+
+1. [x] `a landing` is bound in `packages/core/test2/steps.ts`. The 7
+   scenarios failed: 6 threw "reading 'formats'", and the drawing
+   scenario gave the wrong ids.
+2. [x] `Land.against` calls `Editor.Page.read ~base ~mint` and nothing
+   else. `renamed` is gone.
+3. [x] `Article.res` is unchanged.
+4. [x] `rescript build`, then core 180 pass (7 new), dev 32 pass, live
+   76 pass, `test2/chrome.mjs` 21 pass.
+5. [x] Not needed: the Chrome check "a word typed in one block and a
+   change on disk to another both stay" saves after a landing.

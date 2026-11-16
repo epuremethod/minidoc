@@ -7,17 +7,10 @@
 let read = (text: string, ~kinds: array<string>, ~blocks: dict<string>) =>
   Editor.Page.read(text, ~kinds, ~blocks)
 
-/** Each entry under the id that `ids` gives it. */
-let renamed = (held: dict<'a>, ids: dict<string>): dict<'a> =>
-  held
-  ->Dict.toArray
-  ->Array.map(((id, value)) => (ids->Dict.get(id)->Option.getOr(id), value))
-  ->Dict.fromArray
-
 /**
  `text` read against `base`, the last section the page and the server
- agreed on: a block that was there keeps its id, a new one takes `mint()`.
- The page's kept lines follow their blocks' ids.
+ agreed on: a block or an atom that was there keeps its id, a new one takes
+ `mint()`.
 */
 let against = (
   text: string,
@@ -25,21 +18,7 @@ let against = (
   ~mint: unit => string,
   ~kinds: array<string>,
   ~blocks: dict<string>,
-): Editor.Page.t => {
-  let fresh = read(text, ~kinds, ~blocks)
-  let texts = fresh.section.blocks->Array.map(((_, row)) => row)
-  let kept = Editor.Identity.read(~base, texts, ~mint)
-  let ids =
-    fresh.section.blocks
-    ->Array.mapWithIndex(((id, _), index) => (id, (kept.blocks->Array.getUnsafe(index))->Pair.first))
-    ->Dict.fromArray
-  {
-    ...fresh,
-    blocks: renamed(fresh.blocks, ids),
-    given: renamed(fresh.given, ids),
-    section: {...fresh.section, blocks: kept.blocks},
-  }
-}
+): Editor.Page.t => Editor.Page.read(text, ~kinds, ~blocks, ~base, ~mint)
 
 /**
  The merge of a file that landed, as the radif binding merges a row: a

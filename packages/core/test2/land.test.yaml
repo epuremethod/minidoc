@@ -1,0 +1,74 @@
+feature: A file that lands in an open page
+# For a person who edits a page while another program saves the same file.
+# `agreed` is the text the page and the server last agreed on, read with
+# ids b0, b1, ... for its blocks and a1, a2, ... for its atoms. `typed` is the
+# text the page holds now, when the person typed since. `lands` is the text
+# that arrives from the disk. A new block or atom takes l1, l2, ... in the
+# order the file is read, and one in `typed` takes t1, t2, .... `blocks` is each block of the landed file, by id,
+# as the editor holds it, and `atoms` each atom by id. `writes` is the text
+# the page holds after the merge, which it saves when it differs from
+# `lands`.
+background:
+  given: a landing
+examples:
+  - scenario: a block that stays keeps its id, and a new block takes a minted one
+    agreed: "Intro\n\nEnd\n"
+    lands: "Intro\n\nMiddle\n\nEnd\n"
+    blocks:
+      - [b0, "Intro"]
+      - [l1, "Middle"]
+      - [b1, "End"]
+    writes: "Intro\n\nMiddle\n\nEnd\n"
+
+  - scenario: a drawing added before another keeps each drawing under its own id
+    agreed: "Intro\n\n::: quote\nOne\n:::\n\nEnd\n"
+    lands: "Intro\n\n::: quote\nZero\n:::\n\n::: quote\nOne\n:::\n\nEnd\n"
+    blocks:
+      - [b0, "Intro"]
+      - [l2, ":: {{l1}}"]
+      - [b1, ":: {{a1}}"]
+      - [b2, "End"]
+    atoms:
+      - [l1, "::: quote\nZero\n:::"]
+      - [a1, "::: quote\nOne\n:::"]
+    writes: "Intro\n\n::: quote\nZero\n:::\n\n::: quote\nOne\n:::\n\nEnd\n"
+
+  - scenario: an image that stays keeps its atom when a paragraph lands before it
+    agreed: "Intro\n\n![a](images/a.png)\n"
+    lands: "Intro\n\nNew\n\n![a](images/a.png)\n"
+    blocks:
+      - [b0, "Intro"]
+      - [l1, "New"]
+      - [b1, ":: {{a1}}"]
+    atoms:
+      - [a1, "![a](images/a.png)"]
+    writes: "Intro\n\nNew\n\n![a](images/a.png)\n"
+
+  - scenario: a drawing typed in the page stays, and a drawing added on disk before it lands
+    agreed: "Intro\n\n::: quote\nOne\n:::\n\nEnd\n"
+    typed: "Intro\n\n::: quote\nOne more\n:::\n\nEnd\n"
+    lands: "Intro\n\n::: quote\nZero\n:::\n\n::: quote\nOne\n:::\n\nEnd\n"
+    writes: "Intro\n\n::: quote\nZero\n:::\n\n::: quote\nOne more\n:::\n\nEnd\n"
+
+  - scenario: a block typed in the page stays, and a block removed on disk is gone
+    agreed: "Intro\n\nGone\n\nEnd\n"
+    typed: "Intro typed\n\nGone\n\nEnd\n"
+    lands: "Intro\n\nEnd\n"
+    blocks:
+      - [b0, "Intro"]
+      - [b2, "End"]
+    writes: "Intro typed\n\nEnd\n"
+
+  - scenario: braces in a page stay text, and write back as they were
+    agreed: "A {{latex x}} and {{name}}\n"
+    lands: "A {{latex x}} and {{name}}\n\nB\n"
+    blocks:
+      - [b0, "A \\{{latex x}} and \\{{name}}"]
+      - [l1, "B"]
+    writes: "A {{latex x}} and {{name}}\n\nB\n"
+
+  - scenario: a page that landed a file saves again with no error
+    agreed: "Intro\n\nEnd\n"
+    typed: "Intro\n\nEnd typed\n"
+    lands: "Intro now\n\nEnd\n"
+    writes: "Intro now\n\nEnd typed\n"

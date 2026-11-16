@@ -6,6 +6,9 @@ import "../src2/dom.mjs";
 import * as Render from "../src2/Render.mjs";
 import * as Sync from "../src2/Sync.mjs";
 import * as Parts from "../src2/parts.mjs";
+import * as Article from "../src2/Article.mjs";
+import * as Land from "../src2/Land.mjs";
+import * as Page from "@epure/editor/src/domain/feature/Page.mjs";
 
 /** The default template: level 0 of the croquis. */
 const template = readFileSync(new URL("../src2/template.html", import.meta.url), "utf8");
@@ -113,4 +116,31 @@ Given("a sync", (_steps, data) => {
     else out.push(...Sync.changed(sync, step.disk, step.removed ? undefined : (step.text ?? step.bytes)));
   }
   expect(out.map(written)).toEqual(sent.map((message) => ({ ...message, to: String(message.to) })));
+});
+
+type Pair = [string, string];
+type Landing = { agreed: string; typed?: string; lands: string; blocks?: Pair[]; atoms?: Pair[]; writes: string };
+type Section = { blocks: Pair[]; atoms: { id: string; value: unknown }[] };
+
+/** A mint as the page's: `prefix` and the next number. */
+const minter = (prefix: string) => {
+  let next = 0;
+  return () => `${prefix}${++next}`;
+};
+
+/**
+ * A scenario is the `agreed` text, the `typed` text the page holds, and the
+ * text that `lands`. The page reads `typed` and `lands` against the agreed
+ * section, merges them, and writes the result.
+ */
+Given("a landing", (_steps, data) => {
+  const { agreed, typed, lands, blocks, atoms, writes } = data as Landing;
+  const base = Article.read(agreed).section;
+  const local = typed === undefined ? base : Land.against(typed, base, minter("t"), Article.kindNames, Article.blocks).section;
+  const file = Land.against(lands, base, minter("l"), Article.kindNames, Article.blocks);
+  const section = file.section as Section;
+  if (blocks !== undefined) expect(section.blocks, "blocks").toEqual(blocks);
+  if (atoms !== undefined) expect(section.atoms.map((atom) => [atom.id, atom.value]), "atoms").toEqual(atoms);
+  const merged = Land.merge(base, local, file.section);
+  expect(Page.write(file, merged), "writes").toBe(writes);
 });

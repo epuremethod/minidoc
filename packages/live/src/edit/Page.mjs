@@ -20,7 +20,7 @@ function blocks(options) {
 }
 
 function read(text, options) {
-  let file = Page$Editor.read(text, kinds(options), blocks(options), undefined);
+  let file = Page$Editor.read(text, kinds(options), blocks(options), undefined, undefined, undefined, undefined, undefined);
   let good = Object.fromEntries(file.section.atoms.map(atom => [
     atom.id,
     Stdlib_Option.getOr(Stdlib_JSON.Decode.string(atom.value), "")
