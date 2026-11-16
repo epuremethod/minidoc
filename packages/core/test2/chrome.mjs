@@ -9,6 +9,7 @@
 import { spawn, spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
+import { createServer, request } from "node:http";
 import { crc32, deflateSync } from "node:zlib";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -396,6 +397,25 @@ try {
   writeFileSync(join(parted, "components/count.jsx"), "export default function Count({ pages }) {\n  return <p>Pages: {pages.length}</p>;\n}\n");
   const rebuilt = await waitFor(async () => (await countText().catch(() => "")) === "Pages: 3", 6000);
   report("a change of a component's file reloads the page with the new component", rebuilt, await countText().catch(() => "reloading"));
+
+  // A proxy that passes the pages but refuses the socket, as a proxy that
+  // does not pass upgrades: the page must not reload without end.
+  const refusing = createServer((req, res) => {
+    const forward = request({ port: parts.port, path: req.url, method: req.method, headers: req.headers }, (answer) => {
+      res.writeHead(answer.statusCode, answer.headers);
+      answer.pipe(res);
+    });
+    req.pipe(forward);
+  });
+  refusing.on("upgrade", (_req, upgrade) => upgrade.destroy());
+  await new Promise((done) => refusing.listen(0, "127.0.0.1", done));
+  const off = await tab();
+  await off.on("Page.navigate", { url: `http://127.0.0.1:${refusing.address().port}/serve/croquis/a.html` });
+  await pause(5000);
+  const loads = messages.filter((message) => message.sessionId === off.sessionId && message.method === "Page.loadEventFired").length;
+  const banner = await off.evaluate(`document.body.innerText.includes("The sync is off")`).catch(() => false);
+  report("a socket that never opens does not reload the page, and the page says the sync is off", loads <= 1 && banner, `${loads} loads in 5 s, banner ${banner}`);
+  refusing.close();
 
   // With a path, a screenshot of the page in light and one in dark.
   const shot = process.argv[2];

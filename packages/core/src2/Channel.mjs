@@ -16,32 +16,74 @@ let reload = ((channel) => {
 let open_ = ((path, version) => {
   const url = new URL("./__minidoc/sync", location.href)
   url.protocol = url.protocol === "https:" ? "wss:" : "ws:"
-  const socket = new WebSocket(url)
   const waiting = []
+  let socket
   const channel = {
     listeners: [],
     flushers: [],
     send: (message) => {
       const text = JSON.stringify(message)
-      socket.readyState === 1 ? socket.send(text) : waiting.push(text)
+      socket?.readyState === 1 ? socket.send(text) : waiting.push(text)
     },
   }
-  socket.addEventListener("open", () => {
-    socket.send(JSON.stringify({ opens: path, on: version }))
-    for (const text of waiting.splice(0)) socket.send(text)
-  })
-  socket.addEventListener("message", ({ data }) => {
-    const message = JSON.parse(data)
-    for (const listener of channel.listeners) listener(message)
-  })
-  socket.addEventListener("close", () => {
-    const again = () =>
-      fetch(location.href, { cache: "no-store" }).then(
-        (res) => (res.ok ? location.reload() : setTimeout(again, 500)),
-        () => setTimeout(again, 500),
-      )
-    setTimeout(again, 300)
-  })
+  let banner
+  const off = (shown) => {
+    if (!shown) return banner?.remove()
+    if (banner?.isConnected) return
+    banner = document.createElement("div")
+    banner.setAttribute("role", "status")
+    banner.setAttribute("data-minidoc", "sync-off")
+    banner.textContent = "The sync is off. Edits are not saved. minidoc tries again."
+    banner.style.cssText =
+      "position:fixed;left:50%;bottom:1rem;transform:translateX(-50%);z-index:10;padding:.5rem 1rem;" +
+      "border-radius:6px;background:CanvasText;color:Canvas;font:14px/1.4 system-ui,sans-serif"
+    document.body.append(banner)
+  }
+  // The times of this tab's last reloads, which stay across them.
+  const reloads = () => {
+    try {
+      return JSON.parse(sessionStorage.getItem("minidoc-reloads") || "[]").filter((at) => Date.now() - at < 10000)
+    } catch {
+      return []
+    }
+  }
+  const reload = () => {
+    try {
+      sessionStorage.setItem("minidoc-reloads", JSON.stringify([...reloads(), Date.now()]))
+    } catch {}
+    location.reload()
+  }
+  let delay = 500
+  const connect = () => {
+    let opened = false
+    socket = new WebSocket(url)
+    socket.addEventListener("open", () => {
+      opened = true
+      delay = 500
+      off(false)
+      socket.send(JSON.stringify({ opens: path, on: version }))
+      for (const text of waiting.splice(0)) socket.send(text)
+    })
+    socket.addEventListener("message", ({ data }) => {
+      const message = JSON.parse(data)
+      for (const listener of channel.listeners) listener(message)
+    })
+    socket.addEventListener("close", () => {
+      if (!opened || reloads().length >= 3) {
+        off(true)
+        setTimeout(connect, delay)
+        delay = Math.min(delay * 2, 30000)
+        return
+      }
+      const again = () =>
+        fetch(location.href, { cache: "no-store" }).then(
+          (res) => (res.ok ? reload() : setTimeout(again, 500)),
+          () => setTimeout(again, 500),
+        )
+      setTimeout(again, 300)
+    })
+  }
+  connect()
   return channel
 });
 
